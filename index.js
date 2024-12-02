@@ -55,7 +55,15 @@ dbConnect();
 // const wsServer = websocketServer(server); // Ensure you're passing the server instance correctly
 
 // Middleware setup
-app.use(session({ secret: 'secret', resave: false, saveUninitialized: true }));
+app.use(session({
+    secret: process.env.JWT_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    }
+}));
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use(passport.session());

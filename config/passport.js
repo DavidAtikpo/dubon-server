@@ -2,6 +2,19 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as FacebookStrategy } from 'passport-facebook';
 import User from '../models/User.js';
 import passport from 'passport';
+import dotenv from 'dotenv';
+
+// Charger les variables d'environnement
+dotenv.config();
+
+// Vérification des variables d'environnement
+console.log('Checking environment variables:');
+console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET);
+
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    throw new Error('Missing required Google OAuth credentials');
+}
 
 // Google Strategy
 passport.use(new GoogleStrategy({

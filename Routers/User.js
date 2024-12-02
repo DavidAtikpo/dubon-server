@@ -3,6 +3,7 @@ import express from 'express'
 import User from "../Controllers/User.js"
 // import userValidator from '../validators/userValidator.js'
 import authMiddleware from '../middleware/authMiddleware.js';
+import passport from '../config/passport.js';
 
 const router = express.Router()
 
@@ -15,23 +16,40 @@ router.put('/update/:id',User.updatePassword)
 router.post('/reset-password/:id',User.resetPassword)
 router.get('/info/:id'), User.userInfo
 
-// Route de redirection vers Google
-// router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-// router.get('/google/callback', 
-//     passport.authenticate('google', { failureRedirect: '/login' }),
-//     (req, res) => {
-//         res.redirect('/dashboard'); 
-//     }
-// );
-// // Route de redirection vers facebook
-// router.get('/facebook', passport.authenticate('facebook', { scope: ['email'] }));
-// router.get('/facebook/callback', 
-//     passport.authenticate('facebook', { failureRedirect: '/login' }),
-//     (req, res) => {
-//         res.redirect('/dashboard'); 
-//     }
-// );
+// Routes Google OAuth
+router.get('/auth/google', 
+    passport.authenticate('google', { 
+        scope: ['profile', 'email'],
+        session: true 
+    })
+);
 
+router.get('/auth/google/callback', 
+    passport.authenticate('google', { 
+        failureRedirect: '/login',
+        session: true
+    }),
+    (req, res) => {
+        res.redirect('/dashboard');
+    }
+);
 
+// Routes Facebook OAuth
+router.get('/auth/facebook', 
+    passport.authenticate('facebook', { 
+        scope: ['email'],
+        session: true 
+    })
+);
+
+router.get('/auth/facebook/callback', 
+    passport.authenticate('facebook', { 
+        failureRedirect: '/login',
+        session: true
+    }),
+    (req, res) => {
+        res.redirect('/dashboard');
+    }
+);
 
 export default router
