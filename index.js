@@ -4,7 +4,6 @@ import path from 'path';
 
 
 // Charger les variables d'environnement avec un chemin absolu
-dotenv.config({ path: path.join(__dirname, '.env') });
 
 import bodyParser from "body-parser";
 import express from "express";
@@ -31,12 +30,13 @@ import Event from './Routers/Event.js'
 import paymentRoutes from'./Routers/payementRoute.js';
 
 // Initialize Express
-const app = express();
 
 // Determine the current file and directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+dotenv.config({ path: path.join(__dirname, '.env') });
+const app = express();
 // Create HTTP server
 const server = http.createServer(app);
 
