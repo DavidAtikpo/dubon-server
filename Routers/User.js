@@ -1,5 +1,5 @@
 import express from 'express'
-import passport from '../config/passport.js';
+// import passport from '../config/passport.js';
 import User from "../Controllers/User.js"
 import userValidator from '../validators/userValidator.js'
 import authMiddleware from '../middleware/authMiddleware.js';
