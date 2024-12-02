@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 // import { dirname, join } from 'path';
 // import passport from './config/passport.js';
-// import session from 'express-session';
+import session from 'express-session';
 // import paymentRoutes from './Routers/paymentRoute.js';
 import cartRoute from './Routers/cartRoute.js';
 import wishlistRoute from './Routers/wishlistRoute.js';
