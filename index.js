@@ -1,5 +1,10 @@
 import dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+
+// Charger les variables d'environnement avec un chemin absolu
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 import bodyParser from "body-parser";
 import express from "express";
