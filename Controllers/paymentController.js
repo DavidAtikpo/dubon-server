@@ -12,7 +12,7 @@ const fedapayAPI = axios.create({
   }
 });
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+// const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Configuration PayPal
 // const paypalClient = () => {
