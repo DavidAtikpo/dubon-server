@@ -28,6 +28,7 @@ import Seller from "./Routers/Seller.js"
 import http from 'http';
 import Event from './Routers/Event.js'
 import paymentRoutes from'./Routers/payementRoute.js';
+import MongoStore from 'connect-mongo';
 
 // Initialize Express
 
@@ -48,9 +49,13 @@ app.use(session({
     secret: process.env.JWT_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        ttl: 24 * 60 * 60 // 1 jour
+    }),
     cookie: {
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 heures
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
 app.use(cookieParser());
