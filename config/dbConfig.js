@@ -3,16 +3,17 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const dbConnect = () => {
+const dbConnect = async () => {
   try {
-    const conn =  mongoose
-    .connect(process.env.MONGODB_URI, {
-    })
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     console.log("Database connected successfully");
   } catch (error) {
-    console.error("Error connecting to database:", error);
-    return res.status(201).json({error})
+    console.error("Database connection error:", error);
+    process.exit(1);
   }
 };
 
-export default  dbConnect ;
+export default dbConnect;

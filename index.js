@@ -1,8 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import bodyParser from "body-parser";
 import express from "express";
 import dbConnect from "./config/dbConfig.js";
 import Order from './Routers/Order.js'
-import dotenv from "dotenv";
 import User from './Routers/User.js'
 import errorHandler from "./middleware/errorHandler.js";
 import cookieParser from "cookie-parser";
@@ -22,9 +24,6 @@ import Seller from "./Routers/Seller.js"
 import http from 'http';
 import Event from './Routers/Event.js'
 import paymentRoutes from'./Routers/payementRoute.js';
-
-// Initialize dotenv
-dotenv.config();
 
 // Initialize Express
 const app = express();
@@ -49,7 +48,6 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000 // 24 heures
     }
 }));
-
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(bodyParser.json());
@@ -89,3 +87,5 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0',() => {
   console.log(`Server is running at PORT ${PORT}`);
 });
+
+console.log('MONGODB_URI:', process.env.MONGODB_URI);
