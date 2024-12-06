@@ -60,7 +60,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(cors({
-    origin: ["http://localhost:3000", "https://dubon-service.onrender.com"],
+    origin: ["http://localhost:3000", "https://dubon-service.onrender.com", "https://dubonservice.com/"],
     methods: ["POST", "GET", "DELETE", "PUT"],
     credentials: true
 }));
