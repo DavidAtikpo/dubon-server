@@ -2,13 +2,19 @@ import nodemailer from 'nodemailer';
 
 const sendEmail = async (mailOptions) => {
   try {
-    // Créer un transporteur SMTP
+    // Utiliser les variables d'environnement existantes
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASSWORD // Utiliser un mot de passe d'application Google
+        user: process.env.EMAIL, // "maximnyansa75@gmail.com"
+        pass: process.env.PASSWORD // "uqpo lean remu tzjb"
       }
+    });
+
+    // Log pour debug
+    console.log('Configuration email:', {
+      user: process.env.EMAIL,
+      passLength: process.env.PASSWORD ? process.env.PASSWORD.length : 0
     });
 
     // Envoyer l'email
@@ -16,8 +22,9 @@ const sendEmail = async (mailOptions) => {
     console.log('Email envoyé:', info.messageId);
     return info;
   } catch (error) {
-    console.error('Erreur d\'envoi d\'email:', error);
-    throw new Error('Erreur lors de l\'envoi de l\'email');
+    console.error('Erreur détaillée d\'envoi d\'email:', error);
+    // Ne pas bloquer l'inscription si l'email échoue
+    return null;
   }
 };
 

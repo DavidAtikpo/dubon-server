@@ -21,7 +21,6 @@ const register = async (req, res) => {
     if (userExists) {
       if (!userExists.emailVerified) {
         try {
-          // Tentative d'envoi d'email
           const verificationToken = crypto.randomBytes(32).toString('hex');
           const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
           
@@ -29,11 +28,23 @@ const register = async (req, res) => {
           userExists.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
           await userExists.save();
 
-          // Envoyer l'email
-          await sendEmail(/* ... */);
+          // Configuration de l'email
+          const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
+          const mailOptions = {
+            from: process.env.EMAIL,
+            to: userExists.email,
+            subject: 'Vérification de votre compte Dubon Service',
+            html: `
+              <h1>Bienvenue sur Dubon Service !</h1>
+              <p>Un nouveau lien de vérification a été généré pour votre compte. Veuillez cliquer sur le lien ci-dessous pour activer votre compte :</p>
+              <a href="${verificationUrl}">Vérifier mon email</a>
+              <p>Ce lien expirera dans 24 heures.</p>
+            `
+          };
+
+          await sendEmail(mailOptions);
         } catch (emailError) {
           console.error("Erreur d'envoi d'email:", emailError);
-          // Continuer malgré l'erreur d'email
         }
 
         return res.status(400).json({ 
@@ -55,18 +66,37 @@ const register = async (req, res) => {
       password 
     });
 
+    // Générer et sauvegarder le token de vérification
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+    
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+    await user.save();
+
     try {
-      // Tentative d'envoi d'email
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      // ... configuration de l'email
+      // Envoyer l'email de vérification
+      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
+      const mailOptions = {
+        from: process.env.EMAIL,
+        to: user.email,
+        subject: 'Vérification de votre compte Dubon Service',
+        html: `
+          <h1>Bienvenue sur Dubon Service !</h1>
+          <p>Merci de vous être inscrit. Pour activer votre compte, veuillez cliquer sur le lien ci-dessous :</p>
+          <a href="${verificationUrl}">Vérifier mon email</a>
+          <p>Ce lien expirera dans 24 heures.</p>
+        `
+      };
+
+      await sendEmail(mailOptions);
     } catch (emailError) {
       console.error("Erreur d'envoi d'email:", emailError);
-      // Continuer malgré l'erreur d'email
     }
 
     res.status(201).json({
       success: true,
-      message: "Inscription réussie ! Un email de vérification vous sera envoyé prochainement.",
+      message: "Inscription réussie ! Veuillez vérifier votre email pour activer votre compte.",
       user: {
         _id: user._id,
         name: user.name,
