@@ -121,48 +121,48 @@ export const verifyEmail = async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  
-  
-  console.log(`login:${email}`);
-  
-  
-  // Trouver l'utilisateur par email
-  const findUser = await User.findOne({ email });
-  if (!findUser) {
-    return res.status(400).json({ message: 'Utilisateur introuvable' });
-  }
-  
-  if (!findUser.emailVerified) {
-    return res.status(400).json({ message: 'SVP Votre email n est pas valide par le systeme .' });
-  }
-  // Vérifier si l'utilisateur existe et si le mot de passe correspond
-  if (findUser && await findUser.isPasswordMatched(password)) {
+
+  try {
+    // Vérifier si l'utilisateur existe
+    const user = await User.findOne({ email });
     
-    // Générer le refresh token et l'enregistrer dans la base de données
-    const refreshToken = generateRefreshToken(findUser._id); 
-    await User.findByIdAndUpdate(findUser._id, { refreshToken: refreshToken }, { new: true });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Utilisateur introuvable"
+      });
+    }
 
-    // Configurer le cookie contenant le refresh token
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',  // Le rendre sécurisé en production
-      maxAge: 72 * 60 * 60 * 1000,  // 3 jours
-    });
+    // Vérifier le mot de passe
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Mot de passe incorrect"
+      });
+    }
 
-    // Répondre avec les informations utilisateur et le token d'accès principal
-    console.log('user',findUser.name);
+    // Générer le token
+    const token = generateToken(user._id);
+
+    // Envoyer la réponse
     res.status(200).json({
-      _id: findUser._id,
-      name: findUser.name,
-      // lastname: findUser.lastname,
-      mobile: findUser.mobile,
-      token: generateToken(findUser._id),  // Générer le token d'accès principal
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
     });
-    
-  } else {
-    // Si les informations d'identification sont incorrectes
-    res.status(401);
-    throw new Error("Invalid credentials");
+
+  } catch (error) {
+    console.error("Erreur de connexion:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur"
+    });
   }
 });
 
