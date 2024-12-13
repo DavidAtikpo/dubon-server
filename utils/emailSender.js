@@ -1,23 +1,24 @@
 import nodemailer from 'nodemailer';
 
-const sendEmail = async (options) => {
-  const transporter = nodemailer.createTransport({
-    service: 'Gmail',
-    auth: {
-      user: process.env.EMAIL,
-      pass: process.env.PASSWORD,
-    },
-  });
+const sendEmail = async (mailOptions) => {
+  try {
+    // Créer un transporteur SMTP
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD // Utiliser un mot de passe d'application Google
+      }
+    });
 
-  const mailOptions = {
-    from: process.env.EMAIL,
-    to: options.email,
-    subject: options.subject,
-    text: options.message,
-    html: options.htmlContent,
-  };
-
-  await transporter.sendMail(mailOptions);
+    // Envoyer l'email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email envoyé:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Erreur d\'envoi d\'email:', error);
+    throw new Error('Erreur lors de l\'envoi de l\'email');
+  }
 };
 
-export default sendEmail; // Exportation directe de la fonction
+export default sendEmail;

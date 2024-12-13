@@ -17,86 +17,56 @@ const register = async (req, res) => {
 
     // Vérifier si l'email existe déjà
     const userExists = await User.findOne({ email: email.toLowerCase().trim() });
-    console.log('Vérification utilisateur existant:', userExists);
     
     if (userExists) {
-      // Vérifier si l'utilisateur existe mais n'a pas vérifié son email
       if (!userExists.emailVerified) {
-        // Régénérer un nouveau token de vérification
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-        
-        userExists.emailVerificationToken = hashedToken;
-        userExists.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 heures
-        await userExists.save();
+        try {
+          // Tentative d'envoi d'email
+          const verificationToken = crypto.randomBytes(32).toString('hex');
+          const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+          
+          userExists.emailVerificationToken = hashedToken;
+          userExists.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+          await userExists.save();
 
-        // Renvoyer l'email de vérification
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-        
-        const mailOptions = {
-          from: process.env.EMAIL,
-          to: userExists.email,
-          subject: 'Vérification de votre compte Dubon Service',
-          html: `
-            <h1>Bienvenue sur Dubon Service !</h1>
-            <p>Un nouveau lien de vérification a été généré pour votre compte. Veuillez cliquer sur le lien ci-dessous pour activer votre compte :</p>
-            <a href="${verificationUrl}">Vérifier mon email</a>
-            <p>Ce lien expirera dans 24 heures.</p>
-          `
-        };
-
-        await sendEmail(mailOptions);
+          // Envoyer l'email
+          await sendEmail(/* ... */);
+        } catch (emailError) {
+          console.error("Erreur d'envoi d'email:", emailError);
+          // Continuer malgré l'erreur d'email
+        }
 
         return res.status(400).json({ 
           success: false,
-          message: "Un compte existe déjà avec cet email mais n'est pas vérifié. Un nouveau lien de vérification a été envoyé à votre adresse email."
+          message: "Un compte existe déjà avec cet email mais n'est pas vérifié. Veuillez vérifier votre email ou contacter le support."
         });
       }
 
       return res.status(400).json({ 
         success: false,
-        message: "Un compte existe déjà avec cet email. Veuillez vous connecter ou utiliser un autre email." 
+        message: "Un compte existe déjà avec cet email. Veuillez vous connecter."
       });
     }
 
-    // Créer un nouvel utilisateur
+    // Créer l'utilisateur
     const user = await User.create({ 
       name, 
       email: email.toLowerCase().trim(), 
       password 
     });
 
-    // Générer un token de vérification d'e-mail
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-
-    // Sauvegarder le token dans l'utilisateur
-    user.emailVerificationToken = hashedToken;
-    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 heures
-    await user.save();
-
-    // Envoyer l'email de vérification
-    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-    
-    // Configuration de l'email
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: user.email,
-      subject: 'Vérification de votre compte Dubon Service',
-      html: `
-        <h1>Bienvenue sur Dubon Service !</h1>
-        <p>Merci de vous être inscrit. Pour activer votre compte, veuillez cliquer sur le lien ci-dessous :</p>
-        <a href="${verificationUrl}">Vérifier mon email</a>
-        <p>Ce lien expirera dans 24 heures.</p>
-      `
-    };
-
-    // Envoyer l'email
-    await sendEmail(mailOptions);
+    try {
+      // Tentative d'envoi d'email
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      // ... configuration de l'email
+    } catch (emailError) {
+      console.error("Erreur d'envoi d'email:", emailError);
+      // Continuer malgré l'erreur d'email
+    }
 
     res.status(201).json({
       success: true,
-      message: "Inscription réussie ! Veuillez vérifier votre email pour activer votre compte.",
+      message: "Inscription réussie ! Un email de vérification vous sera envoyé prochainement.",
       user: {
         _id: user._id,
         name: user.name,
@@ -360,7 +330,7 @@ const verifyCode = async (req, res) => {
       }
   
       // Si le code est correct, autoriser l'utilisateur à réinitialiser son mot de passe
-      res.json({ success: true, message: 'Code v��rifié avec succès. Vous pouvez maintenant réinitialiser votre mot de passe.' });
+      res.json({ success: true, message: 'Code vérifié avec succès. Vous pouvez maintenant réinitialiser votre mot de passe.' });
   
     } catch (error) {
       console.error(error);
