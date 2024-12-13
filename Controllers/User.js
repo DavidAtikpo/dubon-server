@@ -13,64 +13,72 @@ const register = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    // const existingMobile = await User.findOne({ mobile });
-    const userExists = await User.findOne({ email });
-    console.log('userExists',);
+    console.log("Tentative d'inscription avec:", { name, email });
+
+    // Vérifier si l'email existe déjà
+    const userExists = await User.findOne({ email: email.toLowerCase().trim() });
+    console.log('Vérification utilisateur existant:', userExists);
     
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      console.log("Email déjà utilisé:", email);
+      return res.status(400).json({ 
+        success: false,
+        message: "Un compte existe déjà avec cet email. Veuillez vous connecter ou utiliser un autre email." 
+      });
     }
-    console.log(userExists);
-    
-    // if (existingMobile) {
-    //   return res.status(400).json({ mobile: 'Mobile already exists' });
-    // }
 
-    // Créez un nouvel utilisateur
-    const user = await User.create({ name, email, password });
+    // Créer un nouvel utilisateur
+    const user = await User.create({ 
+      name, 
+      email: email.toLowerCase().trim(), 
+      password 
+    });
 
     // Générer un token de vérification d'e-mail
     const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
-    // Stocker le token haché dans la base de données pour sécuriser
-    user.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-    user.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
+    // Sauvegarder le token dans l'utilisateur
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 heures
     await user.save();
 
-    // Créer le lien de vérification
-    const verificationUrl = `${req.protocol}://${req.get('host')}/api/user/verify-email/${verificationToken}`;
+    // Envoyer l'email de vérification
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+    
+    // Configuration de l'email
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: user.email,
+      subject: 'Vérification de votre compte Dubon Service',
+      html: `
+        <h1>Bienvenue sur Dubon Service !</h1>
+        <p>Merci de vous être inscrit. Pour activer votre compte, veuillez cliquer sur le lien ci-dessous :</p>
+        <a href="${verificationUrl}">Vérifier mon email</a>
+        <p>Ce lien expirera dans 24 heures.</p>
+      `
+    };
 
-    // Envoyer un e-mail avec le lien de vérification
-    // const message = `Bonjour ${name},\n\nMerci de vous être inscrit. Veuillez cliquer sur le lien suivant pour vérifier votre adresse e-mail : \n\n${verificationUrl}\n\nSi vous n'avez pas demandé cette action, veuillez ignorer cet e-mail.`;
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; text-align: center; color: #333;">
-      
-        <h2>Confirmez votre adresse e-mail</h2>
-        <p>Bonjour ${name},</p>
-        <p>Merci de vous être inscrit. Pour utiliser votre compte, veuillez confirmer votre adresse e-mail en cliquant sur le bouton ci-dessous.</p>
-        <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; color: #fff; background-color: #0070ba; border-radius: 5px; text-decoration: none; font-weight: bold; margin-top: 20px;">Confirmer votre adresse e-mail</a>
-        <p style="margin-top: 20px;">Si vous n'avez pas demandé cette action, veuillez ignorer cet e-mail.</p>
-        <p style="margin-top: 20px; color: #555;">Merci,<br>L'équipe de notre site</p>
-        <footer style="margin-top: 40px; font-size: 12px; color: #999;">
-          <p>© 2024 DUBON SERVICE EVENT. Tous droits réservés.</p>
-          <p><a href="#" style="color: #999; text-decoration: none;">Aide et Contact</a> | <a href="#" style="color: #999; text-decoration: none;">Sécurité</a> | <a href="#" style="color: #999; text-decoration: none;">Conditions d'utilisation</a></p>
-        </footer>
-      </div>
-    `;
-
-    await sendEmail({
-      email: user.email,
-      subject: 'Vérification de votre adresse e-mail',
-      htmlContent,
-    });
+    // Envoyer l'email
+    await sendEmail(mailOptions);
 
     res.status(201).json({
-      message: 'User created successfully. Please check your email to verify your account.',
+      success: true,
+      message: "Inscription réussie ! Veuillez vérifier votre email pour activer votre compte.",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email
+      }
     });
+
   } catch (error) {
-    console.error('Error during registration:', error);
-    res.status(500).json({ message: 'An error occurred during registration.' });
+    console.error("Erreur lors de l'inscription:", error);
+    res.status(500).json({
+      success: false,
+      message: "Une erreur est survenue lors de l'inscription.",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -137,13 +145,9 @@ const login = asyncHandler(async (req, res) => {
     console.log("Utilisateur trouvé:", user);
     
     if (!user) {
-      // Log plus détaillé de la recherche
-      const exactMatch = await User.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i') });
-      console.log("Recherche insensible à la casse:", exactMatch);
-      
       return res.status(400).json({
         success: false,
-        message: "Utilisateur introuvable. Veuillez vérifier votre email ou vous inscrire."
+        message: "Aucun compte trouvé avec cet email. Veuillez créer un compte pour continuer."
       });
     }
 
