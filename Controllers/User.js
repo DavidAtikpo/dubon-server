@@ -125,15 +125,25 @@ const login = asyncHandler(async (req, res) => {
   console.log("Email reçu:", email);
 
   try {
+    // Lister tous les utilisateurs pour debug
+    const allUsers = await User.find({}, 'email');
+    console.log("Liste de tous les emails dans la base:", allUsers.map(u => u.email));
+
     const normalizedEmail = email.toLowerCase().trim();
+    console.log("Email normalisé:", normalizedEmail);
+
     const user = await User.findOne({ email: normalizedEmail });
     console.log("Recherche utilisateur avec email:", normalizedEmail);
     console.log("Utilisateur trouvé:", user);
     
     if (!user) {
+      // Log plus détaillé de la recherche
+      const exactMatch = await User.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i') });
+      console.log("Recherche insensible à la casse:", exactMatch);
+      
       return res.status(400).json({
         success: false,
-        message: "Utilisateur introuvable"
+        message: "Utilisateur introuvable. Veuillez vérifier votre email ou vous inscrire."
       });
     }
 
