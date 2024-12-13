@@ -1,59 +1,137 @@
 import mongoose from "mongoose";
+
 const productSchema = new mongoose.Schema({
-    name: String,
+  sellerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Seller',
+    required: true
+  },
+  name: String,
+  description: String,
+  price: Number,
+  images: [String],
+  category: String,
+  stock: Number,
+  paymentMethods: [{
+    type: String,
+    enum: ['mobile_money', 'card', 'bank_transfer', 'fedapay']
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const sellerSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    unique: true
+  },
+  type: {
+    type: String,
+    enum: ['individual', 'company'],
+    required: true
+  },
+  personalInfo: {
+    fullName: String,
+    email: String,
+    phone: String,
+    address: String,
+    companyName: String,
+    idNumber: String,
+    taxNumber: String,
+    legalRepName: String,
+    rccmNumber: String
+  },
+  documents: {
+    idCard: String,
+    proofOfAddress: String,
+    taxCertificate: String,
+    photos: [String],
+    rccm: String,
+    companyStatutes: String
+  },
+  contract: {
+    signed: Boolean,
+    signedDocument: String
+  },
+  videoVerification: {
+    completed: Boolean,
+    recordingUrl: String
+  },
+  businessInfo: {
+    category: String,
     description: String,
-    price: Number,
-    images: [String], // Stocke les URLs des images
-  });
-  
-  const sellerSchema = new mongoose.Schema({
-    type: { type: String, enum: ["individual", "company"], required: true },
-    personalInfo: {
-      fullName: { type: String, required: function () { return this.type === "individual"; } },
-      companyName: { type: String, required: function () { return this.type === "company"; } },
-      address: { type: String, required: true },
-      phone: { type: String, required: true },
-      email: { type: String, required: true },
-      idNumber: String,
-      taxNumber: { type: String, required: true },
-      legalRepName: String,
-      rccmNumber: String,
-    },
-    documents: {
-      idCard: String, // URL du fichier
-      proofOfAddress: String, // URL du fichier
-      photos: [String], // URLs des fichiers
-      taxCertificate: String, // URL du fichier
-      rccm: String, // URL du fichier
-      companyStatutes: String, // URL du fichier
-    },
-    contract: {
-      signed: { type: Boolean, default: false },
-      signedDocument: String, // URL du fichier
-    },
-    videoVerification: {
-      completed: { type: Boolean, default: false },
-      recordingUrl: String, // URL de la vidéo
-    },
-    businessInfo: {
-      category: { type: String, required: true },
-      description: { type: String, required: true },
-      products: [productSchema], // Liste des produits
-      bankDetails: {
-        type: { type: String, enum: ["bank", "mobile"], required: true },
-        accountNumber: { type: String, required: true },
-        bankName: String,
+    products: [{
+      name: String,
+      description: String,
+      price: Number,
+      images: [String]
+    }],
+    bankDetails: {
+      type: {
+        type: String,
+        enum: ['bank', 'mobile']
       },
-      returnPolicy: { type: String, required: true },
+      accountNumber: String,
+      bankName: String
     },
-    compliance: {
-      termsAccepted: { type: Boolean, required: true },
-      qualityStandardsAccepted: { type: Boolean, required: true },
-      antiCounterfeitingAccepted: { type: Boolean, required: true },
+    returnPolicy: String
+  },
+  compliance: {
+    termsAccepted: Boolean,
+    qualityStandardsAccepted: Boolean,
+    antiCounterfeitingAccepted: Boolean
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  validation: {
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
     },
-  });
-  
-  const Seller = mongoose.model("Seller", sellerSchema);
-  
-  export default Seller;
+    message: String,
+    approvedAt: Date,
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  },
+  subscription: {
+    plan: {
+      type: String,
+      enum: ['trial', 'monthly', 'yearly', 'premium'],
+      default: 'trial'
+    },
+    startDate: Date,
+    endDate: Date,
+    status: {
+      type: String,
+      enum: ['active', 'expired', 'cancelled'],
+      default: 'active'
+    }
+  }
+});
+
+// Middleware pour mettre à jour updatedAt avant chaque sauvegarde
+sellerSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export default mongoose.model('Seller', sellerSchema);
   

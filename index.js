@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 import bodyParser from "body-parser";
 import express from "express";
 import dbConnect from "./config/dbConfig.js";
@@ -23,6 +24,9 @@ import http from 'http';
 import Event from './Routers/Event.js'
 import paymentRoutes from './Routers/payementRoute.js';
 import MongoStore from 'connect-mongo';
+import mongoose from 'mongoose';
+import adminRoutes from './Routers/Admin.js';
+import sellerRoutes from './Routers/Seller.js';
 
 // Initialize dotenv with absolute path
 const __filename = fileURLToPath(import.meta.url);
@@ -59,11 +63,7 @@ app.use(morgan("dev"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(cors({
-    origin: ["http://localhost:3000", "https://dubon-service.onrender.com", "https://dubonservice.com"],
-    methods: ["POST", "GET", "DELETE", "PUT"],
-    credentials: true
-}));
+app.use(cors());
 
 // Routes
 app.get("/", (req, res) => {
@@ -84,12 +84,48 @@ app.use('/api', wishlistRoute);
 app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
 
+// Use admin routes
+app.use('/api/admin', adminRoutes);
+
+// Monter les routes
+app.use('/api/seller', sellerRoutes);
+
 // Error handling
 app.use(errorHandler.notFound);
 app.use(errorHandler.errorHandler);
+
+const setupUploadDirectories = () => {
+  const dirs = [
+    'uploads/documents/id',
+    'uploads/documents/address',
+    'uploads/documents/tax',
+    'uploads/photos',
+    'uploads/contracts',
+    'uploads/videos',
+    'uploads/others'
+  ];
+
+  dirs.forEach(dir => {
+    const fullPath = path.join(__dirname, dir);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+      console.log(`Created upload directory: ${fullPath}`);
+    }
+  });
+};
+
+// Call this function before starting the server
+setupUploadDirectories();
 
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running at PORT ${PORT}`);
 });
+
+// Ajouter ces configurations
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+// Désactiver le timeout du serveur pour les uploads longs
+server.timeout = 300000; // 5 minutes

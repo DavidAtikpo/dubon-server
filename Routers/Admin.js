@@ -1,22 +1,28 @@
 import express from "express";
-import Admin from "../Controllers/Admin.js";
+import * as AdminController from "../Controllers/Admin.js";
 import Products from "../Controllers/Products.js";
 import User from "../Controllers/User.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
-const router= express.Router();
-//Order managment routes
-router.get('/getorders',Admin.getOrders);
-router.delete('/deleteorder:orderId',Admin.deleteOrder);
-//product managment routes
+const router = express.Router();
 
-// Seller manegment routes
+// Routes pour les demandes de vendeur
+router.get('/seller-requests', authMiddleware.verifyAdmin, AdminController.getSellerRequests);
+router.post('/seller-requests/:id/approve', authMiddleware.verifyAdmin, AdminController.approveSellerRequest);
+router.post('/seller-requests/:id/reject', authMiddleware.verifyAdmin, AdminController.rejectSellerRequest);
 
-// user managment routes
-router.get('/getuser',Admin.getUsers);
-router.get('/info',Admin.userInfo)
-router.put('/users/:id',User.blockUser);
-router.delete('/user-delete',User.deleteUserById);
-router.put('/user-unlck',User.unblockUser)
+// Routes d'authentification admin
+router.post('/login', AdminController.adminLogin);
+router.post('/register', AdminController.registerAdmin);
 
-export default router
+// Autres routes admin
+router.get('/getorders', AdminController.getOrders);
+router.delete('/deleteorder:orderId', AdminController.deleteOrder);
+router.get('/getuser', AdminController.getUsers);
+router.get('/info', AdminController.userInfo);
+router.put('/users/:id', User.blockUser);
+router.delete('/user-delete', User.deleteUserById);
+router.put('/user-unlck', User.unblockUser);
+router.get('/dashboard/stats', authMiddleware.verifyAdmin, AdminController.getDashboardStats);
+
+export default router;

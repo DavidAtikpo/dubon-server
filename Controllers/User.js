@@ -120,7 +120,9 @@ export const verifyEmail = async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  console.log('login:',req.body);
+  
+  
+  console.log(`login:${email}`);
   
   
   // Trouver l'utilisateur par email
