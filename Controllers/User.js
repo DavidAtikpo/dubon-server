@@ -122,31 +122,32 @@ export const verifyEmail = async (req, res) => {
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   
-  console.log("Email reçu:", email); // Debug
+  console.log("Email reçu:", email);
 
   try {
-    // Convertir l'email en minuscules pour la recherche
     const normalizedEmail = email.toLowerCase().trim();
-    
-    // Rechercher l'utilisateur avec plus de détails de debug
     const user = await User.findOne({ email: normalizedEmail });
     console.log("Recherche utilisateur avec email:", normalizedEmail);
-    console.log("Utilisateur trouvé:", user); // Debug
+    console.log("Utilisateur trouvé:", user);
     
     if (!user) {
-      // Vérifier tous les utilisateurs pour debug
-      const allUsers = await User.find({}, 'email');
-      console.log("Tous les emails dans la base:", allUsers.map(u => u.email));
-      
       return res.status(400).json({
         success: false,
         message: "Utilisateur introuvable"
       });
     }
 
+    // Vérifier si l'email est vérifié
+    if (!user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Veuillez vérifier votre email avant de vous connecter"
+      });
+    }
+
     // Vérifier le mot de passe
-    const isPasswordValid = await user.comparePassword(password);
-    console.log("Validation mot de passe:", isPasswordValid); // Debug
+    const isPasswordValid = await user.isPasswordMatched(password);
+    console.log("Validation mot de passe:", isPasswordValid);
     
     if (!isPasswordValid) {
       return res.status(400).json({
@@ -166,7 +167,8 @@ const login = asyncHandler(async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        emailVerified: user.emailVerified
       }
     });
 
