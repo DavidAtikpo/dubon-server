@@ -42,7 +42,20 @@ const register = async (req, res) => {
             `
           };
 
-          await sendEmail(mailOptions);
+          const emailResult = await sendEmail(mailOptions);
+          
+          if (!emailResult) {
+            console.log('L\'envoi d\'email a échoué, mais l\'inscription continue');
+            return res.status(201).json({
+              success: true,
+              message: "Inscription réussie ! L'envoi de l'email de vérification a échoué. Veuillez contacter le support.",
+              user: {
+                _id: userExists._id,
+                name: userExists.name,
+                email: userExists.email
+              }
+            });
+          }
         } catch (emailError) {
           console.error("Erreur d'envoi d'email:", emailError);
         }
@@ -89,20 +102,34 @@ const register = async (req, res) => {
         `
       };
 
-      await sendEmail(mailOptions);
+      const emailResult = await sendEmail(mailOptions);
+      
+      if (!emailResult) {
+        console.log('L\'envoi d\'email a échoué, mais l\'inscription continue');
+        return res.status(201).json({
+          success: true,
+          message: "Inscription réussie ! L'envoi de l'email de vérification a échoué. Veuillez contacter le support.",
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email
+          }
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: "Inscription réussie ! Veuillez vérifier votre email pour activer votre compte.",
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email
+        }
+      });
+
     } catch (emailError) {
       console.error("Erreur d'envoi d'email:", emailError);
     }
-
-    res.status(201).json({
-      success: true,
-      message: "Inscription réussie ! Veuillez vérifier votre email pour activer votre compte.",
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email
-      }
-    });
 
   } catch (error) {
     console.error("Erreur lors de l'inscription:", error);

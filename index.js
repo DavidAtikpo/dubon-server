@@ -28,6 +28,16 @@ import mongoose from 'mongoose';
 import adminRoutes from './Routers/Admin.js';
 import sellerRoutes from './Routers/Seller.js';
 
+// Charger les variables d'environnement
+dotenv.config();
+
+// Log pour debug
+console.log('Variables d\'environnement chargées:', {
+  EMAIL: process.env.EMAIL ? 'Défini' : 'Non défini',
+  PASSWORD: process.env.PASSWORD ? 'Défini' : 'Non défini',
+  NODE_ENV: process.env.NODE_ENV
+});
+
 // Initialize dotenv with absolute path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
