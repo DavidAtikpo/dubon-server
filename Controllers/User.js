@@ -121,12 +121,23 @@ export const verifyEmail = async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  
+  console.log("Email reçu:", email); // Debug
 
   try {
-    // Vérifier si l'utilisateur existe
-    const user = await User.findOne({ email });
+    // Convertir l'email en minuscules pour la recherche
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Rechercher l'utilisateur avec plus de détails de debug
+    const user = await User.findOne({ email: normalizedEmail });
+    console.log("Recherche utilisateur avec email:", normalizedEmail);
+    console.log("Utilisateur trouvé:", user); // Debug
     
     if (!user) {
+      // Vérifier tous les utilisateurs pour debug
+      const allUsers = await User.find({}, 'email');
+      console.log("Tous les emails dans la base:", allUsers.map(u => u.email));
+      
       return res.status(400).json({
         success: false,
         message: "Utilisateur introuvable"
@@ -135,6 +146,8 @@ const login = asyncHandler(async (req, res) => {
 
     // Vérifier le mot de passe
     const isPasswordValid = await user.comparePassword(password);
+    console.log("Validation mot de passe:", isPasswordValid); // Debug
+    
     if (!isPasswordValid) {
       return res.status(400).json({
         success: false,
@@ -158,10 +171,11 @@ const login = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erreur de connexion:", error);
+    console.error("Erreur détaillée de connexion:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur interne du serveur"
+      message: "Erreur interne du serveur",
+      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

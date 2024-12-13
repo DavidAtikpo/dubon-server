@@ -13,6 +13,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
+    trim: true,
+    lowercase: true,
+    index: true,
   },
   // mobile: {
   //   type: String,
@@ -82,6 +85,12 @@ userSchema.methods.createPasswordResetToken= async function() {
   this.passwordResetExpires = Date.now() + 30*60*1000; //10 minutes
   return resettoken
 }
+userSchema.pre('save', function(next) {
+  if (this.isModified('email')) {
+    this.email = this.email.toLowerCase().trim();
+  }
+  next();
+});
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 
 export default User;
