@@ -204,4 +204,20 @@ export const verifyToken = asyncHandler(async (req, res, next) => {
   }
 });
 
+// Ajouter la gestion des erreurs CORS
+const corsErrorHandler = (err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    res.status(401).json({
+      success: false,
+      message: 'Token invalide ou expiré',
+      error: err.message
+    });
+  } else {
+    next(err);
+  }
+};
+
+// Exporter le middleware
+export { corsErrorHandler };
+
 export default{authMiddleware,isAdmin,verifyAdmin,authorization}

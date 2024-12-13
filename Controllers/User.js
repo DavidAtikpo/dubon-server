@@ -5,6 +5,7 @@ import nodemailer from'nodemailer';
 import asyncHandler from 'express-async-handler';
 import crypto from 'crypto';
 import  sendEmail  from '../utils/emailSender.js'; 
+import { corsErrorHandler } from '../middleware/authMiddleware.js';
 
 
 

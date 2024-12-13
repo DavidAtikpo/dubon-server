@@ -3,6 +3,7 @@ import * as AdminController from "../Controllers/Admin.js";
 import Products from "../Controllers/Products.js";
 import User from "../Controllers/User.js";
 import authMiddleware from "../middleware/authMiddleware.js";
+import { corsErrorHandler } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -24,5 +25,7 @@ router.put('/users/:id', User.blockUser);
 router.delete('/user-delete', User.deleteUserById);
 router.put('/user-unlck', User.unblockUser);
 router.get('/dashboard/stats', authMiddleware.verifyAdmin, AdminController.getDashboardStats);
+
+router.use(corsErrorHandler);
 
 export default router;

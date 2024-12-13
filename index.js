@@ -65,8 +65,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://dubonservice.com', 'https://www.dubonservice.com']
-    : ['http://localhost:3000'],
+    ? ['https://dubonservice.com', 'https://www.dubonservice.com', 'http://localhost:3000']
+    : 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

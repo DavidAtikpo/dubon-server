@@ -2,7 +2,7 @@ import express from "express";
 import multer from 'multer';
 import path from 'path';
 import * as SellerController from "../Controllers/Sellers.js";
-import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
+import { verifyToken, verifyAdmin, corsErrorHandler } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -113,6 +113,9 @@ router.post("/unblock/:id", verifyAdmin, SellerController.unblockSeller);
 router.post("/trial/:id", verifyToken, SellerController.startFreeTrial);
 router.get("/trial-status/:id", verifyToken, SellerController.checkTrialStatus);
 router.post("/subscription/:id", verifyToken, SellerController.paySubscription);
+
+// Ajouter la gestion des erreurs CORS
+router.use(corsErrorHandler);
 
 export default router;
 
