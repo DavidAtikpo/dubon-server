@@ -12,25 +12,40 @@ const config = {
   // Database Configuration
   database: {
     url: process.env.DATABASE_URL,
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: false,
     dialect: 'postgres',
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false,
+        rejectUnauthorized: false
       },
       keepAlive: true,
+      statement_timeout: 60000,
+      idle_in_transaction_session_timeout: 60000
     },
     ssl: true,
     pool: {
-      min: parseInt(process.env.DB_POOL_MIN || '0'),
-      max: parseInt(process.env.DB_POOL_MAX || '10'),
-      idle: parseInt(process.env.DB_POOL_IDLE || '10000'),
-      acquire: 30000
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
     },
     define: {
       freezeTableName: true,
       underscored: true,
+      timestamps: true
+    },
+    retry: {
+      match: [
+        /SequelizeConnectionError/,
+        /SequelizeConnectionRefusedError/,
+        /SequelizeHostNotFoundError/,
+        /SequelizeHostNotReachableError/,
+        /SequelizeInvalidConnectionError/,
+        /SequelizeConnectionTimedOutError/,
+        /TimeoutError/
+      ],
+      max: 3
     }
   },
 
