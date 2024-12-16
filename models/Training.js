@@ -3,9 +3,9 @@ import { sequelize } from '../config/dbConfig.js';
 
 const Training = sequelize.define('Training', {
   id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
   },
   title: {
     type: DataTypes.STRING,
@@ -24,7 +24,7 @@ const Training = sequelize.define('Training', {
     defaultValue: 'active'
   },
   userId: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     allowNull: false,
     references: {
       model: 'users',
