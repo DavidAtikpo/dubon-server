@@ -425,6 +425,67 @@ export const verifyLoginToken = async (req, res) => {
   }
 };
 
+export const verifyLogin = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token manquant"
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const admin = await User.findOne({
+      where: {
+        email_verification_token: hashedToken,
+        email_verification_expires: {
+          [Op.gt]: new Date()
+        },
+        role: 'admin'
+      }
+    });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Lien invalide ou expiré"
+      });
+    }
+
+    // Générer le JWT token
+    const jwtToken = generateToken(admin.id);
+
+    // Effacer le token de vérification
+    await admin.update({
+      email_verification_token: null,
+      email_verification_expires: null
+    });
+
+    res.status(200).json({
+      success: true,
+      token: jwtToken,
+      user: {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role
+      }
+    });
+
+  } catch (error) {
+    console.error("Erreur lors de la vérification:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la vérification"
+    });
+  }
+};
+
 export default {
   register,
   login,

@@ -27,6 +27,7 @@ router.get('/dashboard/recent-orders', authMiddleware.authMiddleware, adminContr
 router.get('/dashboard/revenue', authMiddleware.authMiddleware, adminController.getRevenue);
 
 router.get('/verify-login/:token', adminController.verifyLoginToken);
+router.post('/verify-login', adminController.verifyLogin);
 
 router.use(corsErrorHandler);
 
