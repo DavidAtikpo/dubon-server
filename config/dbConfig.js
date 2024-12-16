@@ -1,5 +1,12 @@
 import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
+import pg from 'pg';
+
+// Forcer pg à accepter les certificats auto-signés
+pg.defaults.ssl = {
+  require: true,
+  rejectUnauthorized: false
+};
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -10,8 +17,8 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-// Créer l'instance Sequelize
-export const sequelize = new Sequelize(process.env.DATABASE_URL, {
+// Configuration Sequelize avec SSL
+const sequelizeConfig = {
   dialect: 'postgres',
   dialectOptions: {
     ssl: {
@@ -30,22 +37,15 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL, {
     freezeTableName: true,
     underscored: true
   }
-});
+};
+
+// Créer l'instance Sequelize
+export const sequelize = new Sequelize(process.env.DATABASE_URL, sequelizeConfig);
 
 // Fonction de connexion à la base de données
 const dbConnect = async () => {
   try {
-    // Forcer l'utilisation de SSL avec rejectUnauthorized: false
-    const options = {
-      dialectOptions: {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false
-        }
-      }
-    };
-    
-    await sequelize.authenticate(options);
+    await sequelize.authenticate();
     console.log('✓ Connection to database has been established successfully.');
 
     // Importer les modèles
