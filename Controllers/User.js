@@ -379,10 +379,65 @@ export const resendVerificationEmail = async (req, res) => {
     });
   }
 };
+// Dans controllers/User.js
 
+export const getUserInfo = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      user: {
+        name: user.name,
+        email: user.email,
+        address: user.address,
+        phone: user.phone,
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des informations"
+    });
+  }
+};
+
+export const getPaymentStats = async (req, res) => {
+  try {
+    const stats = await Order.findAll({
+      where: { userId: req.user.id },
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
+        [sequelize.fn('SUM', sequelize.literal("CASE WHEN status = 'pending' THEN 1 ELSE 0 END")), 'pending'],
+        [sequelize.fn('SUM', sequelize.literal("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")), 'completed']
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      total: stats[0].total || 0,
+      pending: stats[0].pending || 0,
+      completed: stats[0].completed || 0
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques"
+    });
+  }
+};
 // Grouper tous les exports
 const userController = {
   register,
+  getUserInfo,
+  getPaymentStats,
   login,
   logout,
   verifyEmail,

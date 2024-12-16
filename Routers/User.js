@@ -11,7 +11,9 @@ router.post('/logout',authMiddleware.authMiddleware,userController.logout)
 router.post('/forgot-password',userController.forgotPassword)
 router.put('/update/:id',userController.updatePassword)
 router.post('/reset-password/:id',userController.resetPassword)
-router.get('/info/:id', userController.userInfo)
+// Dans routes/user.js
+router.get('/info', authMiddleware, userController.getUserInfo);
+router.get('/payment-stats', authMiddleware, userController.getPaymentStats);
 router.post('/resend-verification', userController.resendVerificationEmail);
 
 export default router
