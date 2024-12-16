@@ -65,4 +65,17 @@ const dbConnect = async () => {
   }
 };
 
+// Fonction d'initialisation de la base de données
+export const initializeDatabase = async () => {
+  try {
+    console.log('🚀 Initialisation de la base de données...');
+    await dbConnect();
+    console.log('✓ Base de données initialisée avec succès');
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation de la base de données:', error.message);
+    return false;
+  }
+};
+
 export default dbConnect;
