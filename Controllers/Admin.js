@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import sendEmail from '../utils/emailSender.js';
 import crypto from 'crypto';
 import { Op } from 'sequelize';
+import sequelize from 'sequelize';
 
 const { User, Order, Seller } = models;
 
@@ -309,10 +310,81 @@ export const rejectSeller = async (req, res) => {
 
 export const getDashboardStats = async (req, res) => {
   try {
-    // Implémentation...
-    res.status(200).json({ success: true, data: {} });
+    // Récupérer les statistiques des utilisateurs
+    const usersStats = await User.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('*')), 'total'],
+        [
+          sequelize.fn('COUNT', 
+            sequelize.literal("CASE WHEN role = 'user' THEN 1 END")
+          ), 
+          'regular'
+        ],
+        [
+          sequelize.fn('COUNT', 
+            sequelize.literal("CASE WHEN role = 'seller' THEN 1 END")
+          ), 
+          'sellers'
+        ]
+      ],
+      raw: true
+    });
+
+    // Récupérer le nombre de demandes en attente (vendeurs en attente)
+    const pendingRequests = await Seller.count({
+      where: {
+        status: 'pending'
+      }
+    });
+
+    // Récupérer les statistiques des commandes
+    const ordersStats = await Order.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('*')), 'total'],
+        [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalRevenue'],
+        [
+          sequelize.fn('SUM', 
+            sequelize.literal("CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN total_amount ELSE 0 END")
+          ),
+          'weeklyRevenue'
+        ],
+        [
+          sequelize.fn('SUM', 
+            sequelize.literal("CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN total_amount ELSE 0 END")
+          ),
+          'monthlyRevenue'
+        ]
+      ],
+      raw: true
+    });
+
+    const stats = {
+      users: {
+        total: parseInt(usersStats[0].total) || 0,
+        regular: parseInt(usersStats[0].regular) || 0,
+        sellers: parseInt(usersStats[0].sellers) || 0
+      },
+      pendingRequests: pendingRequests || 0,
+      totalOrders: parseInt(ordersStats[0].total) || 0,
+      revenue: {
+        total: parseFloat(ordersStats[0].totalRevenue) || 0,
+        weekly: parseFloat(ordersStats[0].weeklyRevenue) || 0,
+        monthly: parseFloat(ordersStats[0].monthlyRevenue) || 0
+      }
+    };
+
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Erreur lors de la récupération des statistiques:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques du dashboard",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
