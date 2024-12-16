@@ -95,6 +95,10 @@ app.use(session({
 // Initialiser la base de données avant de démarrer le serveur
 const startServer = async () => {
   try {
+    // Synchroniser les modèles avec la base de données de manière sécurisée
+    await sequelize.sync();  // Sans { alter: true } ni { force: true } en production
+    console.log('✓ Base de données synchronisée');
+
     // Initialiser la base de données
     const dbInitialized = await initializeDatabase();
     if (!dbInitialized) {

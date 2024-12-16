@@ -27,12 +27,13 @@ const Training = sequelize.define('Training', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Users',
+      model: 'users',
       key: 'id'
     }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  tableName: 'trainings'
 });
 
 export default Training;
