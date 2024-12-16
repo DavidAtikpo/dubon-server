@@ -129,6 +129,29 @@ export const verifyToken = asyncHandler(async (req, res, next) => {
   }
 });
 
+export const verifyAdmin = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await User.findOne({
+      where: { id: req.user.id }
+    });
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé - Droits administrateur requis"
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Erreur de vérification admin:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
 export const corsErrorHandler = (err, req, res, next) => {
   if (err.name === 'UnauthorizedError') {
     res.status(401).json({
@@ -141,4 +164,4 @@ export const corsErrorHandler = (err, req, res, next) => {
   }
 };
 
-export default{authMiddleware,isAdmin,authorization,verifyToken}
+export default{authMiddleware,isAdmin,authorization,verifyToken,verifyAdmin}
