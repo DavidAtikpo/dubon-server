@@ -11,41 +11,17 @@ const config = {
 
   // Database Configuration
   database: {
-    url: process.env.DATABASE_URL,
+    url: `${process.env.DATABASE_URL}?sslmode=require`,
     logging: false,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      },
-      keepAlive: true,
-      statement_timeout: 60000,
-      idle_in_transaction_session_timeout: 60000
+      ssl: true
     },
-    ssl: true,
     pool: {
       max: 5,
       min: 0,
       acquire: 30000,
       idle: 10000
-    },
-    define: {
-      freezeTableName: true,
-      underscored: true,
-      timestamps: true
-    },
-    retry: {
-      match: [
-        /SequelizeConnectionError/,
-        /SequelizeConnectionRefusedError/,
-        /SequelizeHostNotFoundError/,
-        /SequelizeHostNotReachableError/,
-        /SequelizeInvalidConnectionError/,
-        /SequelizeConnectionTimedOutError/,
-        /TimeoutError/
-      ],
-      max: 3
     }
   },
 
