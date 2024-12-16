@@ -1,23 +1,17 @@
 import nodemailer from 'nodemailer';
+import emailConfig from '../config/emailConfig.js';
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // true pour 465, false pour les autres ports
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD // Mot de passe d'application Gmail
-  }
-});
+const transporter = nodemailer.createTransport(emailConfig);
 
 const sendEmail = async (to, subject, html) => {
   try {
-    // Vérifier la configuration
-    await transporter.verify();
-    console.log('Configuration SMTP vérifiée');
+    console.log('Tentative d\'envoi d\'email avec la configuration:', {
+      environment: process.env.NODE_ENV,
+      emailUser: emailConfig.auth.user
+    });
 
     const mailOptions = {
-      from: `"DuBon Service" <${process.env.EMAIL_USER}>`,
+      from: `"DuBon Service" <${emailConfig.auth.user}>`,
       to,
       subject,
       html
@@ -27,9 +21,7 @@ const sendEmail = async (to, subject, html) => {
     console.log('Email envoyé avec succès:', info.messageId);
     return true;
   } catch (error) {
-    console.error('Erreur d\'envoi d\'email:', {
-      message: error.message
-    });
+    console.error('Erreur d\'envoi d\'email:', error);
     return false;
   }
 };

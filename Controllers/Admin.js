@@ -133,59 +133,25 @@ export const login = async (req, res) => {
       });
     }
 
-    // Générer un token de connexion unique
-    const loginToken = crypto.randomBytes(32).toString('hex');
-    const hashedLoginToken = crypto
-      .createHash('sha256')
-      .update(loginToken)
-      .digest('hex');
+    // Générer directement le JWT token
+    const token = generateToken(admin.id);
 
-    // Mettre à jour l'admin avec le nouveau token
-    await admin.update({
-      email_verification_token: hashedLoginToken,
-      email_verification_expires: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
-    });
-
-    // Créer le lien de connexion
-    const loginUrl = `${process.env.FRONTEND_URL}/admin/verify-login/${loginToken}`;
-
-    // Envoyer l'email de connexion
-    await sendEmail({
-      to: admin.email,
-      subject: 'Connexion à votre compte administrateur - Dubon Service',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #1D4ED8;">Connexion Administrateur</h1>
-          <p>Une demande de connexion a été effectuée pour votre compte administrateur.</p>
-          <p>Cliquez sur le lien ci-dessous pour vous connecter :</p>
-          <a href="${loginUrl}" 
-             style="background-color: #1D4ED8; 
-                    color: white; 
-                    padding: 12px 24px; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                    display: inline-block; 
-                    margin: 20px 0;">
-            Se connecter
-          </a>
-          <p style="color: #666;">Ce lien expirera dans 30 minutes.</p>
-          <p style="color: #666;">Si vous n'avez pas demandé cette connexion, ignorez cet email.</p>
-          <hr style="border: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #666;">Cordialement,<br>L'équipe Dubon Service</p>
-        </div>
-      `
-    });
-
+    // Retourner directement la réponse avec le token
     res.status(200).json({
       success: true,
-      message: "Un email de connexion vous a été envoyé. Veuillez vérifier votre boîte de réception."
+      token,
+      user: {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role
+      }
     });
 
   } catch (error) {
     console.error("Erreur lors de la tentative de connexion:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de l'envoi de l'email de connexion"
+      message: "Erreur lors de la connexion"
     });
   }
 };
