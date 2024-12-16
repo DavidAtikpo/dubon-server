@@ -1,35 +1,59 @@
-import User from "../models/User.js";
+import { models } from '../models/index.js';
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
+
+const { User } = models;
 
 export const authMiddleware = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     
     if (!token) {
+      console.log('Token manquant');
       return res.status(401).json({
         success: false,
         message: 'Token non fourni'
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.id);
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Token décodé:', decoded);
 
-    if (!user) {
+      const user = await User.findOne({
+        where: { id: decoded.id }
+      });
+
+      if (!user) {
+        console.log('Utilisateur non trouvé');
+        return res.status(401).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+
+      if (user.role !== 'admin') {
+        console.log('Utilisateur non admin');
+        return res.status(403).json({
+          success: false,
+          message: 'Accès non autorisé'
+        });
+      }
+
+      req.user = user;
+      next();
+    } catch (jwtError) {
+      console.log('Erreur JWT:', jwtError);
       return res.status(401).json({
         success: false,
-        message: 'Utilisateur non trouvé'
+        message: 'Token invalide'
       });
     }
-
-    req.user = user;
-    next();
   } catch (error) {
     console.error('Erreur d\'authentification:', error);
-    return res.status(401).json({
+    return res.status(500).json({
       success: false,
-      message: 'Token invalide'
+      message: 'Erreur serveur'
     });
   }
 };
@@ -86,58 +110,26 @@ const authorization = asyncHandler(async (req, res, next) => {
 });
 
 export const verifyAdmin = async (req, res, next) => {
-  console.log("\n=== DÉBUT VÉRIFICATION ADMIN ===");
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    console.log("Token extrait:", token);
+    const user = await User.findOne({
+      where: { id: req.user.id, role: 'admin' }
+    });
 
-    if (!token) {
-      return res.status(401).json({ 
-        message: 'No token provided',
-        code: 'NO_TOKEN'
+    if (!user) {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé"
       });
     }
 
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log("Token décodé:", decoded);
-
-      const user = await User.findById(decoded.id);
-      console.log("Utilisateur trouvé:", user);
-
-      if (!user) {
-        return res.status(404).json({ 
-          message: 'User not found',
-          code: 'USER_NOT_FOUND'
-        });
-      }
-
-      if (user.role !== 'admin') {
-        return res.status(403).json({ 
-          message: 'Not authorized as admin',
-          code: 'NOT_ADMIN'
-        });
-      }
-
-      req.user = user;
-      next();
-    } catch (jwtError) {
-      if (jwtError.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-          message: 'Token expired',
-          code: 'TOKEN_EXPIRED'
-        });
-      }
-      throw jwtError;
-    }
+    next();
   } catch (error) {
-    console.error("Erreur lors de la vérification admin:", error);
-    return res.status(401).json({ 
-      message: 'Invalid token',
-      code: 'INVALID_TOKEN'
+    console.error('Erreur de vérification admin:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
     });
   }
-  console.log("=== FIN VÉRIFICATION ADMIN ===\n");
 };
 
 export const verifyToken = asyncHandler(async (req, res, next) => {
