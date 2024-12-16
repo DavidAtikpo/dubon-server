@@ -13,6 +13,7 @@ router.put('/update/:id',userController.updatePassword)
 router.post('/reset-password/:id',userController.resetPassword)
 // Dans routes/user.js
 router.get('/info', authMiddleware, userController.getUserInfo);
+router.put('/update', authMiddleware, userController.updateUserInfo);
 router.get('/payment-stats', authMiddleware, userController.getPaymentStats);
 router.post('/resend-verification', userController.resendVerificationEmail);
 router.get('/orders', authMiddleware, userController.getUserOrders);

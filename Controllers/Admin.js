@@ -577,6 +577,31 @@ export const verifyLogin = async (req, res) => {
   }
 };
 
+export const getApprovedSellers = async (req, res) => {
+  try {
+    const approvedSellers = await Seller.findAll({
+      where: { status: 'approved' },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['name', 'email']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: approvedSellers
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des vendeurs approuvés:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des vendeurs approuvés'
+    });
+  }
+};
+
 export default {
   register,
   login,
@@ -592,5 +617,6 @@ export default {
   rejectSeller,
   getDashboardStats,
   getRecentOrders,
-  getRevenue
+  getRevenue,
+  getApprovedSellers
 };

@@ -36,4 +36,6 @@ router.use(corsErrorHandler);
 // Ajouter la route d'inscription admin
 router.post('/register', adminController.register);
 
+router.get('/approved-sellers', authMiddleware, adminController.getApprovedSellers);
+
 export default router;

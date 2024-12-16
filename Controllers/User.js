@@ -383,7 +383,18 @@ export const resendVerificationEmail = async (req, res) => {
 
 export const getUserInfo = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
+    const user = await User.findOne({
+      where: { id: req.user.id },
+      attributes: [
+        'id',
+        'name',
+        'email',
+        'profile_photo_url',
+        'phone',
+        'address'
+      ]
+    });
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -396,15 +407,57 @@ export const getUserInfo = async (req, res) => {
       user: {
         name: user.name,
         email: user.email,
-        address: user.address,
-        phone: user.phone,
-        avatar: user.avatar
+        address: user.address || "Adresse non renseignée",
+        phone: user.phone || "Numéro non renseigné",
+        avatar: user.profile_photo_url || DEFAULT_AVATAR
       }
     });
   } catch (error) {
+    console.error("Erreur lors de la récupération des informations:", error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des informations"
+    });
+  }
+};
+
+export const updateUserInfo = async (req, res) => {
+  try {
+    const { name, phone, address } = req.body;
+    
+    const user = await User.findOne({
+      where: { id: req.user.id }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    await user.update({
+      name: name || user.name,
+      phone: phone || user.phone,
+      address: address || user.address
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Informations mises à jour avec succès",
+      user: {
+        name: user.name,
+        email: user.email,
+        address: user.address || "Adresse non renseignée",
+        phone: user.phone || "Numéro non renseigné",
+        avatar: user.profile_photo_url || DEFAULT_AVATAR
+      }
+    });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour des informations"
     });
   }
 };
@@ -414,19 +467,31 @@ export const getPaymentStats = async (req, res) => {
     const stats = await Order.findAll({
       where: { userId: req.user.id },
       attributes: [
-        [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
-        [sequelize.fn('SUM', sequelize.literal("CASE WHEN status = 'pending' THEN 1 ELSE 0 END")), 'pending'],
-        [sequelize.fn('SUM', sequelize.literal("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")), 'completed']
-      ]
+        [sequelize.fn('COUNT', sequelize.col('*')), 'total'],
+        [
+          sequelize.fn('COUNT', 
+            sequelize.literal("CASE WHEN status = 'pending' THEN 1 END")
+          ),
+          'pending'
+        ],
+        [
+          sequelize.fn('COUNT', 
+            sequelize.literal("CASE WHEN status = 'completed' THEN 1 END")
+          ),
+          'completed'
+        ]
+      ],
+      raw: true
     });
 
     res.status(200).json({
       success: true,
-      total: stats[0].total || 0,
-      pending: stats[0].pending || 0,
-      completed: stats[0].completed || 0
+      total: parseInt(stats[0].total) || 0,
+      pending: parseInt(stats[0].pending) || 0,
+      completed: parseInt(stats[0].completed) || 0
     });
   } catch (error) {
+    console.error("Erreur lors de la récupération des statistiques:", error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des statistiques"
