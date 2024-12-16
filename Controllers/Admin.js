@@ -227,13 +227,70 @@ export const getAllUsers = async (req, res) => {
 
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    // Vérifier si l'utilisateur est un admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé"
+      });
     }
-    res.status(200).json({ success: true, data: user });
+
+    const userId = req.params.id;
+    const user = await User.findOne({
+      where: { id: userId },
+      attributes: [
+        'id',
+        'name',
+        'email',
+        'role',
+        'profile_photo_url',
+        'mobile',
+        'region',
+        'zip_code',
+        'is_blocked',
+        'email_verified',
+        'created_at',
+        'updated_at'
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    // Formater les données pour le frontend
+    const formattedUser = {
+      _id: user.id,
+      displayName: user.name,
+      name: user.name,
+      email: user.email,
+      mobile: user.mobile || null,
+      region: user.region || null,
+      zipCode: user.zip_code || null,
+      avatar: user.profile_photo_url,
+      status: user.is_blocked 
+        ? 'Bloqué' 
+        : (user.email_verified ? 'Vérifié' : 'Non vérifié'),
+      lastConnection: user.updated_at,
+      role: user.role,
+      createdAt: user.created_at
+    };
+
+    res.status(200).json({
+      success: true,
+      data: formattedUser
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Erreur lors de la récupération des détails utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des détails utilisateur',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
