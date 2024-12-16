@@ -45,13 +45,21 @@ const createTraining = async (req, res) => {
 // Récupérer une formation par ID
  const getTrainingById = async (req, res) => {
   try {
-    const training = await Training.findByPk(req.params.id);
+    const training = await Training.findByPk(req.params.id, {
+      include: [{
+        model: models.User,
+        as: 'trainer',
+        attributes: ['name', 'email']
+      }]
+    });
+    
     if (!training) {
       return res.status(404).json({
         success: false,
         message: "Formation non trouvée"
       });
     }
+    
     res.json(training);
   } catch (error) {
     console.error("Erreur lors de la récupération de la formation:", error);

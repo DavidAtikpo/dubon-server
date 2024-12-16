@@ -36,7 +36,7 @@ const models = {
   Seller: defineSeller(sequelize),
   Service: defineService(sequelize),
   Event: defineEvent(sequelize),
-  Training: Training(sequelize)
+  Training: Training
 };
 
 // Associations
@@ -110,6 +110,11 @@ models.Service.belongsTo(models.User, {
 models.Event.belongsTo(models.User, { 
   as: 'eventCreator', 
   foreignKey: 'organizerId' 
+});
+
+Training.belongsTo(models.User, {
+  foreignKey: 'userId',
+  as: 'trainer'
 });
 
 export { sequelize };
