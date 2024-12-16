@@ -13,10 +13,24 @@ const config = {
   database: {
     url: process.env.DATABASE_URL,
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+      keepAlive: true,
+    },
+    ssl: true,
     pool: {
       min: parseInt(process.env.DB_POOL_MIN || '0'),
       max: parseInt(process.env.DB_POOL_MAX || '10'),
-      idle: parseInt(process.env.DB_POOL_IDLE || '10000')
+      idle: parseInt(process.env.DB_POOL_IDLE || '10000'),
+      acquire: 30000
+    },
+    define: {
+      freezeTableName: true,
+      underscored: true,
     }
   },
 
@@ -79,6 +93,30 @@ const config = {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true
   }
+};
+
+// Configuration Sequelize avec SSL
+const sequelizeConfig = {
+  dialect: 'postgres',
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+    keepAlive: true,
+  },
+  ssl: true, // Ajout explicite du SSL au niveau supérieur
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+  logging: process.env.NODE_ENV === 'development',
+  define: {
+    freezeTableName: true,
+    underscored: true,
+  },
 };
 
 export default config; 
