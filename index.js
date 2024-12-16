@@ -49,6 +49,22 @@ const app = express();
 // Create HTTP server
 const server = http.createServer(app);
 
+// Initialiser le store de session PostgreSQL d'abord
+const { Pool } = pg;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    require: process.env.DB_SSL === 'true',
+    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
+  }
+});
+
+const SessionStore = pgSession(session);
+const sessionStore = new SessionStore({
+  pool,
+  createTableIfMissing: true
+});
+
 // Configurations principales
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
@@ -59,7 +75,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Configuration de la session
+// Configuration de la session APRÈS avoir initialisé sessionStore
 app.use(session({
   store: sessionStore,
   secret: process.env.JWT_SECRET,
@@ -97,22 +113,6 @@ const startServer = async () => {
 };
 
 startServer();
-
-// Initialiser le store de session PostgreSQL
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    require: process.env.DB_SSL === 'true',
-    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
-  }
-});
-
-const SessionStore = pgSession(session);
-const sessionStore = new SessionStore({
-  pool,
-  createTableIfMissing: true
-});
 
 // Routes
 app.get("/", (req, res) => {
