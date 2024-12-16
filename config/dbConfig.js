@@ -36,7 +36,7 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL, {
 const dbConnect = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✓ Connexion à la base de données établie');
+    console.log('✓ Connection to database has been established successfully.');
 
     // Importer les modèles
     const User = (await import('../models/User.js')).default(sequelize);
