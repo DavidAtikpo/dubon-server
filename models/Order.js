@@ -1,33 +1,51 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
 
+export default (sequelize) => {
+  const Order = sequelize.define('Order', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    customer: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      validate: {
+        hasRequiredFields(value) {
+          const required = ['firstname', 'lastname', 'email', 'phone', 'address', 'city'];
+          for (const field of required) {
+            if (!value[field]) {
+              throw new Error(`Le champ ${field} est requis`);
+            }
+          }
+        }
+      }
+    },
+    totalAmount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
+    },
+    paymentMethod: DataTypes.STRING,
+    paymentStatus: {
+      type: DataTypes.ENUM('pending', 'completed', 'failed'),
+      defaultValue: 'pending'
+    },
+    transactionId: DataTypes.STRING
+  }, {
+    timestamps: true
+  });
 
-const orderSchema = new mongoose.Schema({
-  customer: {
-    firstname: String,
-    lastname: String,
-    email: String,
-    phone: String,
-    address: String,
-    city: String
-  },
-  items: [{
-    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-    title: String,
-    quantity: Number,
-    price: Number
-  }],
-  totalAmount: Number,
-  paymentMethod: String,
-  paymentStatus: {
-    type: String,
-    enum: ['pending', 'completed', 'failed'],
-    default: 'pending'
-  },
-  transactionId: String,
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+  const OrderItem = sequelize.define('OrderItem', {
+    quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
+    },
+    title: DataTypes.STRING
+  });
 
-export default mongoose.model('Order', orderSchema);
+  return { Order, OrderItem };
+};

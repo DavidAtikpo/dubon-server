@@ -1,4 +1,4 @@
-import Training from "../models/Training.js";
+// import Training from "../models/Training.js";
 
 // Créer une nouvelle formation
 const createTraining = async (req, res) => {

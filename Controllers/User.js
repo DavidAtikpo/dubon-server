@@ -1,515 +1,377 @@
-import User from'../models/User.js';
-import generateToken from'../utils/generateToken.js';
-import generateRefreshToken from '../config/refreshToken.js';
-import nodemailer from'nodemailer';
-import asyncHandler from 'express-async-handler';
+import { models } from '../models/index.js';
+import generateToken from '../utils/generateToken.js';
+import bcrypt from 'bcrypt';
+import sendEmail from '../utils/emailSender.js';
 import crypto from 'crypto';
-import  sendEmail  from '../utils/emailSender.js'; 
-import { corsErrorHandler } from '../middleware/authMiddleware.js';
+import { Op } from 'sequelize';
+import { sequelize } from '../config/dbConfig.js';
 
+const { User } = models;
 
-
-const register = async (req, res) => {
-  const { name, email, password } = req.body;
-
+export const register = async (req, res) => {
   try {
-    console.log("Tentative d'inscription avec:", { name, email });
+    const { name, email, password } = req.body;
 
-    // Vérifier si l'email existe déjà
-    const userExists = await User.findOne({ email: email.toLowerCase().trim() });
-    
-    if (userExists) {
-      if (!userExists.emailVerified) {
-        try {
-          const verificationToken = crypto.randomBytes(32).toString('hex');
-          const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-          
-          userExists.emailVerificationToken = hashedToken;
-          userExists.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
-          await userExists.save();
-
-          // Configuration de l'email
-          const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
-          const mailOptions = {
-            from: process.env.EMAIL,
-            to: userExists.email,
-            subject: 'Vérification de votre compte Dubon Service',
-            html: `
-              <h1>Bienvenue sur Dubon Service !</h1>
-              <p>Un nouveau lien de vérification a été généré pour votre compte. Veuillez cliquer sur le lien ci-dessous pour activer votre compte :</p>
-              <a href="${verificationUrl}">Vérifier mon email</a>
-              <p>Ce lien expirera dans 24 heures.</p>
-            `
-          };
-
-          const emailResult = await sendEmail(mailOptions);
-          
-          if (!emailResult) {
-            console.log('L\'envoi d\'email a échoué, mais l\'inscription continue');
-            return res.status(201).json({
-              success: true,
-              message: "Inscription réussie ! L'envoi de l'email de vérification a échoué. Veuillez contacter le support.",
-              user: {
-                _id: userExists._id,
-                name: userExists.name,
-                email: userExists.email
-              }
-            });
-          }
-        } catch (emailError) {
-          console.error("Erreur d'envoi d'email:", emailError);
-        }
-
-        return res.status(400).json({ 
-          success: false,
-          message: "Un compte existe déjà avec cet email mais n'est pas vérifié. Veuillez vérifier votre email ou contacter le support."
-        });
-      }
-
+    // Validation
+    if (!name || !email || !password) {
       return res.status(400).json({ 
-        success: false,
-        message: "Un compte existe déjà avec cet email. Veuillez vous connecter."
+        success: false, 
+        message: "Tous les champs sont obligatoires" 
       });
     }
 
-    // Créer l'utilisateur
-    const user = await User.create({ 
-      name, 
-      email: email.toLowerCase().trim(), 
-      password 
+    // Vérifier si l'email existe déjà
+    const existingUser = await User.findOne({ 
+      where: { email: email.toLowerCase().trim() } 
     });
 
-    // Générer et sauvegarder le token de vérification
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Cet email est déjà utilisé" 
+      });
+    }
+
+    // Hasher le mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Générer le token de vérification
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-    
-    user.emailVerificationToken = hashedToken;
-    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
-    await user.save();
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
 
+    // Créer l'utilisateur
+    const user = await User.create({
+      name,
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      role: 'user',
+      email_verified: false,
+      email_verification_token: hashedToken,
+      email_verification_expires: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 heures
+    });
+
+    // Générer le token JWT
+    const token = generateToken(user.id);
+
+    // Préparer l'URL de vérification
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+
+    // Envoyer l'email de vérification
     try {
-      // Envoyer l'email de vérification
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
-      const mailOptions = {
-        from: process.env.EMAIL,
-        to: user.email,
-        subject: 'Vérification de votre compte Dubon Service',
-        html: `
-          <h1>Bienvenue sur Dubon Service !</h1>
-          <p>Merci de vous être inscrit. Pour activer votre compte, veuillez cliquer sur le lien ci-dessous :</p>
-          <a href="${verificationUrl}">Vérifier mon email</a>
-          <p>Ce lien expirera dans 24 heures.</p>
-        `
-      };
-
-      const emailResult = await sendEmail(mailOptions);
+      console.log('Préparation de l\'envoi de l\'email...');
+      console.log('URL de vérification:', verificationUrl);
       
-      if (!emailResult) {
-        console.log('L\'envoi d\'email a échoué, mais l\'inscription continue');
-        return res.status(201).json({
-          success: true,
-          message: "Inscription réussie ! L'envoi de l'email de vérification a échoué. Veuillez contacter le support.",
-          user: {
-            _id: user._id,
-            name: user.name,
-            email: user.email
-          }
-        });
-      }
+      await sendEmail({
+        to: user.email,
+        subject: 'Vérification de votre compte - Dubon Service',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #1D4ED8;">Bienvenue sur Dubon Service !</h1>
+            <p>Merci de vous être inscrit. Pour activer votre compte, veuillez cliquer sur le lien ci-dessous :</p>
+            <a href="${verificationUrl}" 
+               style="background-color: #1D4ED8; 
+                      color: white; 
+                      padding: 12px 24px; 
+                      text-decoration: none; 
+                      border-radius: 5px; 
+                      display: inline-block; 
+                      margin: 20px 0;">
+              Vérifier mon email
+            </a>
+            <p style="color: #666;">Ce lien expirera dans 24 heures.</p>
+            <p style="color: #666;">Si vous n'avez pas créé de compte, vous pouvez ignorer cet email.</p>
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #666;">Cordialement,<br>L'équipe Dubon Service</p>
+          </div>
+        `
+      });
+
+      console.log('Email envoyé avec succès à:', user.email);
 
       res.status(201).json({
         success: true,
-        message: "Inscription réussie ! Veuillez vérifier votre email pour activer votre compte.",
+        message: "Inscription réussie ! Veuillez vérifier votre email.",
+        token,
         user: {
-          _id: user._id,
+          id: user.id,
           name: user.name,
-          email: user.email
+          email: user.email,
+          role: user.role,
+          email_verified: false
         }
       });
 
     } catch (emailError) {
-      console.error("Erreur d'envoi d'email:", emailError);
+      console.error('Détails de l\'erreur d\'envoi d\'email:', {
+        error: emailError.message,
+        stack: emailError.stack,
+        code: emailError.code
+      });
+      
+      // L'utilisateur est créé mais l'email n'a pas été envoyé
+      res.status(201).json({
+        success: true,
+        message: "Inscription réussie mais l'envoi de l'email a échoué. Contactez le support.",
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          email_verified: false
+        }
+      });
     }
 
   } catch (error) {
     console.error("Erreur lors de l'inscription:", error);
-    res.status(500).json({
-      success: false,
-      message: "Une erreur est survenue lors de l'inscription.",
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors de l'inscription",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-
-// email verification
-export const verifyEmail = async (req, res) => {
+export const login = async (req, res) => {
   try {
-    const token  = req.params.token;
-  
-    
+    const { email, password } = req.body;
 
-    if (typeof token !== 'string') {
-      return res.status(400).json({ message: 'Format de jeton non valide' });
-    }
-    // Hachez le token pour le comparer avec celui de la base de données
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-  
-
-    // Trouvez un utilisateur avec le token correspondant et vérifiez qu'il n'a pas expiré
-    const user = await User.findOne({
-      emailVerificationToken: hashedToken,
-      emailVerificationExpires: { $gt: Date.now() },
+    const user = await User.findOne({ 
+      where: { email: email.toLowerCase().trim() } 
     });
-    
+
     if (!user) {
-      // Supprime l'utilisateur si le token est invalide ou expiré
-      await User.deleteOne({ emailVerificationToken: hashedToken });
-      return res.status(400).json({ message: 'Token invalide ou expiré. Utilisateur supprimé.' });
-    }
-
-    // Marquez l'e-mail comme vérifié
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-
-    await user.save();
-
-    res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
-  } catch (error) {
-    console.error('Error during email verification:', error);
-    res.status(500).json({ message: 'An error occurred during email verification.' });
-  }
-};
-
-
-
-// login User
-
-const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  
-  console.log("Email reçu:", email);
-
-  try {
-    // Lister tous les utilisateurs pour debug
-    const allUsers = await User.find({}, 'email');
-    console.log("Liste de tous les emails dans la base:", allUsers.map(u => u.email));
-
-    const normalizedEmail = email.toLowerCase().trim();
-    console.log("Email normalisé:", normalizedEmail);
-
-    const user = await User.findOne({ email: normalizedEmail });
-    console.log("Recherche utilisateur avec email:", normalizedEmail);
-    console.log("Utilisateur trouvé:", user);
-    
-    if (!user) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "Aucun compte trouvé avec cet email. Veuillez créer un compte pour continuer."
+        message: "Email ou mot de passe incorrect"
       });
     }
 
-    // Vérifier si l'email est vérifié
-    if (!user.emailVerified) {
-      return res.status(400).json({
-        success: false,
-        message: "Veuillez vérifier votre email avant de vous connecter"
-      });
-    }
+    // Comparer les mots de passe
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    // Vérifier le mot de passe
-    const isPasswordValid = await user.isPasswordMatched(password);
-    console.log("Validation mot de passe:", isPasswordValid);
-    
     if (!isPasswordValid) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: "Mot de passe incorrect"
+        message: "Email ou mot de passe incorrect"
       });
     }
 
-    // Générer le token
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
-    // Envoyer la réponse
     res.status(200).json({
       success: true,
       token,
       user: {
-        _id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        emailVerified: user.emailVerified
+        role: user.role
       }
     });
-
   } catch (error) {
-    console.error("Erreur détaillée de connexion:", error);
+    console.error("Erreur de connexion:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur interne du serveur",
-      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Une erreur est survenue lors de la connexion"
     });
   }
-});
+};
 
-  // User Logout
-
-  const logout = asyncHandler(async(req,res)=>{
-    const cookie = req.user;
-    if(!cookie?.refreshToken) throw new Error("no Refresh Token in cookies")
-    const refreshToken= cookie.refreshToken;
-  const user = await User.findOne({refreshToken});
-  if(!user){
-  res.clearCookie("refreshToken",{
-    httpOnly:true,
-    secure:true,
-  })
-  res.sendStatus(204);
-}
-await User.findOneAndUpdate({refreshToken},{
-  refreshToken:"",
-});
-res.clearCookie("refreshToken",{
-  httpOnly:true,
-  secure:true,
-});
-res.json("logout successfully")
-  });
-
-
-// Update password
-
-const updatePassword= asyncHandler(async(req,res)=>{
-    const {_id}= req.user;
-    const {password}= req.body;
-    validateMongoDbId(_id);
-    const user = await User.findById(_id);
-    if(password){
-      user.password = password;
-      const updatePassword= await user.save();
-      res.json(updatePassword);
-    }else{
-      res.json(user)
-    }
-  });
-
-
-
-
-  // forgot password
-
-  const forgotPassword = async (req, res) => {
-    const { email } = req.body;
-  
-    try {
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(400).json({ success: false, message: 'Utilisateur non trouvé.' });
-      }
-  
-      //  code de vérification à 4 chiffres
-      const verificationCode = Math.floor(100000 + Math.random() * 9000);
-      user.verificationCode = verificationCode;
-      user.verificationCodeExpires = Date.now() + 3600000;
-  
-      await user.save();
-  
-      //  code de vérification par email
-      const transporter = nodemailer.createTransport({
-        service: 'Gmail',
-        auth: {
-          user: process.env.EMAIL, 
-          pass: process.env.PASSWORD
-        }
-      });
-  
-      const mailOptions = {
-        to: user.email,
-        from: process.env.EMAIL,
-        subject: 'Code de vérification pour réinitialisation du mot de passe',
-        text: `Votre code de vérification pour la réinitialisation du mot de passe est : ${verificationCode}. Ce code est valable pendant 1 heure.`
-      };
-  
-      transporter.sendMail(mailOptions, (err) => {
-        if (err) {
-          console.error('Erreur lors de l\'envoi de l\'e-mail:', err);
-          return res.status(500).json({ success: false, message: 'Erreur lors de l\'envoi de l\'e-mail.' });
-        }
-        res.json({ success: true, message: 'E-mail avec le code de vérification envoyé avec succès.' });
-      });
-  
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: 'Une erreur est survenue.' });
-    }
-  };
-
-
-  //Reset password
-
-  const resetPassword = asyncHandler(async(req,res)=>{
-    const {password}= req.body;
-    const {token} = req.params;
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-    const user = await User.findOne({
-      passwordResetToken:hashedToken,
-      passwordResetExpires:{$gt:Date.now()},
-    });
-    if(!user) throw new Error("Token Expired Please try again later")
-    user.password.password;
-  user.passwordResetToken= undefined;
-  user.passwordResetExpires= undefined;
-  await user.save();
-  res.json(user);
-  })
-
-
-
-
-
-  // Code de verification
- 
-const verifyCode = async (req, res) => {
-    const { email, code } = req.body;
-    try {
-      const user = await User.findOne({ email });
-      console.log(user);
-      if (!user) {
-        return res.status(400).json({ success: false, message: 'Utilisateur non trouvé.' });
-      }
-  
-      // Vérification du  code  correct et s'il n'a pas expiré
-      if (user.verificationCode !== parseInt(code) || user.verificationCodeExpires < Date.now()) {
-        return res.status(400).json({ success: false, message: 'Code de vérification invalide ou expiré.' });
-      }
-  
-      // Si le code est correct, autoriser l'utilisateur à réinitialiser son mot de passe
-      res.json({ success: true, message: 'Code vérifié avec succès. Vous pouvez maintenant réinitialiser votre mot de passe.' });
-  
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: 'Une erreur est survenue.' });
-    }
-  };
-  
-
-
-  // User Upload profile image
-
-const uploadProfile = async (req, res) => {
-    try {
-        const { userId } = req.user._id;
-        const { profilePhotoURL } = req.body;
-        console.log("user", userId, profilePhotoURL);
-        const user = await User.findByIdAndUpdate(userId, { profilePhotoURL }, { new: true });
-  
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-  
-        res.status(200).json({ message: 'Profile photo URL updated successfully', user });
-    } catch (error) {
-        console.error('Error updating profile photo URL:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-  };
-
-   // Blocked the user by id
-   const blockUser = asyncHandler(async(req,res)=>{
-    const {id}= req.params;
-    validateMongoDbId(id);
-    try {
-      const block= await User.findByIdAndUpdate(id,
-        {
-        isBlocked:true,
-      },
-      {
-        new:true,
-      });
-      res.json({message:"user Blocked"})
-    } catch (error) {
-      throw new Error(error)
-    }
-    })
-
-// unblock user
-  const unblockUser = asyncHandler(async(req,res)=>{
-    const {id}= req.params;
-    validateMongoDbId(id);
-    try {
-      const unblock= await User.findByIdAndUpdate(id,
-        {
-        isBlocked:false,
-      },
-      {
-        new:true,
-      })
-      res.json({message:"user Unblocked"});
-    } catch (error) {
-      throw new Error(error)
-    }
-  });
-
-
-// delete User
-const deleteUserById = asyncHandler(async(req,res)=>{
-  const {id}= req.params;
-  validateMongoDbId(id);
+export const logout = async (req, res) => {
   try {
-  const getUser = await User.findByIdAndDelete(id)
-  if(getUser){
-  res.json({message:"delete successfully"})
-  }else{
-    res.json({message:"User not found"})
-  }
+    const { userId } = req;
+
+    // Supprimer le refresh token
+    await User.update(
+      { refresh_token: null },
+      { where: { id: userId } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Déconnexion réussie"
+    });
+
   } catch (error) {
-    throw new Error(error)
+    console.error("Erreur de déconnexion:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la déconnexion",
+      error: error.message
+    });
   }
-  });
+};
 
-  //handle refresh token
-  const handleRefreshToken = asyncHandler(async(req,res)=>{
-    const cookie = req.cookies;
-    if(!cookie?.refreshToken) throw new Error("no Refresh Token in cookies")
-    const refreshToken= cookie.refreshToken;
-  const user = await User.findOne({refreshToken});
-  if(!user)throw new Error("no Refresh Token present in the db or not match")
-  jwt.verify(refreshToken,process.env.JWT_SECRET,(err, decoded)=>{
-    if(err || user.id !== decoded.id){
-      throw new Error("there is somethig wrong with refresh token")
-    };
-    const accessToken = generateToken(user?.id);
-    res.json({accessToken});
-});
+export const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+    console.log("\n=== VÉRIFICATION EMAIL ===");
+    console.log("Token reçu:", token);
 
-  });
+    // Hasher le token reçu
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
 
-  // user info 
- const userInfo = async (req, res) => {
-   console.log('user:', userInfo);
-    try {
-      const user = await User.findById(req.params.id);
-      
-      if (!user) {
-        return res.status(404).json({ message: "Utilisateur non trouvé" });
+    console.log("Token hashé:", hashedToken);
+
+    // Trouver l'utilisateur avec ce token
+    const user = await User.findOne({
+      where: {
+        email_verification_token: hashedToken,
+        email_verified: false,
+        email_verification_expires: {
+          [Op.gt]: new Date()
+        }
       }
-      res.json(user);
-    } catch (error) {
-      console.error("Erreur lors de la récupération de l'utilisateur:", error);
-      res.status(500).json({ message: "Erreur interne du serveur" });
-    }
-  };
+    });
 
-  export default { 
-    userInfo,
-    deleteUserById,
-    handleRefreshToken, blockUser,
-    unblockUser,register,
-    login,logout,
-    forgotPassword,
-    verifyCode,resetPassword,
-    updatePassword,uploadProfile,
-    verifyEmail}
+    console.log("Utilisateur trouvé:", user ? "Oui" : "Non");
+
+    if (!user) {
+      console.log("Token invalide ou expiré");
+      return res.status(400).json({
+        success: false,
+        message: "Le lien de vérification est invalide ou a expiré"
+      });
+    }
+
+    // Mettre à jour l'utilisateur
+    await user.update({
+      email_verified: true,
+      email_verification_token: null,
+      email_verification_expires: null
+    });
+
+    console.log("Email vérifié avec succès");
+
+    res.status(200).json({
+      success: true,
+      message: "Email vérifié avec succès"
+    });
+
+  } catch (error) {
+    console.error("Erreur lors de la vérification:", error);
+    res.status(500).json({
+      success: false,
+      message: "Une erreur est survenue lors de la vérification",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    // ... code de mot de passe oublié
+  } catch (error) {
+    // ... gestion des erreurs
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    // ... code de réinitialisation de mot de passe
+  } catch (error) {
+    // ... gestion des erreurs
+  }
+};
+
+export const updatePassword = async (req, res) => {
+  try {
+    // ... code de mise à jour de mot de passe
+  } catch (error) {
+    // ... gestion des erreurs
+  }
+};
+
+export const userInfo = async (req, res) => {
+  try {
+    // ... code d'info utilisateur
+  } catch (error) {
+    // ... gestion des erreurs
+  }
+};
+
+// Ajouter aussi la fonction pour renvoyer un email de vérification
+export const resendVerificationEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    console.log("\n=== RENVOI EMAIL DE VÉRIFICATION ===");
+    console.log("Email:", email);
+
+    const user = await User.findOne({
+      where: { 
+        email: email.toLowerCase().trim(),
+        email_verified: false
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Utilisateur non trouvé ou déjà vérifié"
+      });
+    }
+
+    // Générer un nouveau token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+
+    // Mettre à jour l'utilisateur
+    await user.update({
+      email_verification_token: hashedToken,
+      email_verification_expires: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
+
+    // Envoyer l'email
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+    await sendEmail({
+      to: user.email,
+      subject: 'Nouveau lien de vérification - Dubon Service',
+      html: `
+        <h1>Nouveau lien de vérification</h1>
+        <p>Cliquez sur le lien ci-dessous pour vérifier votre email :</p>
+        <a href="${verificationUrl}">Vérifier mon email</a>
+        <p>Ce lien expirera dans 24 heures.</p>
+      `
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Nouvel email de vérification envoyé"
+    });
+
+  } catch (error) {
+    console.error("Erreur lors du renvoi:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'envoi du nouvel email",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Grouper tous les exports
+const userController = {
+  register,
+  login,
+  logout,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
+  updatePassword,
+  userInfo,
+  resendVerificationEmail
+};
+
+export default userController;

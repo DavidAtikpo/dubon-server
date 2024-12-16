@@ -4,31 +4,81 @@ dotenv.config();
 
 const config = {
   // Server Configuration
-  PORT: process.env.PORT || 5000,
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  
+  server: {
+    port: process.env.PORT || 5000,
+    env: process.env.NODE_ENV || 'development'
+  },
+
   // Database Configuration
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/dubon',
-  
+  database: {
+    url: process.env.DATABASE_URL,
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    pool: {
+      min: parseInt(process.env.DB_POOL_MIN || '0'),
+      max: parseInt(process.env.DB_POOL_MAX || '10'),
+      idle: parseInt(process.env.DB_POOL_IDLE || '10000')
+    }
+  },
+
   // JWT Configuration
-  JWT_SECRET: process.env.JWT_SECRET || 'your-default-secret-key',
-  JWT_EXPIRE: process.env.JWT_EXPIRE || '7d',
-  
+  jwt: {
+    secret: process.env.JWT_SECRET,
+    expire: process.env.JWT_EXPIRE || '7d'
+  },
+
   // Email Configuration
-  EMAIL_HOST: process.env.EMAIL_HOST,
-  EMAIL_PORT: process.env.EMAIL_PORT,
-  EMAIL_USER: process.env.EMAIL_USER,
-  EMAIL_PASS: process.env.EMAIL_PASS,
-  
-  // FedaPay Configuration
-  FEDAPAY_PUBLIC_KEY: process.env.FEDAPAY_PUBLIC_KEY,
-  FEDAPAY_SECRET_KEY: process.env.FEDAPAY_SECRET_KEY,
-  FEDAPAY_SANDBOX: process.env.FEDAPAY_SANDBOX === 'true',
-  
-  // Cors Configuration
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ? 
-    process.env.ALLOWED_ORIGINS.split(',') : 
-    ['http://localhost:3000']
+  email: {
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD
+  },
+
+  // Payment Configuration
+  payment: {
+    fedapay: {
+      publicKey: process.env.FEDAPAY_PUBLIC_KEY,
+      secretKey: process.env.FEDAPAY_SECRET_KEY,
+      sandbox: process.env.NODE_ENV !== 'production'
+    },
+    momo: {
+      apiKey: process.env.MOMO_API_KEY,
+      userId: process.env.MOMO_API_USER_ID,
+      baseUrl: process.env.MOMO_API_BASE_URL
+    },
+    paypal: {
+      clientId: process.env.PAYPAL_CLIENT_ID,
+      clientSecret: process.env.PAYPAL_CLIENT_SECRET,
+      mode: process.env.PAYPAL_MODE || 'sandbox'
+    }
+  },
+
+  // Upload Configuration
+  upload: {
+    path: process.env.UPLOAD_PATH || 'uploads',
+    maxSize: parseInt(process.env.MAX_FILE_SIZE || '50000000')
+  },
+
+  // Frontend URL
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+
+  // OAuth Configuration
+  oauth: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+    },
+    facebook: {
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET
+    }
+  },
+
+  // CORS Configuration
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true
+  }
 };
 
 export default config; 

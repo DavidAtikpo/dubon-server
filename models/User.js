@@ -1,105 +1,74 @@
-import mongoose from "mongoose";
-import bcrypt from "bcrypt"
-import crypto from "crypto"
+import { DataTypes } from 'sequelize';
 
-// Declare the Schema of the Mongo model
-const userSchema = new mongoose.Schema({
-
-  name: {
-    type: String,
-    required: true,
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true,
-    lowercase: true,
-    index: true,
-    validate: {
-      validator: function(v) {
-        return /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(v);
-      },
-      message: props => `${props.value} n'est pas un email valide!`
+export default (sequelize) => {
+  const User = sequelize.define('User', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: true
+      }
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.ENUM('user', 'seller', 'admin', 'superAdmin'),
+      defaultValue: 'user'
+    },
+    is_trial_active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    trial_end_date: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    subscription_paid: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    is_blocked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    profile_photo_url: {
+      type: DataTypes.STRING,
+      defaultValue: '/default-user-profile-svgrepo-com (1).svg'
+    },
+    email_verified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    email_verification_token: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    email_verification_expires: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    refresh_token: {
+      type: DataTypes.STRING,
+      allowNull: true
     }
-  },
-  // mobile: {
-  //   type: String,
-  //   required: [true, 'Mobile number is required'],
-  //   unique: true,
-  //   sparse: true 
-  // },
-  password: {
-    type: String,
-    required: true,
-  },
-  role: 
-  { type: String, 
-    enum: ["user", "seller", "superAdmin", "admin", "deliveryPerson"], 
-    default: "user" 
-},
-  isTrialActive: { 
-    type: Boolean, 
-    default: false 
-},
-  trialEndDate: { 
-    type: Date, 
-    default: null 
-},
-  subscriptionPaid: { 
-    type: Boolean, 
-    default: false 
-},
-  isBlocked:{
-    type:Boolean,
-    default:false
-  },
-  profilePhotoURL: {
-    type: String, 
-    default: '/default-user-profile-svgrepo-com (1).svg' // URL par défaut si l'utilisateur n'a pas de photo de profil
-  },
-  refreshToken:{
- type:String
-  },
-  passwordChangeAt:Date,
-  verificationCode:Number,
-  verificationCodeExpires:Date,
+  }, {
+    timestamps: true,
+    underscored: true,
+    tableName: 'users',
+    freezeTableName: true
+  });
 
-  emailVerified: { type: Boolean, default: false },
-  emailVerificationToken: String,
-  emailVerificationExpires: Date,
-  
-},
-{
-  timestamps:true
-}
-);
-
-userSchema.pre("save", async function(next){
-  if(!this.isModified("password")){
-    next();
-  }
-  const salt = bcrypt.genSaltSync(10);
-  this.password = await bcrypt.hash(this.password, salt)
-});
-userSchema.methods.isPasswordMatched = async function(enteredPassword){
-  return await bcrypt.compare(enteredPassword,this.password)
+  return User;
 };
-userSchema.methods.createPasswordResetToken= async function() {
-  const resettoken =crypto.randomBytes(32).toString("hex");
-  this.passwordResetToken = crypto.createHash("sha256").update(resettoken).digest("hex");
-  this.passwordResetExpires = Date.now() + 30*60*1000; //10 minutes
-  return resettoken
-}
-userSchema.pre('save', function(next) {
-  if (this.isModified('email')) {
-    this.email = this.email.toLowerCase().trim();
-  }
-  next();
-});
-userSchema.methods.comparePassword = async function(enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
-};
-const User = mongoose.models.User || mongoose.model("User", userSchema);
-
-export default User;

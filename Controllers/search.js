@@ -2,7 +2,7 @@ import express from "express";
 // import router = express.Router();
 import Product from "../models/Products.js";
 import Event from "../models/Event.js";
-import Training from "../models/Training.js";
+// import Training from "../models/Training.js";
 
 // Route de recherche
 

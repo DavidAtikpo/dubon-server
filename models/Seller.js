@@ -1,137 +1,55 @@
-import mongoose from "mongoose";
+import { DataTypes } from 'sequelize';
 
-const productSchema = new mongoose.Schema({
-  sellerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Seller',
-    required: true
-  },
-  name: String,
-  description: String,
-  price: Number,
-  images: [String],
-  category: String,
-  stock: Number,
-  paymentMethods: [{
-    type: String,
-    enum: ['mobile_money', 'card', 'bank_transfer', 'fedapay']
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-const sellerSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true
-  },
-  type: {
-    type: String,
-    enum: ['individual', 'company'],
-    required: true
-  },
-  personalInfo: {
-    fullName: String,
-    email: String,
-    phone: String,
-    address: String,
-    companyName: String,
-    idNumber: String,
-    taxNumber: String,
-    legalRepName: String,
-    rccmNumber: String
-  },
-  documents: {
-    idCard: String,
-    proofOfAddress: String,
-    taxCertificate: String,
-    photos: [String],
-    rccm: String,
-    companyStatutes: String
-  },
-  contract: {
-    signed: Boolean,
-    signedDocument: String
-  },
-  videoVerification: {
-    completed: Boolean,
-    recordingUrl: String
-  },
-  businessInfo: {
-    category: String,
-    description: String,
-    products: [{
-      name: String,
-      description: String,
-      price: Number,
-      images: [String]
-    }],
-    bankDetails: {
-      type: {
-        type: String,
-        enum: ['bank', 'mobile']
-      },
-      accountNumber: String,
-      bankName: String
+export default (sequelize) => {
+  const Seller = sequelize.define('Seller', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
     },
-    returnPolicy: String
-  },
-  compliance: {
-    termsAccepted: Boolean,
-    qualityStandardsAccepted: Boolean,
-    antiCounterfeitingAccepted: Boolean
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
-  },
-  validation: {
+    type: {
+      type: DataTypes.ENUM('individual', 'company'),
+      allowNull: false
+    },
+    personalInfo: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      validate: {
+        hasRequiredFields(value) {
+          const required = ['fullName', 'email', 'phone', 'address'];
+          for (const field of required) {
+            if (!value[field]) {
+              throw new Error(`${field} est requis`);
+            }
+          }
+        }
+      }
+    },
+    documents: {
+      type: DataTypes.JSONB,
+      allowNull: false
+    },
+    businessInfo: {
+      type: DataTypes.JSONB,
+      allowNull: false
+    },
     status: {
-      type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
+      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+      defaultValue: 'pending'
     },
-    message: String,
-    approvedAt: Date,
-    approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+    validation: {
+      type: DataTypes.JSONB,
+      defaultValue: {
+        status: 'pending',
+        message: null,
+        approvedAt: null,
+        approvedBy: null
+      }
     }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-  subscription: {
-    plan: {
-      type: String,
-      enum: ['trial', 'monthly', 'yearly', 'premium'],
-      default: 'trial'
-    },
-    startDate: Date,
-    endDate: Date,
-    status: {
-      type: String,
-      enum: ['active', 'expired', 'cancelled'],
-      default: 'active'
-    }
-  }
-});
+  }, {
+    timestamps: true
+  });
 
-// Middleware pour mettre à jour updatedAt avant chaque sauvegarde
-sellerSchema.pre('save', function(next) {
-  this.updatedAt = new Date();
-  next();
-});
-
-export default mongoose.model('Seller', sellerSchema);
+  return Seller;
+};
   

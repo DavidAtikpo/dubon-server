@@ -1,80 +1,77 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
 
-const eventSchema = new mongoose.Schema(
-  {
+export default (sequelize) => {
+  const Event = sequelize.define('Event', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
     title: {
-      type: String,
-      required: true,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false
     },
     description: {
-      type: String,
-      required: true,
+      type: DataTypes.TEXT,
+      allowNull: false
     },
     date: {
-      type: Date,
-      required: true,
+      type: DataTypes.DATE,
+      allowNull: false
     },
     time: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false
     },
     location: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false
     },
     country: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false
     },
     continent: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false
     },
     price: {
-      type: Number,
-      required: true,
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
     },
     media: {
-      type: [String], // Chemins des fichiers ou URLs
-      default: [],
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
     },
     isLive: {
-      type: Boolean,
-      default: false, // Indique si l'événement est diffusé en direct
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
     },
-    liveStreamLink: {
-      type: String, // URL pour suivre l'événement en direct
-      default: "",
-    },
+    liveStreamLink: DataTypes.STRING,
     organizer: {
-      type: String,
-      required: true, // Nom de l'organisateur
+      type: DataTypes.STRING,
+      allowNull: false
     },
     maxAttendees: {
-      type: Number, // Capacité maximale d'inscription
-      default: 0,
+      type: DataTypes.INTEGER,
+      defaultValue: 0
     },
     attendees: {
-      type: [String], // Liste des utilisateurs inscrits (emails ou IDs)
-      default: [],
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
     },
     tags: {
-      type: [String], // Étiquettes pour le filtrage
-      default: [],
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
     },
     status: {
-      type: String,
-      enum: ["upcoming", "ongoing", "completed"], // État de l'événement
-      default: "upcoming",
-    },
-  },
-  {
-    timestamps: true, // Ajoute createdAt et updatedAt
-  }
-);
+      type: DataTypes.ENUM('upcoming', 'ongoing', 'completed'),
+      defaultValue: 'upcoming'
+    }
+  }, {
+    timestamps: true
+  });
 
-const Event = mongoose.model("Event", eventSchema);
-
-export default Event;
+  return Event;
+};
 

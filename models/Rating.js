@@ -1,35 +1,41 @@
 // models/Rating.js
 
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
 
-const ratingSchema = new mongoose.Schema({
-    productId: { 
-     type: mongoose.Schema.Types.ObjectId,
-     ref: 'Product', 
-     required: true
-     },
-    userId: {
-     type: mongoose.Schema.Types.ObjectId,
-     ref: 'User', 
-     required: true 
+export default (sequelize) => {
+  const Rating = sequelize.define('Rating', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
     },
-    productRating: { type: Number, 
-     required: true 
+    productRating: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        min: 1,
+        max: 5
+      }
     },
     productComment: {
-     type: String, 
-     required: true 
+      type: DataTypes.TEXT,
+      allowNull: false
     },
     deliveryRating: {
-     type: Number, 
-     required: true 
-    },  // Note de livraison
-    deliveryComment: { 
-     type: String, 
-     required: true 
-    }, // Commentaire de livraison
-  }, { timestamps: true });
-  
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        min: 1,
+        max: 5
+      }
+    },
+    deliveryComment: {
+      type: DataTypes.TEXT,
+      allowNull: false
+    }
+  }, {
+    timestamps: true
+  });
 
-// Exporter le modèle
-export default mongoose.model('Rating', ratingSchema);
+  return Rating;
+};

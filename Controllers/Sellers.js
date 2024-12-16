@@ -1,9 +1,5 @@
-import User from "../models/User.js";
-import Seller from "../models/Seller.js";
-import path from "path";
-import fs from "fs";
-import { v4 as uuidv4 } from "uuid";
-import Product from "../models/Product.js";
+import { models } from '../models/index.js';
+const { Product, User, Seller } = models;
 
 // Fonction utilitaire pour uploader des fichiers
 const uploadFile = async (file, fileType) => {
@@ -337,41 +333,63 @@ export const getSellerData = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   try {
-    const sellerId = req.user._id;
-    const seller = await Seller.findOne({ userId: sellerId });
+    console.log('=== DÉBUT CRÉATION PRODUIT ===');
     
-    if (!seller) {
-      return res.status(404).json({
-        success: false,
-        message: "Vendeur non trouvé"
-      });
-    }
+    const sellerId = req.user.id;
+    console.log('SellerId:', sellerId);
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
 
-    // Gérer les images uploadées
-    const images = [];
-    if (req.files?.images) {
-      images.push(...req.files.images.map(file => file.path));
-    }
-    
-    // Ajouter les URLs d'images si fournies
-    if (req.body.images) {
-      const urlImages = JSON.parse(req.body.images);
-      images.push(...urlImages);
-    }
-
+    // Préparer les données de base du produit
     const productData = {
-      sellerId: seller._id,
-      name: req.body.name,
-      description: req.body.description,
-      price: parseFloat(req.body.price),
-      stock: parseInt(req.body.stock),
-      images: images,
-      category: req.body.category || 'uncategorized',
-      createdAt: new Date()
+      name: req.body.name?.trim(),
+      description: req.body.description?.trim(),
+      price: Number(req.body.price),
+      stock: Number(req.body.stock) || 0,
+      category: req.body.category,
+      subCategory: req.body.subCategory?.trim() || '',
+      sellerId: sellerId,
+      status: 'active',
+      images: []
     };
 
-    const product = new Product(productData);
-    await product.save();
+    // Ajouter les images
+    if (req.files?.images) {
+      productData.images = req.files.images.map(file => 
+        `/products/${file.filename}`
+      );
+    }
+
+    // Ajouter les métadonnées
+    if (req.body.metadata) {
+      try {
+        productData.metadata = JSON.parse(req.body.metadata);
+      } catch (error) {
+        console.warn('Erreur parsing metadata:', error);
+      }
+    }
+
+    // Gérer la réduction
+    if (req.body.discount) {
+      try {
+        const discountData = JSON.parse(req.body.discount);
+        productData.discountPercentage = Number(discountData.percentage);
+        productData.discountStartDate = new Date(discountData.startDate);
+        productData.discountEndDate = new Date(discountData.endDate);
+      } catch (error) {
+        console.warn('Erreur parsing discount:', error);
+        return res.status(400).json({
+          success: false,
+          message: "Format de réduction invalide",
+          error: error.message
+        });
+      }
+    }
+
+    console.log('Final product data:', JSON.stringify(productData, null, 2));
+
+    // Créer le produit
+    const product = await Product.create(productData);
 
     res.status(201).json({
       success: true,
@@ -380,29 +398,36 @@ export const createProduct = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur lors de la création du produit:', error);
+    console.error('=== ERREUR CRÉATION PRODUIT ===');
+    console.error('Type:', error.constructor.name);
+    console.error('Message:', error.message);
+    
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Erreur de validation",
+        errors: error.errors.map(err => err.message)
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Erreur lors de la création du produit",
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
 export const getSellerProducts = async (req, res) => {
   try {
-    const sellerId = req.user._id;
-    const seller = await Seller.findOne({ userId: sellerId });
-    
-    if (!seller) {
-      return res.status(404).json({
-        success: false,
-        message: "Vendeur non trouvé"
-      });
-    }
+    const sellerId = req.user.id;
+    console.log('Fetching products for seller:', sellerId);
 
-    const products = await Product.find({ sellerId: seller._id })
-      .sort({ createdAt: -1 });
+    const products = await Product.findAll({
+      where: { sellerId },
+      order: [['createdAt', 'DESC']],
+      attributes: ['id', 'name', 'description', 'price', 'category', 'images', 'stock', 'status']
+    });
 
     res.status(200).json({
       success: true,
@@ -413,7 +438,221 @@ export const getSellerProducts = async (req, res) => {
     console.error('Erreur lors de la récupération des produits:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des produits"
+      message: "Erreur lors de la récupération des produits",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    const sellerId = req.user._id;
+    
+    // Trouver le vendeur
+    const seller = await Seller.findOne({ userId: sellerId });
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendeur non trouvé"
+      });
+    }
+
+    // Obtenir les produits du vendeur
+    const products = await Product.find({ sellerId: seller._id })
+      .select('name price stock status')
+      .sort('-createdAt')
+      .limit(5);
+
+    // Obtenir les statistiques de vente
+    const stats = await Order.aggregate([
+      { $match: { sellerId: seller._id } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$total" },
+          totalOrders: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Obtenir les ventes par produit
+    const salesByProduct = await Order.aggregate([
+      { $match: { sellerId: seller._id } },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productId",
+          totalSales: { $sum: "$items.quantity" },
+          totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
+        }
+      },
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // Enrichir les données de vente avec les infos produits
+    const productIds = salesByProduct.map(sale => sale._id);
+    const productDetails = await Product.find({ _id: { $in: productIds } });
+    const productMap = Object.fromEntries(
+      productDetails.map(p => [p._id.toString(), p])
+    );
+
+    const topProducts = salesByProduct.map(sale => ({
+      id: sale._id,
+      name: productMap[sale._id.toString()]?.name || 'Produit inconnu',
+      totalSales: sale.totalSales,
+      totalRevenue: sale.totalRevenue
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        stats: stats[0] || { totalRevenue: 0, totalOrders: 0 },
+        recentProducts: products,
+        topProducts: topProducts,
+        salesChart: {
+          labels: salesByProduct.map(p => productMap[p._id.toString()]?.name || 'Inconnu'),
+          values: salesByProduct.map(p => p.totalRevenue)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur stats dashboard:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques"
+    });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const sellerId = req.user._id;
+    
+    const seller = await Seller.findOne({ userId: sellerId });
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendeur non trouvé"
+      });
+    }
+
+    const product = await Product.findOne({ 
+      _id: productId,
+      sellerId: seller._id 
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Produit non trouvé"
+      });
+    }
+
+    await Product.deleteOne({ _id: productId });
+
+    res.status(200).json({
+      success: true,
+      message: "Produit supprimé avec succès"
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la suppression du produit:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la suppression du produit"
+    });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const sellerId = req.user._id;
+    const updates = req.body;
+    
+    const seller = await Seller.findOne({ userId: sellerId });
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendeur non trouvé"
+      });
+    }
+
+    const product = await Product.findOneAndUpdate(
+      { _id: productId, sellerId: seller._id },
+      updates,
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Produit non trouvé"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Produit mis à jour avec succès",
+      data: product
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du produit:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour du produit"
+    });
+  }
+};
+
+export const getSellerOrders = async (req, res) => {
+  try {
+    const sellerId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10;
+    const skip = (page - 1) * limit;
+    
+    const seller = await Seller.findOne({ userId: sellerId });
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendeur non trouvé"
+      });
+    }
+
+    const orders = await Order.find({ sellerId: seller._id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('customerId', 'name email');
+
+    const total = await Order.countDocuments({ sellerId: seller._id });
+
+    res.json({
+      success: true,
+      data: {
+        orders: orders.map(order => ({
+          id: order._id,
+          orderNumber: order.orderNumber,
+          customer: order.customerId?.name || 'Client anonyme',
+          date: order.createdAt,
+          total: order.total,
+          status: order.status
+        })),
+        totalPages: Math.ceil(total / limit),
+        currentPage: page
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la récupération des commandes:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des commandes"
     });
   }
 };

@@ -1,72 +1,88 @@
-import Service from "../models/Service.js";
+import { models } from '../models/index.js';
+const { Service, User } = models;
 
-// Créer un nouveau service
- const createService = async (req, res) => {
+export const createService = async (req, res) => {
   try {
-    const newService = new Service(req.body);
-    const savedService = await newService.save();
-    res.status(201).json(savedService);
+    const userId = req.user.id;
+    const serviceData = {
+      ...req.body,
+      providerId: userId
+    };
+
+    const service = await Service.create(serviceData);
+
+    res.status(201).json({
+      success: true,
+      message: "Service créé avec succès",
+      data: service
+    });
   } catch (error) {
-    console.error("Erreur lors de la création du service :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error('Erreur lors de la création du service:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création du service",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
-// Récupérer tous les services
- const getAllServices = async (req, res) => {
+export const getServices = async (req, res) => {
   try {
-    const services = await Service.find().populate("provider", "name email");
-    res.status(200).json(services);
+    const { category, available } = req.query;
+    const where = {};
+
+    if (category) {
+      where.category = category;
+    }
+    if (available !== undefined) {
+      where.availability = available === 'true';
+    }
+
+    const services = await Service.findAll({
+      where,
+      include: [{
+        model: User,
+        attributes: ['name', 'email']
+      }]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: services
+    });
   } catch (error) {
-    console.error("Erreur lors de la récupération des services :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error('Erreur lors de la récupération des services:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des services"
+    });
   }
 };
 
-// Récupérer un service par ID
- const getServiceById = async (req, res) => {
+export const updateService = async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id).populate("provider", "name email");
+    const { id } = req.params;
+    const service = await Service.findByPk(id);
+
     if (!service) {
-      return res.status(404).json({ message: "Service non trouvé." });
+      return res.status(404).json({
+        success: false,
+        message: "Service non trouvé"
+      });
     }
-    res.status(200).json(service);
+
+    await service.update(req.body);
+
+    res.status(200).json({
+      success: true,
+      message: "Service mis à jour avec succès",
+      data: service
+    });
   } catch (error) {
-    console.error("Erreur lors de la récupération du service :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error('Erreur lors de la mise à jour du service:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour du service"
+    });
   }
 };
-
-// Mettre à jour un service
- const updateService = async (req, res) => {
-  try {
-    const updatedService = await Service.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-    if (!updatedService) {
-      return res.status(404).json({ message: "Service non trouvé." });
-    }
-    res.status(200).json(updatedService);
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour du service :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
-  }
-};
-
-// Supprimer un service
- const deleteService = async (req, res) => {
-  try {
-    const deletedService = await Service.findByIdAndDelete(req.params.id);
-    if (!deletedService) {
-      return res.status(404).json({ message: "Service non trouvé." });
-    }
-    res.status(200).json({ message: "Service supprimé avec succès." });
-  } catch (error) {
-    console.error("Erreur lors de la suppression du service :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
-  }
-};
-
-export default {createService,deleteService,getAllServices,getServiceById,updateService}

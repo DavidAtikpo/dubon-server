@@ -1,22 +1,22 @@
 import express from 'express'
-import Products from '../Controllers/Products.js'
+import productsController from '../Controllers/Products.js'
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router()
 // router.post('/add-product',authMiddleware.authorization,Products.createProduct);
-router.post('/new-product',Products.addProduct)
-router.get('/promotion',Products.Promotion);
-router.get('/get-all',Products.getProducts);
-router.get('/quick-sele',Products.getQuickSales);
-router.get('/top-rate', Products.getTopRated);
-router.get('/best-sellers',Products.getBestSellers);
-router.get('/new-arrival',Products.getNewArrivals);
-router.get('/product-detail/:productId',Products.getProductById);
-router.get('/new-product',Products.getNewProduct);
-router.get('/category/:category',Products.getProductsByCategory);
+router.post('/new-product',productsController.addProduct)
+router.get('/promotion',productsController.Promotion);
+router.get('/get-all',productsController.getAllProducts);
+router.get('/quick-sele',productsController.getQuickSales);
+router.get('/top-rate', productsController.getTopRated);
+router.get('/best-sellers',productsController.getBestSellers);
+router.get('/new-arrival',productsController.getNewArrivals);
+router.get('/product-detail/:productId',productsController.getProductById);
+router.get('/new-product',productsController.getNewProduct);
+router.get('/category/:category',productsController.getProductsByCategory);
 
-router.delete('/delete-product/:productId',Products.deleteProduct);
-router.put('/update-product/:productId',Products.updateProduct);
+router.delete('/delete-product/:productId',productsController.deleteProduct);
+router.put('/update-product/:productId',productsController.updateProduct);
 
 
 export default router;

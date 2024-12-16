@@ -1,30 +1,60 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
+import bcrypt from 'bcrypt';
 
-const adminSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-  name: {
-    type: String,
-    required: true,
-  },
-  role: {
-    type: String,
-    enum: ['superadmin', 'admin'],
-    default: 'admin',
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+export default (sequelize) => {
+  const Admin = sequelize.define('Admin', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: {
+        isEmail: true
+      }
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.ENUM('superadmin', 'admin'),
+      defaultValue: 'admin'
+    }
+  }, {
+    timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['email']
+      }
+    ]
+  });
 
-const Admin = mongoose.model('Admin', adminSchema);
+  // Hooks (si nécessaire)
+  Admin.beforeCreate(async (admin) => {
+    if (admin.changed('password')) {
+      const salt = await bcrypt.genSalt(10);
+      admin.password = await bcrypt.hash(admin.password, salt);
+    }
+  });
 
-export default Admin;
+  // Instance methods
+  Admin.prototype.comparePassword = async function(candidatePassword) {
+    return await bcrypt.compare(candidatePassword, this.password);
+  };
+
+  // Associations (si nécessaire)
+  Admin.associate = (models) => {
+    // Définir les associations ici si nécessaire
+  };
+
+  return Admin;
+};

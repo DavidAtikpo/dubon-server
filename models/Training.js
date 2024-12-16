@@ -1,52 +1,57 @@
-import mongoose from "mongoose";
+import { DataTypes } from 'sequelize';
 
-const trainingSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  description: {
-    type: String,
-    default: "",
-  },
-  price: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  category: {
-    type: String,
-    enum: ["cuisine", "management", "informatique", "développement personnel"],
-    required: true,
-  },
-  startDate: {
-    type: Date,
-    required: true,
-  },
-  durationInDays: {
-    type: Number,
-    required: true,
-  },
-  isOnline: {
-    type: Boolean,
-    default: false,  // Indique si la formation est en ligne ou en présentiel
-  },
-  instructor: {
-    type: String,
-    required: true,  // Nom de l’instructeur
-  },
-  participants: {
-    type: [mongoose.Schema.Types.ObjectId],
-    ref: "Users",  // Références aux utilisateurs inscrits
-    default: [],
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+export default (sequelize) => {
+  const Training = sequelize.define('Training', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    description: DataTypes.TEXT,
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      validate: {
+        min: 0
+      }
+    },
+    category: {
+      type: DataTypes.ENUM('cuisine', 'management', 'informatique', 'développement personnel'),
+      allowNull: false
+    },
+    startDate: {
+      type: DataTypes.DATE,
+      allowNull: false
+    },
+    durationInDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    isOnline: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
+    }
+  }, {
+    timestamps: true
+  });
 
-const Training = mongoose.model("Training", trainingSchema);
+  Training.associate = (models) => {
+    Training.belongsTo(models.User, {
+      foreignKey: 'userId'
+    });
+  };
 
-export default Training;
+  return Training;
+};

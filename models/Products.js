@@ -1,48 +1,115 @@
-import mongoose from "mongoose";
+import { DataTypes } from 'sequelize';
 
-const productSchema = new mongoose.Schema({
-  title: { type: String, required: false }, // Nom du produit
-  sku: { type: String, required: false }, // Référence produit
-  vendor: { type: String, required: false }, // Vendeur du produit
-  price: { type: Number, required: false }, // Prix actuel
-  oldPrice: { type: Number, default: 0 }, // Ancien prix (optionnel)
-  discount: { type: Number, default: 0 }, // Remise en pourcentage
-  category: { type: String, required: false }, // Catégorie du produit
-  availability: { type: String, required: false }, // Disponibilité (e.g., Disponible, Indisponible)
-  description: { type: String, required: false }, // Description du produit
-  features: { type: [String], default: [] }, // Liste des caractéristiques
-  shippingInfo: {
-    type: [
+export default (sequelize) => {
+  const Product = sequelize.define('Product', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    title: { 
+      type: DataTypes.STRING,
+      allowNull: false 
+    },
+    sku: { 
+      type: DataTypes.STRING,
+      allowNull: true 
+    },
+    vendor: { 
+      type: DataTypes.STRING,
+      allowNull: true 
+    },
+    price: { 
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      validate: {
+        min: 0,
+        isDecimal: true
+      }
+    },
+    oldPrice: { 
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0 
+    },
+    discount: { 
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      validate: {
+        min: 0,
+        max: 100
+      }
+    },
+    category: { 
+      type: DataTypes.STRING,
+      allowNull: false 
+    },
+    availability: { 
+      type: DataTypes.STRING,
+      defaultValue: 'Disponible' 
+    },
+    description: { 
+      type: DataTypes.TEXT 
+    },
+    features: { 
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: [] 
+    },
+    shippingInfo: { 
+      type: DataTypes.JSONB,
+      defaultValue: [] 
+    },
+    images: { 
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: [] 
+    },
+    rating: { 
+      type: DataTypes.FLOAT,
+      defaultValue: 0 
+    },
+    reviews: { 
+      type: DataTypes.JSONB,
+      defaultValue: [] 
+    },
+    relatedProducts: { 
+      type: DataTypes.JSONB,
+      defaultValue: [] 
+    },
+    sellerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    }
+  }, {
+    timestamps: true,
+    indexes: [
       {
-        type: { type: String }, // Type de livraison (e.g., Courier, Local Shipping)
-        details: { type: String }, // Détails sur la livraison
+        fields: ['category']
       },
-    ],
-    default: [],
-  },
-  images: { type: [String], required: false }, // Liste des URLs des images
-  rating: { type: Number, default: 0 }, // Note moyenne
-  reviews: {
-    type: [
       {
-        user: { type: String }, // Nom de l'utilisateur
-        rating: { type: Number }, // Note
-        comment: { type: String }, // Commentaire
+        fields: ['vendor']
       },
-    ],
-    default: [],
-  },
-  relatedProducts: {
-    type: [
       {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" }, // Référence à un autre produit
-        title: { type: String },
-        price: { type: Number },
-        image: { type: String },
+        fields: ['title']
       },
-    ],
-    default: [],
-  },
-});
+      {
+        fields: ['price']
+      },
+      {
+        fields: ['created_at']
+      }
+    ]
+  });
 
-export default mongoose.model("Product", productSchema);
+  // Associations
+  Product.associate = (models) => {
+    Product.belongsTo(models.User, {
+      foreignKey: 'sellerId',
+      as: 'seller'
+    });
+  };
+
+  return Product;
+};
