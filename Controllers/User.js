@@ -383,15 +383,15 @@ export const resendVerificationEmail = async (req, res) => {
 
 export const getUserInfo = async (req, res) => {
   try {
+    // Récupérer uniquement les champs qui existent certainement
     const user = await User.findOne({
       where: { id: req.user.id },
       attributes: [
         'id',
         'name',
         'email',
-        'profile_photo_url',
-        'phone',
-        'address'
+        'profilePhotoUrl', // utiliser l'ancien nom pour le moment
+        'emailVerified'    // utiliser l'ancien nom pour le moment
       ]
     });
 
@@ -402,21 +402,41 @@ export const getUserInfo = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    // Construire l'objet de réponse avec des valeurs par défaut
+    const userResponse = {
       success: true,
       user: {
         name: user.name,
         email: user.email,
-        address: user.address || "Adresse non renseignée",
-        phone: user.phone || "Numéro non renseigné",
-        avatar: user.profile_photo_url || DEFAULT_AVATAR
+        address: "Non renseigné", // valeur par défaut
+        phone: "Non renseigné",   // valeur par défaut
+        avatar: user.profilePhotoUrl || "/default-avatar.png"
       }
-    });
+    };
+
+    // Ajouter les champs optionnels s'ils existent
+    try {
+      if (user.phone) userResponse.user.phone = user.phone;
+      if (user.address) userResponse.user.address = user.address;
+      if (user.profile_photo_url) userResponse.user.avatar = user.profile_photo_url;
+    } catch (err) {
+      console.log('Certains champs optionnels ne sont pas disponibles:', err);
+    }
+
+    res.status(200).json(userResponse);
+
   } catch (error) {
     console.error("Erreur lors de la récupération des informations:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des informations"
+      message: "Erreur lors de la récupération des informations",
+      data: {
+        name: req.user.name,
+        email: req.user.email,
+        address: "Non renseigné",
+        phone: "Non renseigné",
+        avatar: "/default-avatar.png"
+      }
     });
   }
 };
@@ -424,35 +444,43 @@ export const getUserInfo = async (req, res) => {
 export const updateUserInfo = async (req, res) => {
   try {
     const { name, phone, address } = req.body;
-    
-    const user = await User.findOne({
+    const updateData = {};
+
+    // Ne mettre à jour que les champs qui existent
+    if (name) updateData.name = name;
+
+    try {
+      // Tenter d'ajouter les champs optionnels
+      if (phone) updateData.phone = phone;
+      if (address) updateData.address = address;
+    } catch (err) {
+      console.log('Certains champs ne peuvent pas être mis à jour:', err);
+    }
+
+    const [updated] = await User.update(updateData, {
       where: { id: req.user.id }
     });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Utilisateur non trouvé"
+    if (updated) {
+      const user = await User.findOne({
+        where: { id: req.user.id },
+        attributes: ['id', 'name', 'email', 'profilePhotoUrl']
       });
+
+      res.status(200).json({
+        success: true,
+        message: "Informations mises à jour avec succès",
+        user: {
+          name: user.name,
+          email: user.email,
+          address: address || "Non renseigné",
+          phone: phone || "Non renseigné",
+          avatar: user.profilePhotoUrl || "/default-avatar.png"
+        }
+      });
+    } else {
+      throw new Error("Mise à jour échouée");
     }
-
-    await user.update({
-      name: name || user.name,
-      phone: phone || user.phone,
-      address: address || user.address
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Informations mises à jour avec succès",
-      user: {
-        name: user.name,
-        email: user.email,
-        address: user.address || "Adresse non renseignée",
-        phone: user.phone || "Numéro non renseigné",
-        avatar: user.profile_photo_url || DEFAULT_AVATAR
-      }
-    });
   } catch (error) {
     console.error("Erreur lors de la mise à jour:", error);
     res.status(500).json({
