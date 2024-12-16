@@ -2,64 +2,9 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 
-const authMiddleware = asyncHandler(async (req, res, next) => {
-  let token;
-  console.log("\n=== DÉBUT AUTHENTIFICATION ===");
-  console.log("Headers complets:", JSON.stringify(req.headers, null, 2));
-
-  if (req?.headers?.authorization?.startsWith("Bearer")) {
-    token = req.headers.authorization.split(" ")[1];
-    console.log("Token extrait:", token);
-
-    try {
-      if (token) {
-        console.log("JWT_SECRET:", process.env.JWT_SECRET);
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          console.log("Token décodé avec succès:", decoded);
-
-          if (!decoded.id) {
-            console.log("Pas d'ID dans le token décodé");
-            return res.status(401).json({ message: "Token invalide: pas d'ID" });
-          }
-
-          const user = await User.findById(decoded.id);
-          console.log("Recherche utilisateur avec ID:", decoded.id);
-          console.log("Utilisateur trouvé:", user);
-
-          if (!user) {
-            return res.status(404).json({ message: "Utilisateur non trouvé" });
-          }
-
-          req.user = user;
-          console.log("req.user défini:", req.user);
-          console.log("=== FIN AUTHENTIFICATION ===\n");
-          next();
-        } catch (jwtError) {
-          console.error("Erreur de vérification JWT:", jwtError);
-          return res.status(401).json({ 
-            message: "Erreur de vérification du token",
-            error: jwtError.message 
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Erreur générale:", error);
-      return res.status(500).json({ 
-        message: "Erreur serveur lors de l'authentification",
-        error: error.message 
-      });
-    }
-  } else {
-    console.log("Pas de token dans les headers");
-    console.log("=== FIN AUTHENTIFICATION ===\n");
-    return res.status(401).json({ message: "Aucun token fourni" });
-  }
-});
-
-
-
-
+export const authMiddleware = (req, res, next) => {
+  // votre logique de middleware ici
+};
 
 // authorization by admin
 const isAdmin = asyncHandler(async (req, res, next) => {
