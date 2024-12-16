@@ -373,6 +373,9 @@ export const rejectSeller = async (req, res) => {
 
 export const getDashboardStats = async (req, res) => {
   try {
+    console.log('Récupération des stats du dashboard...');
+    console.log('User:', req.user);
+
     // Récupérer les statistiques des utilisateurs
     const usersStats = await User.findAll({
       attributes: [
@@ -436,16 +439,17 @@ export const getDashboardStats = async (req, res) => {
       }
     };
 
+    console.log('Stats récupérées:', stats);
     res.status(200).json({
       success: true,
       data: stats
     });
 
   } catch (error) {
-    console.error("Erreur lors de la récupération des statistiques:", error);
+    console.error("Erreur détaillée:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des statistiques du dashboard",
+      message: "Erreur lors de la récupération des statistiques",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

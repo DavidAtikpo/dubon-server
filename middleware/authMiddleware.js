@@ -2,8 +2,36 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 
-export const authMiddleware = (req, res, next) => {
-  // votre logique de middleware ici
+export const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token non fourni'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Erreur d\'authentification:', error);
+    return res.status(401).json({
+      success: false,
+      message: 'Token invalide'
+    });
+  }
 };
 
 // authorization by admin

@@ -1,30 +1,32 @@
 import express from "express";
 import * as adminController from "../Controllers/Admin.js";
-import authMiddleware from "../middleware/authMiddleware.js";
+import { authMiddleware } from "../middleware/authMiddleware.js";
 import { corsErrorHandler } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Routes d'authentification
+// Routes publiques
 router.post('/login', adminController.login);
-router.post('/logout', authMiddleware.authMiddleware, adminController.logout);
+
+// Routes protégées
+router.use(authMiddleware);
 
 // Routes de gestion des utilisateurs
-router.get('/users', authMiddleware.authMiddleware, adminController.getAllUsers);
-router.get('/users/:id', authMiddleware.authMiddleware, adminController.getUserById);
-router.put('/users/:id/block', authMiddleware.authMiddleware, adminController.blockUser);
-router.put('/users/:id/unblock', authMiddleware.authMiddleware, adminController.unblockUser);
+router.get('/users', adminController.getAllUsers);
+router.get('/users/:id', adminController.getUserById);
+router.put('/users/:id/block', adminController.blockUser);
+router.put('/users/:id/unblock', adminController.unblockUser);
 
 // Routes de gestion des vendeurs
-router.get('/sellers', authMiddleware.authMiddleware, adminController.getAllSellers);
-router.get('/sellers/:id', authMiddleware.authMiddleware, adminController.getSellerById);
-router.put('/sellers/:id/approve', authMiddleware.authMiddleware, adminController.approveSeller);
-router.put('/sellers/:id/reject', authMiddleware.authMiddleware, adminController.rejectSeller);
+router.get('/sellers', adminController.getAllSellers);
+router.get('/sellers/:id', adminController.getSellerById);
+router.put('/sellers/:id/approve', adminController.approveSeller);
+router.put('/sellers/:id/reject', adminController.rejectSeller);
 
 // Routes du tableau de bord
-router.get('/dashboard/stats', authMiddleware.authMiddleware, adminController.getDashboardStats);
-router.get('/dashboard/recent-orders', authMiddleware.authMiddleware, adminController.getRecentOrders);
-router.get('/dashboard/revenue', authMiddleware.authMiddleware, adminController.getRevenue);
+router.get('/dashboard/stats', adminController.getDashboardStats);
+router.get('/dashboard/recent-orders', adminController.getRecentOrders);
+router.get('/dashboard/revenue', adminController.getRevenue);
 
 router.get('/verify-login/:token', adminController.verifyLoginToken);
 router.post('/verify-login', adminController.verifyLogin);
