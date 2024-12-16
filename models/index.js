@@ -1,17 +1,6 @@
 import { Sequelize } from 'sequelize';
 import config from '../config/config.js';
 
-// Import des modèles
-import User from './User.js';
-import Product from './Product.js';
-import Cart from './Cart.js';
-import Order from './Order.js';
-import Rating from './Rating.js';
-import Seller from './Seller.js';
-import Service from './Service.js';
-import Event from './Event.js';
-import Training from './Training.js';
-
 const sequelize = new Sequelize(config.database.url, {
   dialect: 'postgres',
   logging: config.database.logging,
@@ -23,7 +12,17 @@ const sequelize = new Sequelize(config.database.url, {
   }
 });
 
-// Initialiser les modèles
+// Définir les modèles
+const User = (await import('./User.js')).default(sequelize);
+const Product = (await import('./Product.js')).default(sequelize);
+const Cart = (await import('./Cart.js')).default(sequelize);
+const Order = (await import('./Order.js')).default(sequelize);
+const Rating = (await import('./Rating.js')).default(sequelize);
+const Seller = (await import('./Seller.js')).default(sequelize);
+const Service = (await import('./Service.js')).default(sequelize);
+const Event = (await import('./Event.js')).default(sequelize);
+const Training = (await import('./Training.js')).default(sequelize);
+
 const models = {
   User,
   Product,
@@ -36,19 +35,16 @@ const models = {
   Training
 };
 
-// Initialiser chaque modèle avec sequelize
-Object.values(models).forEach(model => {
-  if (model.init) {
-    model.init(sequelize);
-  }
-});
-
 // Associations
 Object.values(models).forEach(model => {
   if (model.associate) {
     model.associate(models);
   }
 });
+
+// Définir les associations spécifiques ici si nécessaire
+User.hasMany(Training);
+Training.belongsTo(User);
 
 export { sequelize, models };
 export default models; 
