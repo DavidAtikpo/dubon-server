@@ -7,7 +7,7 @@ import { Op } from 'sequelize';
 import { sequelize } from '../config/dbConfig.js';
 import config from '../config/config.js';
 
-const { User } = models;
+const { User, Order } = models;
 
 export const register = async (req, res) => {
   try {
@@ -433,6 +433,35 @@ export const getPaymentStats = async (req, res) => {
     });
   }
 };
+
+export const getUserOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.user.id });
+    res.status(200).json(orders);
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors de la récupération des commandes" 
+    });
+  }
+};
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.status(200).json({
+      name: user.name,
+      email: user.email,
+      profilePhotoURL: user.profilePhotoURL
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors de la récupération du profil" 
+    });
+  }
+};
+
 // Grouper tous les exports
 const userController = {
   register,
@@ -445,7 +474,9 @@ const userController = {
   resetPassword,
   updatePassword,
   userInfo,
-  resendVerificationEmail
+  resendVerificationEmail,
+  getUserOrders,
+  getUserProfile
 };
 
 export default userController;

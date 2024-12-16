@@ -15,5 +15,7 @@ router.post('/reset-password/:id',userController.resetPassword)
 router.get('/info', authMiddleware, userController.getUserInfo);
 router.get('/payment-stats', authMiddleware, userController.getPaymentStats);
 router.post('/resend-verification', userController.resendVerificationEmail);
+router.get('/orders', authMiddleware, userController.getUserOrders);
+router.get('/profile', authMiddleware, userController.getUserProfile);
 
 export default router

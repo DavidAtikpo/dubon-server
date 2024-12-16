@@ -43,9 +43,9 @@ export default (sequelize) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
-    profile_photo_url: {
+    profilePhotoURL: {
       type: DataTypes.STRING,
-      defaultValue: '/default-user-profile-svgrepo-com (1).svg'
+      defaultValue: '/uploads/default-user-profile-svgrepo-com (1).svg'
     },
     email_verified: {
       type: DataTypes.BOOLEAN,
