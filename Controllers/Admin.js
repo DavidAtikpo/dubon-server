@@ -396,15 +396,15 @@ export const getDashboardStats = async (req, res) => {
       raw: true
     });
 
-    // Récupérer le nombre de demandes en attente (vendeurs en attente)
-    const pendingRequests = await Seller.count({
+    // Récupérer le nombre de demandes en attente
+    const pendingRequests = await models.Seller.count({
       where: {
         status: 'pending'
       }
     });
 
     // Récupérer les statistiques des commandes
-    const ordersStats = await Order.findAll({
+    const ordersStats = await models.Order.findAll({
       attributes: [
         [sequelize.fn('COUNT', sequelize.col('*')), 'total'],
         [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalRevenue'],
@@ -431,11 +431,11 @@ export const getDashboardStats = async (req, res) => {
         sellers: parseInt(usersStats[0].sellers) || 0
       },
       pendingRequests: pendingRequests || 0,
-      totalOrders: parseInt(ordersStats[0].total) || 0,
+      totalOrders: parseInt(ordersStats[0]?.total) || 0,
       revenue: {
-        total: parseFloat(ordersStats[0].totalRevenue) || 0,
-        weekly: parseFloat(ordersStats[0].weeklyRevenue) || 0,
-        monthly: parseFloat(ordersStats[0].monthlyRevenue) || 0
+        total: parseFloat(ordersStats[0]?.totalRevenue) || 0,
+        weekly: parseFloat(ordersStats[0]?.weeklyRevenue) || 0,
+        monthly: parseFloat(ordersStats[0]?.monthlyRevenue) || 0
       }
     };
 

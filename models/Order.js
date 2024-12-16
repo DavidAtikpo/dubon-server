@@ -7,45 +7,27 @@ export default (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    customer: {
-      type: DataTypes.JSONB,
+    userId: {
+      type: DataTypes.UUID,
       allowNull: false,
-      validate: {
-        hasRequiredFields(value) {
-          const required = ['firstname', 'lastname', 'email', 'phone', 'address', 'city'];
-          for (const field of required) {
-            if (!value[field]) {
-              throw new Error(`Le champ ${field} est requis`);
-            }
-          }
-        }
+      references: {
+        model: 'users',
+        key: 'id'
       }
     },
-    totalAmount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
-    },
-    paymentMethod: DataTypes.STRING,
-    paymentStatus: {
-      type: DataTypes.ENUM('pending', 'completed', 'failed'),
+    status: {
+      type: DataTypes.ENUM('pending', 'completed', 'cancelled'),
       defaultValue: 'pending'
     },
-    transactionId: DataTypes.STRING
-  }, {
-    timestamps: true
-  });
-
-  const OrderItem = sequelize.define('OrderItem', {
-    quantity: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    price: {
+    total_amount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
-    },
-    title: DataTypes.STRING
+    }
+  }, {
+    timestamps: true,
+    underscored: true,
+    tableName: 'orders'
   });
 
-  return { Order, OrderItem };
+  return Order;
 };

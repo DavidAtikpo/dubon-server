@@ -2,7 +2,7 @@ import express from "express";
 import multer from 'multer';
 import path from 'path';
 import * as SellerController from "../Controllers/Sellers.js";
-import { verifyToken, isAdmin, corsErrorHandler } from "../middleware/authMiddleware.js";
+import { verifyToken, isAdmin, verifyAdmin, corsErrorHandler } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
