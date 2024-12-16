@@ -1,4 +1,5 @@
-// import Training from "../models/Training.js";
+import { models } from '../models/index.js';
+const { Training } = models;
 
 // Créer une nouvelle formation
 const createTraining = async (req, res) => {
@@ -44,14 +45,20 @@ const createTraining = async (req, res) => {
 // Récupérer une formation par ID
  const getTrainingById = async (req, res) => {
   try {
-    const training = await Training.findById(req.params.id).populate("participants", "name email");
+    const training = await Training.findByPk(req.params.id);
     if (!training) {
-      return res.status(404).json({ message: "Formation non trouvée." });
+      return res.status(404).json({
+        success: false,
+        message: "Formation non trouvée"
+      });
     }
-    res.status(200).json(training);
+    res.json(training);
   } catch (error) {
-    console.error("Erreur lors de la récupération de la formation :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error("Erreur lors de la récupération de la formation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération de la formation"
+    });
   }
 };
 

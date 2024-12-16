@@ -10,6 +10,7 @@ import defineRating from './Rating.js';
 import defineSeller from './Seller.js';
 import defineService from './Service.js';
 import defineEvent from './Event.js';
+import Training from './Training.js';
 
 const sequelize = new Sequelize(config.database.url, {
   dialect: 'postgres',
@@ -34,7 +35,8 @@ const models = {
   Rating: defineRating(sequelize),
   Seller: defineSeller(sequelize),
   Service: defineService(sequelize),
-  Event: defineEvent(sequelize)
+  Event: defineEvent(sequelize),
+  Training: Training(sequelize)
 };
 
 // Associations
