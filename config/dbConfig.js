@@ -25,7 +25,7 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL, {
     acquire: 30000,
     idle: 10000
   },
-  logging: console.log,
+  logging: false,
   define: {
     freezeTableName: true,
     underscored: true
@@ -35,7 +35,17 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL, {
 // Fonction de connexion à la base de données
 const dbConnect = async () => {
   try {
-    await sequelize.authenticate();
+    // Forcer l'utilisation de SSL avec rejectUnauthorized: false
+    const options = {
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false
+        }
+      }
+    };
+    
+    await sequelize.authenticate(options);
     console.log('✓ Connection to database has been established successfully.');
 
     // Importer les modèles
