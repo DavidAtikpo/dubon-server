@@ -168,40 +168,46 @@ export const logout = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     // Vérifier si l'utilisateur est un admin
-    if (req.user.role !== 'admin' && req.user.role !== 'superAdmin') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: "Accès non autorisé"
       });
     }
 
+    // Récupérer tous les utilisateurs avec les informations nécessaires
     const users = await User.findAll({
       attributes: [
         'id',
         'name',
         'email',
+        'role',
         'profile_photo_url',
         'is_blocked',
         'email_verified',
         'created_at',
         'updated_at',
-        'role'
+        'mobile',
+        'region',
+        'zip_code'
       ],
       order: [['created_at', 'DESC']]
     });
 
+    // Formater les données pour correspondre à l'interface du frontend
     const formattedUsers = users.map(user => ({
       _id: user.id,
       name: user.name,
-      displayName: user.name,
       email: user.email,
+      mobile: user.mobile || null,
+      region: user.region || null,
+      zipCode: user.zip_code || null,
       avatar: user.profile_photo_url,
-      status: user.is_blocked ? 'Bloqué' : (user.email_verified ? 'Vérifié' : 'Non vérifié'),
+      status: user.is_blocked 
+        ? 'Bloqué' 
+        : (user.email_verified ? 'Vérifié' : 'Non vérifié'),
       lastConnection: user.updated_at,
-      role: user.role,
-      mobile: null,
-      region: null,
-      zipCode: null
+      role: user.role
     }));
 
     res.status(200).json({
