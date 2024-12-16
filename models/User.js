@@ -24,39 +24,23 @@ export default (sequelize) => {
       type: DataTypes.ENUM('user', 'admin', 'seller'),
       defaultValue: 'user'
     },
-    profile_photo_url: {
+    profilePhotoUrl: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    mobile: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    region: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    zip_code: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    is_blocked: {
+    emailVerified: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
-    email_verified: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    email_verification_token: {
+    emailVerificationToken: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    email_verification_expires: {
+    emailVerificationExpires: {
       type: DataTypes.DATE,
       allowNull: true
     },
-    refresh_token: {
+    refreshToken: {
       type: DataTypes.STRING,
       allowNull: true
     }
