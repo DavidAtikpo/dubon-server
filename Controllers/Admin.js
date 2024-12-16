@@ -186,10 +186,7 @@ export const getAllUsers = async (req, res) => {
         'is_blocked',
         'email_verified',
         'created_at',
-        'updated_at',
-        'mobile',
-        'region',
-        'zip_code'
+        'updated_at'
       ],
       order: [['created_at', 'DESC']]
     });
@@ -199,9 +196,6 @@ export const getAllUsers = async (req, res) => {
       _id: user.id,
       name: user.name,
       email: user.email,
-      mobile: user.mobile || null,
-      region: user.region || null,
-      zipCode: user.zip_code || null,
       avatar: user.profile_photo_url,
       status: user.is_blocked 
         ? 'Bloqué' 
