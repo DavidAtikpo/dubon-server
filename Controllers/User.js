@@ -541,7 +541,8 @@ const userController = {
   userInfo,
   resendVerificationEmail,
   getUserOrders,
-  getUserProfile
+  getUserProfile,
+  updateUserInfo
 };
 
 export default userController;
