@@ -221,7 +221,6 @@ export const getAllUsers = async (req, res) => {
 
 export const getUserById = async (req, res) => {
   try {
-    // Vérifier si l'utilisateur est un admin
     if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -238,9 +237,6 @@ export const getUserById = async (req, res) => {
         'email',
         'role',
         'profile_photo_url',
-        'mobile',
-        'region',
-        'zip_code',
         'is_blocked',
         'email_verified',
         'created_at',
@@ -255,15 +251,11 @@ export const getUserById = async (req, res) => {
       });
     }
 
-    // Formater les données pour le frontend
     const formattedUser = {
       _id: user.id,
       displayName: user.name,
       name: user.name,
       email: user.email,
-      mobile: user.mobile || null,
-      region: user.region || null,
-      zipCode: user.zip_code || null,
       avatar: user.profile_photo_url,
       status: user.is_blocked 
         ? 'Bloqué' 
