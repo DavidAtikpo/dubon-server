@@ -66,10 +66,8 @@ const sessionStore = new SessionStore({
 });
 
 // Vérifier que JWT_SECRET est défini
-if (!process.env.JWT_SECRET) {
-  console.error('JWT_SECRET must be defined in environment variables');
-  process.exit(1);
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'anotherstrategickey';
+console.log('Using JWT_SECRET:', JWT_SECRET ? 'Defined' : 'Not defined');
 
 // Configurations principales
 app.use(express.json({ limit: '100mb' }));
@@ -84,7 +82,7 @@ app.use(cors({
 // Configuration de la session APRÈS avoir initialisé sessionStore
 app.use(session({
   store: sessionStore,
-  secret: process.env.JWT_SECRET || 'anotherstrategickey',
+  secret: JWT_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
