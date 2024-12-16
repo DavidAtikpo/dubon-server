@@ -5,7 +5,7 @@ import fs from 'fs';
 import bodyParser from "body-parser";
 import express from "express";
 import http from 'http';
-import dbConnect from "./config/dbConfig.js";
+// import dbConnect from "./config/dbConfig.js";
 import Order from './Routers/Order.js'
 import User from './Routers/User.js'
 import errorHandler from "./middleware/errorHandler.js";
@@ -49,6 +49,29 @@ const app = express();
 // Create HTTP server
 const server = http.createServer(app);
 
+// Configurations principales
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+app.use(cookieParser());
+app.use(morgan("dev"));
+app.use(cors({
+  origin: ['https://dubonservice.com', 'http://localhost:3000', 'https://www.dubonservice.com'],
+  credentials: true
+}));
+
+// Configuration de la session
+app.use(session({
+  store: sessionStore,
+  secret: process.env.JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000
+  }
+}));
+
 // Initialiser la base de données avant de démarrer le serveur
 const startServer = async () => {
   try {
@@ -91,48 +114,6 @@ const sessionStore = new SessionStore({
   createTableIfMissing: true
 });
 
-// Configuration de la session
-app.use(session({
-  store: sessionStore,
-  secret: process.env.JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 heures
-  }
-}));
-
-// Middleware setup
-app.use(cookieParser());
-app.use(morgan("dev"));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Configuration CORS
-const allowedOrigins = [
-  'http://localhost:3000'
-];
-
-// Configuration CORS pour le développement local
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // En développement, accepter localhost:3000
-  if (origin === 'http://localhost:3000') {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  }
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
 // Routes
 app.get("/", (req, res) => {
     res.json("Hello")
@@ -140,9 +121,9 @@ app.get("/", (req, res) => {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/user", User);
-app.use("/api/admin", Admin);
+
 app.use("/api/product", Products);
-app.use("/api", Seller);
+// app.use("/api", Seller);
 app.use("/api", Training);
 app.use('/api/category', category);
 app.use('/api/orders', Order);
@@ -187,10 +168,6 @@ const setupUploadDirectories = () => {
 // Appeler la fonction au démarrage
 setupUploadDirectories();
 
-// Ajouter ces configurations
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
-
 // Désactiver le timeout du serveur pour les uploads longs
 server.timeout = 300000; // 5 minutes
 
@@ -221,3 +198,5 @@ const testDatabaseConnection = async () => {
 };
 
 testDatabaseConnection();
+
+
