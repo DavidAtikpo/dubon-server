@@ -27,7 +27,7 @@ const config = {
 
   // JWT Configuration
   jwt: {
-    secret: process.env.JWT_SECRET,
+    secret: process.env.JWT_SECRET || 'anotherstrategickey',
     expire: process.env.JWT_EXPIRE || '7d'
   },
 

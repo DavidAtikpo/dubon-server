@@ -5,6 +5,7 @@ import sendEmail from '../utils/emailSender.js';
 import crypto from 'crypto';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/dbConfig.js';
+import config from '../config/config.js';
 
 const { User } = models;
 
@@ -141,6 +142,15 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Vérification de la configuration JWT
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET manquant dans les variables d\'environnement');
+      return res.status(500).json({
+        success: false,
+        message: "Erreur de configuration du serveur"
+      });
+    }
+
     const user = await User.findOne({ 
       where: { email: email.toLowerCase().trim() } 
     });
@@ -162,23 +172,32 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = generateToken(user.id);
-
-    res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+    try {
+      const token = generateToken(user.id);
+      
+      res.status(200).json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+    } catch (tokenError) {
+      console.error("Erreur de génération du token:", tokenError);
+      return res.status(500).json({
+        success: false,
+        message: "Erreur lors de la génération du token"
+      });
+    }
   } catch (error) {
     console.error("Erreur de connexion:", error);
     res.status(500).json({
       success: false,
-      message: "Une erreur est survenue lors de la connexion"
+      message: "Une erreur est survenue lors de la connexion",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
