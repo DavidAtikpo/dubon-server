@@ -383,15 +383,13 @@ export const resendVerificationEmail = async (req, res) => {
 
 export const getUserInfo = async (req, res) => {
   try {
-    // Récupérer uniquement les champs qui existent certainement
+    // Récupérer uniquement les champs de base garantis
     const user = await User.findOne({
       where: { id: req.user.id },
       attributes: [
         'id',
         'name',
-        'email',
-        'profilePhotoUrl', // utiliser l'ancien nom pour le moment
-        'emailVerified'    // utiliser l'ancien nom pour le moment
+        'email'
       ]
     });
 
@@ -402,40 +400,64 @@ export const getUserInfo = async (req, res) => {
       });
     }
 
-    // Construire l'objet de réponse avec des valeurs par défaut
+    // Préparer la réponse avec les données de base
     const userResponse = {
       success: true,
       user: {
+        id: user.id,
         name: user.name,
         email: user.email,
-        address: "Non renseigné", // valeur par défaut
-        phone: "Non renseigné",   // valeur par défaut
-        avatar: user.profilePhotoUrl || "/default-avatar.png"
+        avatar: "/default-avatar.png",
+        address: "Non renseigné",
+        phone: "Non renseigné"
       }
     };
 
-    // Ajouter les champs optionnels s'ils existent
+    // Tenter d'ajouter les champs additionnels s'ils existent
     try {
-      if (user.phone) userResponse.user.phone = user.phone;
-      if (user.address) userResponse.user.address = user.address;
-      if (user.profile_photo_url) userResponse.user.avatar = user.profile_photo_url;
+      const additionalFields = await User.findOne({
+        where: { id: req.user.id },
+        attributes: [
+          'profilePhotoUrl',
+          'profile_photo_url',
+          'phone',
+          'address'
+        ]
+      });
+
+      if (additionalFields) {
+        if (additionalFields.profilePhotoUrl) {
+          userResponse.user.avatar = additionalFields.profilePhotoUrl;
+        }
+        if (additionalFields.profile_photo_url) {
+          userResponse.user.avatar = additionalFields.profile_photo_url;
+        }
+        if (additionalFields.phone) {
+          userResponse.user.phone = additionalFields.phone;
+        }
+        if (additionalFields.address) {
+          userResponse.user.address = additionalFields.address;
+        }
+      }
     } catch (err) {
-      console.log('Certains champs optionnels ne sont pas disponibles:', err);
+      console.log('Champs additionnels non disponibles:', err);
+      // Continue sans les champs additionnels
     }
 
     res.status(200).json(userResponse);
 
   } catch (error) {
     console.error("Erreur lors de la récupération des informations:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des informations",
-      data: {
+    // Renvoyer au moins les informations de base
+    res.status(200).json({
+      success: true,
+      user: {
+        id: req.user.id,
         name: req.user.name,
         email: req.user.email,
+        avatar: "/default-avatar.png",
         address: "Non renseigné",
-        phone: "Non renseigné",
-        avatar: "/default-avatar.png"
+        phone: "Non renseigné"
       }
     });
   }
@@ -541,16 +563,56 @@ export const getUserOrders = async (req, res) => {
 
 export const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    res.status(200).json({
-      name: user.name,
-      email: user.email,
-      profilePhotoURL: user.profilePhotoURL
+    // Récupérer uniquement les champs de base garantis
+    const user = await User.findOne({
+      where: { id: req.user.id },
+      attributes: ['id', 'name', 'email']
     });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    // Préparer la réponse avec les données de base
+    const profileResponse = {
+      success: true,
+      profile: {
+        name: user.name,
+        email: user.email,
+        profilePhotoURL: "/default-avatar.png"
+      }
+    };
+
+    // Tenter d'ajouter la photo de profil si elle existe
+    try {
+      const photoField = await User.findOne({
+        where: { id: req.user.id },
+        attributes: ['profilePhotoUrl', 'profile_photo_url']
+      });
+
+      if (photoField?.profilePhotoUrl) {
+        profileResponse.profile.profilePhotoURL = photoField.profilePhotoUrl;
+      } else if (photoField?.profile_photo_url) {
+        profileResponse.profile.profilePhotoURL = photoField.profile_photo_url;
+      }
+    } catch (err) {
+      console.log('Photo de profil non disponible:', err);
+    }
+
+    res.status(200).json(profileResponse);
+
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: "Erreur lors de la récupération du profil" 
+    console.error("Erreur lors de la récupération du profil:", error);
+    res.status(200).json({
+      success: true,
+      profile: {
+        name: req.user.name,
+        email: req.user.email,
+        profilePhotoURL: "/default-avatar.png"
+      }
     });
   }
 };
