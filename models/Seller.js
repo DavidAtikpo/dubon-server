@@ -13,16 +13,19 @@ export default (sequelize) => {
       references: {
         model: 'users',
         key: 'id'
-      }
+      },
+      field: 'user_id'
     },
     type: {
       type: DataTypes.ENUM('individual', 'company'),
-      allowNull: false
+      allowNull: false,
+      defaultValue: 'individual'
     },
     personalInfo: {
       type: DataTypes.JSONB,
       allowNull: false,
-      defaultValue: {}
+      defaultValue: {},
+      field: 'personal_info'
     },
     documents: {
       type: DataTypes.JSONB,
@@ -50,7 +53,8 @@ export default (sequelize) => {
       defaultValue: {
         completed: false,
         recordingUrl: null
-      }
+      },
+      field: 'video_verification'
     },
     businessInfo: {
       type: DataTypes.JSONB,
@@ -61,7 +65,8 @@ export default (sequelize) => {
         products: [],
         bankDetails: {},
         returnPolicy: ''
-      }
+      },
+      field: 'business_info'
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
@@ -79,7 +84,7 @@ export default (sequelize) => {
 
   Seller.associate = (models) => {
     Seller.belongsTo(models.User, {
-      foreignKey: 'userId',
+      foreignKey: 'user_id',
       as: 'user'
     });
   };

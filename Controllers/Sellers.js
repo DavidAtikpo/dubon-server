@@ -38,24 +38,6 @@ export const registerSeller = async (req, res) => {
 
     const formData = JSON.parse(req.body.data);
     
-    // Gérer les uploads de fichiers
-    const fileData = {
-      documents: {
-        idCard: req.files?.idCard?.[0]?.path,
-        proofOfAddress: req.files?.proofOfAddress?.[0]?.path,
-        taxCertificate: req.files?.taxCertificate?.[0]?.path,
-        photos: req.files?.photos?.map(photo => photo.path) || []
-      },
-      contract: {
-        signed: true,
-        signedDocument: req.files?.signedDocument?.[0]?.path
-      },
-      videoVerification: {
-        completed: true,
-        recordingUrl: req.files?.verificationVideo?.[0]?.path
-      }
-    };
-
     // Vérifier si une demande existe déjà
     const existingRequest = await Seller.findOne({
       where: { userId: req.user.id }
@@ -68,17 +50,29 @@ export const registerSeller = async (req, res) => {
       });
     }
 
-    // Créer la nouvelle demande
+    // Créer la nouvelle demande avec les nouveaux champs
     const seller = await Seller.create({
       userId: req.user.id,
-      status: 'pending',
       type: formData.type,
-      personalInfo: formData.personalInfo,
-      documents: fileData.documents,
-      contract: fileData.contract,
-      videoVerification: fileData.videoVerification,
-      businessInfo: formData.businessInfo,
-      compliance: formData.compliance
+      personal_info: formData.personalInfo,
+      documents: {
+        idCard: req.files?.idCard?.[0]?.path,
+        proofOfAddress: req.files?.proofOfAddress?.[0]?.path,
+        taxCertificate: req.files?.taxCertificate?.[0]?.path,
+        photos: req.files?.photos?.map(photo => photo.path) || [],
+        rccm: req.files?.rccm?.[0]?.path,
+        companyStatutes: req.files?.companyStatutes?.[0]?.path
+      },
+      contract: {
+        signed: true,
+        signedDocument: req.files?.signedDocument?.[0]?.path
+      },
+      video_verification: {
+        completed: true,
+        recordingUrl: req.files?.verificationVideo?.[0]?.path
+      },
+      business_info: formData.businessInfo,
+      status: 'pending'
     });
 
     res.status(201).json({
@@ -89,13 +83,6 @@ export const registerSeller = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur complète:', error);
-    if (error.name === 'SequelizeValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: "Erreur de validation",
-        errors: error.errors.map(err => err.message)
-      });
-    }
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'enregistrement de la demande",

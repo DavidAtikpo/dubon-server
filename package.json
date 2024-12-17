@@ -9,7 +9,9 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "build": "npm install",
-    "prod": "NODE_ENV=production node index.js"
+    "prod": "cross-env NODE_ENV=production node index.js",
+    "migrate": "cross-env NODE_ENV=production sequelize-cli db:migrate",
+    "migrate:undo": "cross-env NODE_ENV=production sequelize-cli db:migrate:undo"
   },
   "author": "",
   "license": "ISC",
@@ -49,6 +51,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "nodemon": "^3.0.2",
     "sequelize-cli": "^6.6.2"
   },
