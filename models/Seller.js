@@ -7,47 +7,26 @@ export default (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    type: {
-      type: DataTypes.ENUM('individual', 'company'),
-      allowNull: false
-    },
-    personalInfo: {
-      type: DataTypes.JSONB,
+    userId: {
+      type: DataTypes.UUID,
       allowNull: false,
-      validate: {
-        hasRequiredFields(value) {
-          const required = ['fullName', 'email', 'phone', 'address'];
-          for (const field of required) {
-            if (!value[field]) {
-              throw new Error(`${field} est requis`);
-            }
-          }
-        }
+      references: {
+        model: 'users',
+        key: 'id'
       }
-    },
-    documents: {
-      type: DataTypes.JSONB,
-      allowNull: false
-    },
-    businessInfo: {
-      type: DataTypes.JSONB,
-      allowNull: false
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
       defaultValue: 'pending'
     },
-    validation: {
-      type: DataTypes.JSONB,
-      defaultValue: {
-        status: 'pending',
-        message: null,
-        approvedAt: null,
-        approvedBy: null
-      }
+    message: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
-    timestamps: true
+    timestamps: true,
+    underscored: true,
+    tableName: 'sellers'
   });
 
   return Seller;

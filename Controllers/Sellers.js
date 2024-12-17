@@ -237,48 +237,42 @@ export const unblockSeller = async (req, res) => {
 
 export const checkValidationStatus = async (req, res) => {
   try {
-    const userId = req.user._id;
-    console.log("Checking status for userId:", userId);
+    console.log('Vérification du statut de validation...');
+    
+    // Utiliser findOne au lieu de findById
+    const user = await User.findOne({
+      where: { id: req.user.id }
+    });
 
-    // Vérifier si l'utilisateur existe
-    const user = await User.findById(userId);
-    console.log("User found:", user);
-
-    // Rechercher la demande de vendeur
-    const seller = await Seller.findOne({ userId })
-      .select('status validation createdAt userId')
-      .lean();
-
-    console.log("Seller found:", seller);
-
-    // Vérifier toutes les demandes de vendeur (pour le débogage)
-    const allSellers = await Seller.find({}).lean();
-    console.log("All sellers:", allSellers);
-
-    if (!seller) {
-      return res.status(200).json({
-        success: true,
-        status: 'not_found',
-        message: 'Aucune demande trouvée'
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
       });
     }
 
-    // Vérifier les deux champs de statut
-    const isApproved = 
-      seller.status === 'approved' && 
-      seller.validation?.status === 'approved';
-
-    res.status(200).json({
-      success: true,
-      status: isApproved ? 'approved' : (seller.status || 'pending'),
-      sellerId: seller._id,
-      createdAt: seller.createdAt,
-      message: seller.validation?.message,
-      approvedAt: seller.validation?.approvedAt
+    // Vérifier si une demande de vendeur existe
+    const sellerRequest = await Seller.findOne({
+      where: { userId: user.id }
     });
+
+    if (!sellerRequest) {
+      return res.status(200).json({
+        success: true,
+        status: 'not_started'
+      });
+    }
+
+    // Retourner le statut de la demande
+    return res.status(200).json({
+      success: true,
+      status: sellerRequest.status,
+      message: sellerRequest.message
+    });
+
   } catch (error) {
-    console.error('Erreur complète:', error);
-    res.status(500).json({
+    console.error('Erreur lors de la vérification du statut:', error);
+    return res.status(500).json({
       success: false,
       message: 'Erreur lors de la vérification du statut',
       error: error.message
