@@ -29,6 +29,13 @@ export default (sequelize) => {
     tableName: 'sellers'
   });
 
+  Seller.associate = (models) => {
+    Seller.belongsTo(models.User, {
+      foreignKey: 'userId',
+      as: 'user'
+    });
+  };
+
   return Seller;
 };
   

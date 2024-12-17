@@ -38,4 +38,9 @@ router.post('/register', adminController.register);
 
 router.get('/approved-sellers', authMiddleware, adminController.getApprovedSellers);
 
+// Routes pour les demandes de vendeurs
+router.get('/seller-requests', authMiddleware, adminController.getSellerRequests);
+router.post('/seller-requests/:id/approve', authMiddleware, adminController.approveSellerRequest);
+router.post('/seller-requests/:id/reject', authMiddleware, adminController.rejectSellerRequest);
+
 export default router;

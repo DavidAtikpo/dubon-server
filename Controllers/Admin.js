@@ -602,6 +602,126 @@ export const getApprovedSellers = async (req, res) => {
   }
 };
 
+export const getSellerRequests = async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé"
+      });
+    }
+
+    // Récupérer toutes les demandes en attente
+    const requests = await Seller.findAll({
+      where: { status: 'pending' },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'email']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: requests
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la récupération des demandes:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des demandes"
+    });
+  }
+};
+
+export const approveSellerRequest = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé"
+      });
+    }
+
+    const { id } = req.params;
+    const seller = await Seller.findByPk(id);
+
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: "Demande non trouvée"
+      });
+    }
+
+    // Mettre à jour le statut
+    await seller.update({
+      status: 'approved'
+    });
+
+    // Mettre à jour le rôle de l'utilisateur
+    await User.update(
+      { role: 'seller' },
+      { where: { id: seller.userId } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Demande approuvée avec succès"
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de l\'approbation:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'approbation de la demande"
+    });
+  }
+};
+
+export const rejectSellerRequest = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé"
+      });
+    }
+
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const seller = await Seller.findByPk(id);
+
+    if (!seller) {
+      return res.status(404).json({
+        success: false,
+        message: "Demande non trouvée"
+      });
+    }
+
+    // Mettre à jour le statut et ajouter la raison
+    await seller.update({
+      status: 'rejected',
+      message: reason
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Demande rejetée avec succès"
+    });
+
+  } catch (error) {
+    console.error('Erreur lors du rejet:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors du rejet de la demande"
+    });
+  }
+};
+
 export default {
   register,
   login,
@@ -618,5 +738,8 @@ export default {
   getDashboardStats,
   getRecentOrders,
   getRevenue,
-  getApprovedSellers
+  getApprovedSellers,
+  getSellerRequests,
+  approveSellerRequest,
+  rejectSellerRequest
 };
