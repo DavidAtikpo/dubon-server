@@ -15,6 +15,54 @@ export default (sequelize) => {
         key: 'id'
       }
     },
+    type: {
+      type: DataTypes.ENUM('individual', 'company'),
+      allowNull: false
+    },
+    personalInfo: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {}
+    },
+    documents: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {
+        idCard: null,
+        proofOfAddress: null,
+        taxCertificate: null,
+        photos: [],
+        rccm: null,
+        companyStatutes: null
+      }
+    },
+    contract: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {
+        signed: false,
+        signedDocument: null
+      }
+    },
+    videoVerification: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {
+        completed: false,
+        recordingUrl: null
+      }
+    },
+    businessInfo: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {
+        category: '',
+        description: '',
+        products: [],
+        bankDetails: {},
+        returnPolicy: ''
+      }
+    },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
       defaultValue: 'pending'

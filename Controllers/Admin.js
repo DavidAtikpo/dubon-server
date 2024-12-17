@@ -604,7 +604,6 @@ export const getApprovedSellers = async (req, res) => {
 
 export const getSellerRequests = async (req, res) => {
   try {
-    // Vérifier que l'utilisateur est admin
     if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -612,7 +611,6 @@ export const getSellerRequests = async (req, res) => {
       });
     }
 
-    // Récupérer toutes les demandes en attente
     const requests = await Seller.findAll({
       where: { status: 'pending' },
       include: [{
@@ -623,9 +621,27 @@ export const getSellerRequests = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    // Formater les données pour le frontend
+    const formattedRequests = requests.map(request => ({
+      _id: request.id,
+      type: request.type,
+      userId: {
+        _id: request.user.id,
+        name: request.user.name,
+        email: request.user.email
+      },
+      personalInfo: request.personalInfo,
+      documents: request.documents,
+      contract: request.contract,
+      videoVerification: request.videoVerification,
+      businessInfo: request.businessInfo,
+      status: request.status,
+      createdAt: request.createdAt
+    }));
+
     res.status(200).json({
       success: true,
-      data: requests
+      data: formattedRequests
     });
 
   } catch (error) {
