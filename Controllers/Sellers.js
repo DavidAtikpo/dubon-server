@@ -27,18 +27,17 @@ export const registerSeller = async (req, res) => {
     console.log("Début de registerSeller");
     console.log("Files reçus:", req.files);
     console.log("Body reçu:", req.body);
-    console.log("User ID:", req.user._id);
+    console.log("User:", req.user);
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
+      });
+    }
 
     const formData = JSON.parse(req.body.data);
     
-    // Nettoyer les données des produits
-    if (formData.businessInfo?.products) {
-      formData.businessInfo.products = formData.businessInfo.products.map(product => ({
-        ...product,
-        images: []
-      }));
-    }
-
     // Gérer les uploads de fichiers
     const fileData = {
       documents: {
@@ -57,46 +56,50 @@ export const registerSeller = async (req, res) => {
       }
     };
 
-    const sellerData = {
-      ...formData,
-      ...fileData,
-      userId: req.user._id,
-      status: 'pending',
-      updatedAt: new Date()
-    };
+    // Vérifier si une demande existe déjà
+    const existingRequest = await Seller.findOne({
+      where: { userId: req.user.id }
+    });
 
-    // Vérifier si le vendeur existe déjà
-    const existingSeller = await Seller.findOne({ userId: req.user._id });
-
-    let seller;
-    if (existingSeller) {
-      // Mettre à jour le vendeur existant
-      seller = await Seller.findOneAndUpdate(
-        { userId: req.user._id },
-        sellerData,
-        { new: true }
-      );
-      console.log("Vendeur mis à jour:", seller);
-    } else {
-      // Créer un nouveau vendeur
-      sellerData.createdAt = new Date();
-      seller = new Seller(sellerData);
-      await seller.save();
-      console.log("Nouveau vendeur créé:", seller);
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: "Une demande existe déjà pour cet utilisateur"
+      });
     }
+
+    // Créer la nouvelle demande
+    const seller = await Seller.create({
+      userId: req.user.id,
+      status: 'pending',
+      type: formData.type,
+      personalInfo: formData.personalInfo,
+      documents: fileData.documents,
+      contract: fileData.contract,
+      videoVerification: fileData.videoVerification,
+      businessInfo: formData.businessInfo,
+      compliance: formData.compliance
+    });
 
     res.status(201).json({
       success: true,
-      message: existingSeller ? "Données mises à jour avec succès" : "Inscription réussie, en attente de validation",
-      seller: seller
+      message: "Demande de vendeur enregistrée avec succès",
+      data: seller
     });
 
   } catch (error) {
     console.error('Erreur complète:', error);
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Erreur de validation",
+        errors: error.errors.map(err => err.message)
+      });
+    }
     res.status(500).json({
       success: false,
-      message: "Erreur lors de l'inscription/mise à jour",
-      error: error.message
+      message: "Erreur lors de l'enregistrement de la demande",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

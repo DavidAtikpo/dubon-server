@@ -2,7 +2,7 @@ import express from "express";
 import multer from 'multer';
 import path from 'path';
 import * as SellerController from "../Controllers/Sellers.js";
-import { verifyToken, isAdmin, verifyAdmin, corsErrorHandler } from "../middleware/authMiddleware.js";
+import { verifyToken, isAdmin, verifyAdmin, corsErrorHandler, authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -141,7 +141,14 @@ const handleMulterError = (err, req, res, next) => {
 router.get("/validation-status", verifyToken, SellerController.checkValidationStatus);
 router.get("/all-requests", verifyAdmin, SellerController.getAllSellerRequests);
 router.get("/all-sellers", verifyAdmin, SellerController.getAllSellers);
-router.post("/register", verifyToken, uploadFields, handleMulterError, SellerController.registerSeller);
+router.post("/register", authMiddleware, upload.fields([
+  { name: 'idCard', maxCount: 1 },
+  { name: 'proofOfAddress', maxCount: 1 },
+  { name: 'taxCertificate', maxCount: 1 },
+  { name: 'photos', maxCount: 5 },
+  { name: 'signedDocument', maxCount: 1 },
+  { name: 'verificationVideo', maxCount: 1 }
+]), SellerController.registerSeller);
 
 // Modifier la route des produits
 router.post("/products", verifyToken, (req, res, next) => {
