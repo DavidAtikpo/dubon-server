@@ -6,7 +6,7 @@ const config = {
   // Server Configuration
   server: {
     port: process.env.PORT || 5000,
-    env: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV || 'production'
   },
 
   // Database Configuration
@@ -65,7 +65,7 @@ const config = {
   },
 
   // Frontend URL
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  frontendUrl: process.env.FRONTEND_URL || 'http://dubonservice.com',
 
   // OAuth Configuration
   oauth: {
@@ -81,7 +81,7 @@ const config = {
 
   // CORS Configuration
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://dubonservice.com',
     credentials: true
   }
 };
@@ -103,7 +103,7 @@ const sequelizeConfig = {
     acquire: 30000,
     idle: 10000,
   },
-  logging: process.env.NODE_ENV === 'development',
+  logging: process.env.NODE_ENV === 'production',
   define: {
     freezeTableName: true,
     underscored: true,
