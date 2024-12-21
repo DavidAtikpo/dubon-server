@@ -5,12 +5,12 @@ import fs from 'fs/promises';
 
 // Configuration du transporteur email
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_SECURE === 'true',
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  secure: true,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
   }
 });
 
@@ -36,7 +36,7 @@ export const sendEmail = async ({
 
     // Configuration de l'email
     const mailOptions = {
-      from: process.env.SMTP_FROM,
+      from: process.env.EMAIL_FROM,
       to,
       subject,
       html,
@@ -111,9 +111,31 @@ Handlebars.registerHelper('eq', function(a, b) {
   return a === b;
 });
 
+// Template pour l'email de bienvenue
+const welcomeTemplate = Handlebars.compile(`
+  <h1>Bienvenue sur DUBON SERVICES, {{name}}!</h1>
+  <p>Nous sommes ravis de vous compter parmi nos membres.</p>
+  <p>Votre compte a été créé avec succès avec l'email: {{email}}</p>
+  <p>Vous pouvez maintenant accéder à tous nos services.</p>
+`);
+
+// Utilisation dans le contrôleur User
+export const sendWelcomeEmail = async (user) => {
+  await sendEmail({
+    to: user.email,
+    subject: 'Bienvenue sur DUBON SERVICES',
+    template: welcomeTemplate,
+    context: {
+      name: user.name,
+      email: user.email
+    }
+  });
+};
+
 export default {
   sendEmail,
   sendConfirmationEmail,
   sendPasswordResetEmail,
-  sendOrderNotification
+  sendOrderNotification,
+  sendWelcomeEmail
 }; 

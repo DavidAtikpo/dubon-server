@@ -1,7 +1,7 @@
 import { models } from '../models/index.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { sendEmail } from '../utils/emailUtils.js';
+import { sendEmail, sendWelcomeEmail } from '../utils/emailUtils.js';
 
 // Authentification
 export const register = async (req, res) => {
@@ -12,24 +12,22 @@ export const register = async (req, res) => {
       email,
       password: await bcrypt.hash(password, 10),
       name,
-      address: address || null  // Si pas d'adresse, mettre null
+      address: address || null
     };
 
     const user = await models.User.create(userData);
     
-    // Générer le token
+    // Envoyer l'email de bienvenue
+    try {
+      await sendWelcomeEmail(user);
+    } catch (emailError) {
+      console.error('Erreur envoi email de bienvenue:', emailError);
+      // Ne pas bloquer l'inscription si l'email échoue
+    }
 
-    
     res.status(201).json({ 
       success: true, 
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name
-        },
-       
-      }
+      message: 'Inscription réussie. Un email de bienvenue vous a été envoyé.'
     });
   } catch (error) {
     console.error('Erreur inscription:', error);
