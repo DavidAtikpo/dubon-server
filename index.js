@@ -203,7 +203,7 @@ const testDatabaseConnection = async () => {
     await sequelize.authenticate();
     console.log('✓ Connexion à la base de données OK');
 
-    // Vérifier les tables
+    // Vérifier les tables - Notez le "Users" avec U majuscule
     const [tables] = await sequelize.query(`
       SELECT table_name 
       FROM information_schema.tables 
@@ -211,9 +211,9 @@ const testDatabaseConnection = async () => {
     `);
     console.log('Tables existantes:', tables.map(t => t.table_name));
 
-    // Vérifier les utilisateurs
+    // Vérifier les utilisateurs - Notez le "Users" avec U majuscule
     const [users] = await sequelize.query(`
-      SELECT COUNT(*) as count FROM users;
+      SELECT COUNT(*) as count FROM "Users";
     `);
     console.log('Nombre d\'utilisateurs:', users[0].count);
 
