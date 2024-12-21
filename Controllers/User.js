@@ -42,12 +42,32 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await models.User.findOne({ where: { email } });
-    if (!user || !await bcrypt.compare(password, user.password)) {
-      return res.status(401).json({ success: false, message: 'Identifiants invalides' });
+    const user = await models.User.findOne({ 
+      where: { email },
+      attributes: ['id', 'email', 'password', 'name', 'profilePhotoUrl', 'role']
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Identifiants invalides' 
+      });
     }
+
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
-    res.json({ success: true, token });
+
+    // Retourner plus d'informations sur l'utilisateur
+    res.json({ 
+      success: true, 
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        profilePhotoUrl: user.profilePhotoUrl,
+        role: user.role
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
