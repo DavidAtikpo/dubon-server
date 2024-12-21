@@ -1,6 +1,6 @@
 import express from "express";
 // import router = express.Router();
-import Product from "../models/Products.js";
+import Product from "../models/Product.js";
 import Event from "../models/Event.js";
 // import Training from "../models/Training.js";
 
