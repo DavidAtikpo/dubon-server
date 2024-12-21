@@ -1,7 +1,7 @@
 import express from "express";
-import * as adminController from "../Controllers/Admin.js";
-import { authMiddleware } from "../middleware/authMiddleware.js";
-import { corsErrorHandler } from '../middleware/authMiddleware.js';
+import * as adminController from "../controllers/Admin.js";
+import { protect, admin } from "../middleware/authMiddleware.js";
+import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/login', adminController.login);
 
 // Routes protégées
-router.use(authMiddleware);
+router.use(protect);
 
 // Routes de gestion des utilisateurs
 router.get('/users', adminController.getAllUsers);
@@ -36,11 +36,11 @@ router.use(corsErrorHandler);
 // Ajouter la route d'inscription admin
 router.post('/register', adminController.register);
 
-router.get('/approved-sellers', authMiddleware, adminController.getApprovedSellers);
+router.get('/approved-sellers', protect, adminController.getApprovedSellers);
 
 // Routes pour les demandes de vendeurs
-router.get('/seller-requests', authMiddleware, adminController.getSellerRequests);
-router.post('/seller-requests/:id/approve', authMiddleware, adminController.approveSellerRequest);
-router.post('/seller-requests/:id/reject', authMiddleware, adminController.rejectSellerRequest);
+router.get('/seller-requests', protect, adminController.getSellerRequests);
+router.post('/seller-requests/:id/approve', protect, adminController.approveSellerRequest);
+router.post('/seller-requests/:id/reject', protect, adminController.rejectSellerRequest);
 
 export default router;
