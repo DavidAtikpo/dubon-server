@@ -9,30 +9,31 @@ const initDb = async () => {
     // Réinitialiser le schéma
     await sequelize.query('DROP SCHEMA public CASCADE');
     await sequelize.query('CREATE SCHEMA public');
+    await sequelize.query('GRANT ALL ON SCHEMA public TO public');
     console.log('✅ Schéma réinitialisé avec succès');
 
     // Créer les tables dans l'ordre des dépendances
     const tableOrder = [
-      // 1. Tables de base (sans dépendances)
+      // 1. Tables fondamentales (sans dépendances)
       'User',
       'Category',
       'Theme',
       'SystemSetting',
       'SystemLog',
+      'SellerRequest',
 
       // 2. Tables avec dépendances utilisateur
       'UserProfile',
       'UserActivity',
-      'SellerRequest',
-
-      // 3. Tables de profil vendeur et dépendances
       'SellerProfile',
+
+      // 3. Tables dépendantes du profil vendeur
       'SellerSetting',
       'SellerStats',
 
-      // 4. Tables de commandes et transactions (déplacé avant les produits)
-      'Order',
+      // 4. Tables de base pour les transactions
       'Cart',
+      'Order',
 
       // 5. Tables de produits et services
       'Product',
@@ -40,17 +41,20 @@ const initDb = async () => {
       'RestaurantItem',
       'Training',
       'Event',
+      'Promotion',
 
-      // 6. Tables dépendantes des commandes
-      'OrderItem',
+      // 6. Tables de jonction et dépendantes
       'CartItem',
+      'OrderItem',
+      'PromotionProduct',
+
+      // 7. Tables de transactions
       'Payment',
       'Return',
       'Refund',
 
-      // 7. Tables additionnelles
+      // 8. Tables additionnelles
       'Address',
-      'Promotion',
       'CustomerFilter',
       'Contract',
       'Review',
@@ -61,17 +65,21 @@ const initDb = async () => {
       'Favorite',
       'Dispute',
       'DisputeEvidence',
-      'Coupon',
-      'PromotionProduct'
+      'Coupon'
     ];
 
-    // Créer les tables séquentiellement
+    // Créer les tables séquentiellement avec gestion des erreurs
     for (const modelName of tableOrder) {
-      if (models[modelName]) {
-        await models[modelName].sync({ force: true });
-        console.log(`✅ Table ${modelName} créée avec succès`);
-      } else {
-        console.warn(`⚠️ Modèle ${modelName} non trouvé`);
+      try {
+        if (models[modelName]) {
+          await models[modelName].sync({ force: true });
+          console.log(`✅ Table ${modelName} créée avec succès`);
+        } else {
+          console.warn(`⚠️ Modèle ${modelName} non trouvé`);
+        }
+      } catch (error) {
+        console.error(`❌ Erreur lors de la création de la table ${modelName}:`, error);
+        throw error;
       }
     }
 
@@ -82,4 +90,7 @@ const initDb = async () => {
   }
 };
 
-initDb().catch(console.error);
+initDb().catch(error => {
+  console.error('❌ Erreur fatale lors de l\'initialisation:', error);
+  process.exit(1);
+});
