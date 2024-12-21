@@ -18,7 +18,7 @@ export const register = async (req, res) => {
     const user = await models.User.create(userData);
     
     // Générer le token
-    const token = generateToken(user.id);
+
     
     res.status(201).json({ 
       success: true, 
@@ -28,7 +28,7 @@ export const register = async (req, res) => {
           email: user.email,
           name: user.name
         },
-        token
+       
       }
     });
   } catch (error) {
