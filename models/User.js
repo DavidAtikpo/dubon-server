@@ -98,10 +98,10 @@ export default (sequelize) => {
     },
     address: {
       type: DataTypes.JSONB,
-      defaultValue: {},
+      defaultValue: null,
       validate: {
         isValidAddress(value) {
-          if (value) {
+          if (value && Object.keys(value).length > 0) {
             const required = ['street', 'city', 'country'];
             for (const field of required) {
               if (!value[field]) {

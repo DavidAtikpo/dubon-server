@@ -6,15 +6,38 @@ import { sendEmail } from '../utils/emailUtils.js';
 // Authentification
 export const register = async (req, res) => {
   try {
-    const { email, password, name } = req.body;
-    const user = await models.User.create({
+    const { email, password, name, address = null } = req.body;
+    
+    const userData = {
       email,
       password: await bcrypt.hash(password, 10),
-      name
+      name,
+      address: address || null  // Si pas d'adresse, mettre null
+    };
+
+    const user = await models.User.create(userData);
+    
+    // Générer le token
+    const token = generateToken(user.id);
+    
+    res.status(201).json({ 
+      success: true, 
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name
+        },
+        token
+      }
     });
-    res.status(201).json({ success: true, data: user });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    console.error('Erreur inscription:', error);
+    res.status(400).json({ 
+      success: false, 
+      error: error.message,
+      details: error.errors?.map(e => e.message)
+    });
   }
 };
 
