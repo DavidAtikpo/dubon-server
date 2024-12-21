@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #2563eb; font-size: 24px; margin-bottom: 20px; }
+    .review { background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .product { display: flex; align-items: center; margin: 15px 0; }
+    .product-image { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+    .product-info { margin-left: 15px; }
+    .rating { color: #f59e0b; font-size: 20px; }
+    .comment { margin: 15px 0; padding: 15px; background: white; border-radius: 6px; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Nouvel avis client
+    </div>
+    <div class="review">
+      <div class="product">
+        <img src="{{productImage}}" alt="{{productName}}" class="product-image">
+        <div class="product-info">
+          <h3>{{productName}}</h3>
+          <div class="rating">{{rating}} ★</div>
+        </div>
+      </div>
+      
+      <div class="comment">
+        <p><strong>{{customerName}} a écrit :</strong></p>
+        <p>{{comment}}</p>
+      </div>
+    </div>
+
+    <a href="{{reviewUrl}}" class="button">
+      Répondre à l'avis
+    </a>
+  </div>
+</body>
+</html> 

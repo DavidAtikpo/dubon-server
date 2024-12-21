@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #2563eb; font-size: 24px; margin-bottom: 20px; }
+    .summary { background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+    .metric { padding: 15px; background: white; border-radius: 6px; }
+    .metric-value { font-size: 24px; color: #059669; font-weight: bold; }
+    .chart { margin: 20px 0; padding: 15px; background: white; border-radius: 8px; }
+    .recommendations { margin-top: 20px; padding: 15px; background: #e0f2fe; border-radius: 8px; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Rapport de performance mensuel
+    </div>
+    
+    <div class="summary">
+      <h3>Performance de {{period}}</h3>
+      <div class="metrics">
+        <div class="metric">
+          <p>Ventes totales</p>
+          <div class="metric-value">{{totalSales}} FCFA</div>
+          <p>{{salesGrowth}}% vs mois précédent</p>
+        </div>
+        <div class="metric">
+          <p>Commandes</p>
+          <div class="metric-value">{{orderCount}}</div>
+          <p>{{orderGrowth}}% vs mois précédent</p>
+        </div>
+        <div class="metric">
+          <p>Note moyenne</p>
+          <div class="metric-value">{{averageRating}} ★</div>
+          <p>Basé sur {{reviewCount}} avis</p>
+        </div>
+        <div class="metric">
+          <p>Taux de conversion</p>
+          <div class="metric-value">{{conversionRate}}%</div>
+          <p>{{conversionGrowth}}% vs mois précédent</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommendations">
+      <h3>Recommandations</h3>
+      <ul>
+        {{#each recommendations}}
+          <li>{{this}}</li>
+        {{/each}}
+      </ul>
+    </div>
+
+    <a href="{{dashboardUrl}}" class="button">
+      Voir les détails complets
+    </a>
+  </div>
+</body>
+</html> 

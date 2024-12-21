@@ -18,5 +18,14 @@ router.get('/payment-stats', authMiddleware, userController.getPaymentStats);
 router.post('/resend-verification', userController.resendVerificationEmail);
 router.get('/orders', authMiddleware, userController.getUserOrders);
 router.get('/profile', authMiddleware, userController.getUserProfile);
+router.post('/address', authMiddleware, userController.addUserAddress);
+router.put('/preferences', authMiddleware, userController.updateUserPreferences);
+router.post('/favorites/toggle', authMiddleware, userController.toggleFavorite);
+router.get('/activity', authMiddleware, userController.getUserActivity);
+router.put('/social-profile', authMiddleware, userController.updateSocialProfile);
+router.get('/stats', authMiddleware, userController.getUserStats);
+router.get('/dashboard', authMiddleware, userController.getUserDashboard);
+router.get('/favorites', authMiddleware, userController.getFavorites);
+router.get('/activity', authMiddleware, userController.getUserActivity);
 
 export default router

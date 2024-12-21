@@ -1,7 +1,7 @@
 import { models } from '../models/index.js';
 import { Op } from 'sequelize';
 
-const { Product } = models;
+const { Product, Seller } = models;
 
 // Méthodes du contrôleur
 export const addProduct = async (req, res) => {
@@ -55,6 +55,46 @@ export const getProductById = async (req, res) => {
       success: false,
       message: "Erreur lors de la récupération du produit",
       error: error.message
+    });
+  }
+};
+
+export const createProduct = async (req, res) => {
+  try {
+    const seller = await Seller.findOne({
+      where: { userId: req.user.id }
+    });
+
+    if (!seller) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous devez être vendeur pour créer un produit"
+      });
+    }
+
+    const productData = JSON.parse(req.body.data);
+    const images = req.files?.images?.map(file => file.path) || [];
+    const imageUrls = req.body.imageUrls || [];
+    const videoPath = req.files?.video?.[0]?.path;
+
+    const product = await Product.create({
+      ...productData,
+      images: [...images, ...imageUrls],
+      videoUrl: videoPath,
+      sellerId: seller.id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Produit créé avec succès",
+      data: product
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la création du produit:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création du produit"
     });
   }
 };

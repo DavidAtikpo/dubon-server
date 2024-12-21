@@ -11,7 +11,8 @@
     "build": "npm install",
     "prod": "cross-env NODE_ENV=production node index.js",
     "migrate": "cross-env NODE_ENV=production sequelize-cli db:migrate",
-    "migrate:undo": "cross-env NODE_ENV=production sequelize-cli db:migrate:undo"
+    "migrate:undo": "cross-env NODE_ENV=production sequelize-cli db:migrate:undo",
+    "db:init": "node scripts/db-init.js"
   },
   "author": "",
   "license": "ISC",

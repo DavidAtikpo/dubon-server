@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+    .content { background: #fee2e2; padding: 15px; border-radius: 8px; }
+    .reason { margin: 20px 0; padding: 15px; background: white; border-radius: 6px; }
+    .next-steps { margin-top: 20px; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Demande de compte vendeur non approuvée
+    </div>
+    <div class="content">
+      <p>Cher(e) {{sellerName}},</p>
+      <p>Nous avons examiné votre demande de compte vendeur avec attention. Malheureusement, nous ne pouvons pas l'approuver pour le moment.</p>
+      
+      <div class="reason">
+        <strong>Motif :</strong>
+        <p>{{rejectionReason}}</p>
+      </div>
+
+      <div class="next-steps">
+        <h3>Prochaines étapes :</h3>
+        <ul>
+          <li>Examinez les points mentionnés ci-dessus</li>
+          <li>Mettez à jour vos informations</li>
+          <li>Soumettez une nouvelle demande</li>
+        </ul>
+      </div>
+    </div>
+    
+    <a href="{{supportUrl}}" class="button">
+      Contacter le support
+    </a>
+  </div>
+</body>
+</html> 

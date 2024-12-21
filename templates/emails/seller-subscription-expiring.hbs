@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #f59e0b; font-size: 24px; margin-bottom: 20px; }
+    .warning { background: #fef3c7; padding: 15px; border-radius: 8px; border: 1px solid #f59e0b; }
+    .subscription { margin: 20px 0; background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .plan-info { margin: 15px 0; }
+    .expiry { color: #dc2626; font-weight: bold; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Abonnement bientôt expiré
+    </div>
+    <div class="warning">
+      <p>Votre abonnement vendeur arrive bientôt à expiration.</p>
+    </div>
+    
+    <div class="subscription">
+      <div class="plan-info">
+        <p>Plan actuel : <strong>{{planName}}</strong></p>
+        <p>Expire le : <span class="expiry">{{expiryDate}}</span></p>
+        <p>Jours restants : <strong>{{daysRemaining}}</strong></p>
+      </div>
+
+      <p>Pour continuer à vendre sur notre plateforme sans interruption, veuillez renouveler votre abonnement.</p>
+    </div>
+
+    <a href="{{renewalUrl}}" class="button">
+      Renouveler mon abonnement
+    </a>
+  </div>
+</body>
+</html> 

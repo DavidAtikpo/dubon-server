@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #2563eb; font-size: 24px; margin-bottom: 20px; }
+    .details { background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .amount { font-size: 28px; color: #059669; margin: 15px 0; }
+    .info { margin: 10px 0; }
+    .footer { margin-top: 20px; color: #6b7280; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Retrait traité avec succès
+    </div>
+    <div class="details">
+      <div class="amount">
+        {{amount}} FCFA
+      </div>
+      <div class="info">
+        <p>Référence : <strong>{{reference}}</strong></p>
+        <p>Date : <strong>{{processedDate}}</strong></p>
+        <p>Compte bancaire : <strong>{{bankInfo}}</strong></p>
+      </div>
+    </div>
+    <div class="footer">
+      Le montant sera disponible sur votre compte dans 1-3 jours ouvrés.
+    </div>
+  </div>
+</body>
+</html> 

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #2563eb; font-size: 24px; margin-bottom: 20px; }
+    .details { background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .footer { margin-top: 20px; color: #6b7280; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Nouvelle commande reçue !
+    </div>
+    <div class="details">
+      <p>Commande N° : <strong>{{orderNumber}}</strong></p>
+      <p>Montant total : <strong>{{total}} FCFA</strong></p>
+      <p>Nombre d'articles : <strong>{{items}}</strong></p>
+    </div>
+    <div class="footer">
+      Connectez-vous à votre tableau de bord pour gérer cette commande.
+    </div>
+  </div>
+</body>
+</html> 

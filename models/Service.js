@@ -1,52 +1,136 @@
-import { DataTypes } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 
 export default (sequelize) => {
-  const Service = sequelize.define('Service', {
+  class Service extends Model {
+    static associate(models) {
+      Service.belongsTo(models.SellerProfile, {
+        foreignKey: {
+          name: 'sellerId',
+          allowNull: false,
+          onDelete: 'CASCADE',
+          onUpdate: 'CASCADE'
+        },
+        as: 'seller'
+      });
+
+      Service.hasMany(models.Review, {
+        foreignKey: 'serviceId',
+        as: 'reviews'
+      });
+
+      Service.hasMany(models.Rating, {
+        foreignKey: 'serviceId',
+        as: 'serviceRatings'
+      });
+
+      Service.hasMany(models.Favorite, {
+        foreignKey: 'serviceId',
+        as: 'favorites'
+      });
+    }
+  }
+
+  Service.init({
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    title: {
+    sellerId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
+    name: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    description: DataTypes.TEXT,
-    price: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      validate: {
-        min: 0
-      }
+    slug: {
+      type: DataTypes.STRING,
+      unique: true
+    },
+    description: {
+      type: DataTypes.TEXT
     },
     category: {
-      type: DataTypes.ENUM('assistance', 'installation', 'nettoyage', 'formation', 'autre'),
+      type: DataTypes.STRING,
       allowNull: false
     },
-    availability: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
     },
-    durationInHours: {
+    duration: {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+    availability: {
+      type: DataTypes.JSONB,
+      defaultValue: {
+        schedule: {},
+        exceptions: []
+      }
+    },
     location: {
       type: DataTypes.JSONB,
-      allowNull: false,
-      validate: {
-        hasRequiredFields(value) {
-          const required = ['street', 'city', 'postal_code', 'country'];
-          for (const field of required) {
-            if (!value[field]) {
-              throw new Error(`${field} est requis dans location`);
-            }
-          }
-        }
+      defaultValue: {
+        type: 'onsite',
+        address: null,
+        coordinates: {
+          latitude: null,
+          longitude: null
+        },
+        serviceArea: []
       }
+    },
+    images: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
+    },
+    requirements: {
+      type: DataTypes.JSONB,
+      defaultValue: []
+    },
+    included: {
+      type: DataTypes.JSONB,
+      defaultValue: []
+    },
+    excluded: {
+      type: DataTypes.JSONB,
+      defaultValue: []
+    },
+    cancellationPolicy: {
+      type: DataTypes.TEXT
+    },
+    status: {
+      type: DataTypes.ENUM('draft', 'active', 'inactive', 'archived'),
+      defaultValue: 'draft'
+    },
+    featured: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    ratings: {
+      type: DataTypes.JSONB,
+      defaultValue: {
+        average: 0,
+        count: 0
+      }
+    },
+    metadata: {
+      type: DataTypes.JSONB,
+      defaultValue: {}
     }
   }, {
-    timestamps: true
+    sequelize,
+    modelName: 'Service',
+    tableName: 'Services',
+    timestamps: true,
+    indexes: [
+      { fields: ['sellerId'] },
+      { fields: ['slug'], unique: true },
+      { fields: ['status'] },
+      { fields: ['category'] }
+    ]
   });
 
   return Service;

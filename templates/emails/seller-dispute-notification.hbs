@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+    .alert { background: #fee2e2; padding: 15px; border-radius: 8px; border: 1px solid #dc2626; }
+    .dispute-info { margin: 20px 0; background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .order-details { margin: 15px 0; padding: 15px; background: white; border-radius: 6px; }
+    .customer-message { margin: 15px 0; padding: 15px; background: white; border-radius: 6px; }
+    .timeline { margin: 15px 0; }
+    .button { 
+      background: #dc2626;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Nouveau litige client
+    </div>
+    <div class="alert">
+      <p>Un litige a été ouvert concernant la commande #{{orderNumber}}</p>
+    </div>
+    
+    <div class="dispute-info">
+      <div class="order-details">
+        <h3>Détails de la commande</h3>
+        <p>Date : {{orderDate}}</p>
+        <p>Client : {{customerName}}</p>
+        <p>Montant : {{orderAmount}} FCFA</p>
+      </div>
+
+      <div class="customer-message">
+        <h3>Motif du litige</h3>
+        <p>{{disputeReason}}</p>
+        <p>{{customerMessage}}</p>
+      </div>
+
+      <div class="timeline">
+        <p>Vous avez <strong>48 heures</strong> pour répondre à ce litige.</p>
+      </div>
+    </div>
+
+    <a href="{{disputeUrl}}" class="button">
+      Gérer le litige
+    </a>
+  </div>
+</body>
+</html> 

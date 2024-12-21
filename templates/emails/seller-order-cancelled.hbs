@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+    .order-info { background: #fee2e2; padding: 15px; border-radius: 8px; }
+    .details { margin: 20px 0; background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .reason { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Commande annulée
+    </div>
+    <div class="order-info">
+      <p>La commande #{{orderNumber}} a été annulée par le client.</p>
+    </div>
+    
+    <div class="details">
+      <h3>Détails de la commande</h3>
+      <p>Date de commande : {{orderDate}}</p>
+      <p>Montant : {{amount}} FCFA</p>
+      <p>Client : {{customerName}}</p>
+      
+      <div class="reason">
+        <strong>Motif d'annulation :</strong>
+        <p>{{cancellationReason}}</p>
+      </div>
+    </div>
+
+    <a href="{{orderUrl}}" class="button">
+      Voir les détails
+    </a>
+  </div>
+</body>
+</html> 

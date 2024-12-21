@@ -7,7 +7,7 @@ import { Op } from 'sequelize';
 import { sequelize } from '../config/dbConfig.js';
 import config from '../config/config.js';
 
-const { User, Order } = models;
+const { User, Order, Address, UserPreference, Favorite, UserActivity, UserProfile } = models;
 
 export const register = async (req, res) => {
   try {
@@ -617,6 +617,200 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
+// Ajouter la gestion des adresses
+export const addUserAddress = async (req, res) => {
+  try {
+    const { street, city, postalCode, country, isDefault } = req.body;
+    
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    // Si l'adresse est définie par défaut, mettre à jour les autres adresses
+    if (isDefault) {
+      await Address.update(
+        { isDefault: false },
+        { where: { userId: req.user.id } }
+      );
+    }
+
+    const address = await Address.create({
+      userId: req.user.id,
+      street,
+      city,
+      postalCode,
+      country,
+      isDefault: isDefault || false
+    });
+
+    res.status(201).json({
+      success: true,
+      address
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'ajout de l'adresse"
+    });
+  }
+};
+
+// Gestion des préférences utilisateur
+export const updateUserPreferences = async (req, res) => {
+  try {
+    const { 
+      language, 
+      currency, 
+      notifications,
+      newsletter 
+    } = req.body;
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    const preferences = await UserPreference.upsert({
+      userId: req.user.id,
+      language,
+      currency,
+      notifications,
+      newsletter
+    });
+
+    res.status(200).json({
+      success: true,
+      preferences
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour des préférences"
+    });
+  }
+};
+
+// Gestion des favoris
+export const toggleFavorite = async (req, res) => {
+  try {
+    const { productId } = req.body;
+    
+    const favorite = await Favorite.findOne({
+      where: {
+        userId: req.user.id,
+        productId
+      }
+    });
+
+    if (favorite) {
+      await favorite.destroy();
+      res.status(200).json({
+        success: true,
+        message: "Produit retiré des favoris"
+      });
+    } else {
+      await Favorite.create({
+        userId: req.user.id,
+        productId
+      });
+      res.status(200).json({
+        success: true,
+        message: "Produit ajouté aux favoris"
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la gestion des favoris"
+    });
+  }
+};
+
+// Historique des activités
+export const getUserActivity = async (req, res) => {
+  try {
+    const activities = await UserActivity.findAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']],
+      limit: 20
+    });
+
+    res.status(200).json({
+      success: true,
+      activities
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération de l'historique"
+    });
+  }
+};
+
+// Gestion du profil social
+export const updateSocialProfile = async (req, res) => {
+  try {
+    const { 
+      bio, 
+      socialLinks,
+      displayName,
+      avatarUrl 
+    } = req.body;
+
+    const profile = await UserProfile.upsert({
+      userId: req.user.id,
+      bio,
+      socialLinks,
+      displayName,
+      avatarUrl
+    });
+
+    res.status(200).json({
+      success: true,
+      profile
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour du profil social"
+    });
+  }
+};
+
+// Statistiques utilisateur
+export const getUserStats = async (req, res) => {
+  try {
+    const stats = await Promise.all([
+      Order.count({ where: { userId: req.user.id } }),
+      Review.count({ where: { userId: req.user.id } }),
+      Favorite.count({ where: { userId: req.user.id } }),
+      UserActivity.count({ where: { userId: req.user.id } })
+    ]);
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalOrders: stats[0],
+        totalReviews: stats[1],
+        totalFavorites: stats[2],
+        totalActivities: stats[3]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques"
+    });
+  }
+};
+
 // Grouper tous les exports
 const userController = {
   register,
@@ -632,7 +826,13 @@ const userController = {
   resendVerificationEmail,
   getUserOrders,
   getUserProfile,
-  updateUserInfo
+  updateUserInfo,
+  addUserAddress,
+  updateUserPreferences,
+  toggleFavorite,
+  getUserActivity,
+  updateSocialProfile,
+  getUserStats
 };
 
 export default userController;

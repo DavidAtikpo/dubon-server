@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #059669; font-size: 24px; margin-bottom: 20px; }
+    .content { background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .steps { margin: 20px 0; }
+    .step { margin-bottom: 10px; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Félicitations ! Votre compte vendeur est approuvé
+    </div>
+    <div class="content">
+      <p>Cher(e) {{sellerName}},</p>
+      <p>Nous sommes heureux de vous annoncer que votre demande de compte vendeur a été approuvée.</p>
+      
+      <div class="steps">
+        <div class="step">✓ Vérification des documents complétée</div>
+        <div class="step">✓ Validation de l'entreprise effectuée</div>
+        <div class="step">✓ Compte vendeur activé</div>
+      </div>
+
+      <p>Vous pouvez maintenant :</p>
+      <ul>
+        <li>Ajouter vos produits</li>
+        <li>Personnaliser votre boutique</li>
+        <li>Gérer vos commandes</li>
+        <li>Suivre vos statistiques</li>
+      </ul>
+    </div>
+    
+    <a href="{{dashboardUrl}}" class="button">
+      Accéder à votre tableau de bord
+    </a>
+  </div>
+</body>
+</html> 

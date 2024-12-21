@@ -1,75 +1,136 @@
-import { DataTypes } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 
 export default (sequelize) => {
-  const Event = sequelize.define('Event', {
+  class Event extends Model {
+    static associate(models) {
+      Event.belongsTo(models.SellerProfile, {
+        foreignKey: {
+          name: 'sellerId',
+          allowNull: false,
+          onDelete: 'CASCADE',
+          onUpdate: 'CASCADE'
+        },
+        as: 'seller'
+      });
+
+      Event.hasMany(models.Review, {
+        foreignKey: 'eventId',
+        as: 'reviews'
+      });
+
+      Event.hasMany(models.Rating, {
+        foreignKey: 'eventId',
+        as: 'ratings'
+      });
+
+      Event.hasMany(models.Favorite, {
+        foreignKey: 'eventId',
+        as: 'favorites'
+      });
+    }
+  }
+
+  Event.init({
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    title: {
+    sellerId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
+    name: {
       type: DataTypes.STRING,
       allowNull: false
     },
+    slug: {
+      type: DataTypes.STRING,
+      unique: true
+    },
     description: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT
+    },
+    type: {
+      type: DataTypes.STRING,
       allowNull: false
     },
-    date: {
+    startDate: {
       type: DataTypes.DATE,
       allowNull: false
     },
-    time: {
-      type: DataTypes.STRING,
+    endDate: {
+      type: DataTypes.DATE,
       allowNull: false
     },
     location: {
-      type: DataTypes.STRING,
-      allowNull: false
+      type: DataTypes.JSONB,
+      defaultValue: {
+        type: 'physical', // physical, online, hybrid
+        venue: null,
+        address: null,
+        coordinates: {
+          latitude: null,
+          longitude: null
+        },
+        onlineLink: null
+      }
     },
-    country: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    continent: {
-      type: DataTypes.STRING,
+    capacity: {
+      type: DataTypes.INTEGER,
       allowNull: false
     },
     price: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
-    media: {
+    images: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       defaultValue: []
     },
-    isLive: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    liveStreamLink: DataTypes.STRING,
-    organizer: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    maxAttendees: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0
-    },
-    attendees: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
+    schedule: {
+      type: DataTypes.JSONB,
       defaultValue: []
     },
-    tags: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
+    requirements: {
+      type: DataTypes.JSONB,
+      defaultValue: []
+    },
+    included: {
+      type: DataTypes.JSONB,
       defaultValue: []
     },
     status: {
-      type: DataTypes.ENUM('upcoming', 'ongoing', 'completed'),
-      defaultValue: 'upcoming'
+      type: DataTypes.ENUM('draft', 'active', 'cancelled', 'completed'),
+      defaultValue: 'draft'
+    },
+    featured: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    registrations: {
+      type: DataTypes.JSONB,
+      defaultValue: {
+        total: 0,
+        available: 0
+      }
+    },
+    metadata: {
+      type: DataTypes.JSONB,
+      defaultValue: {}
     }
   }, {
-    timestamps: true
+    sequelize,
+    modelName: 'Event',
+    tableName: 'Events',
+    timestamps: true,
+    indexes: [
+      { fields: ['sellerId'] },
+      { fields: ['slug'], unique: true },
+      { fields: ['status'] },
+      { fields: ['startDate'] },
+      { fields: ['endDate'] }
+    ]
   });
 
   return Event;

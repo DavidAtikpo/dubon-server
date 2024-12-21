@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+    .warning { background: #fee2e2; padding: 15px; border-radius: 8px; border: 1px solid #dc2626; }
+    .reason { margin: 20px 0; padding: 15px; background: #f3f4f6; border-radius: 6px; }
+    .contact { margin-top: 20px; }
+    .button { 
+      background: #dc2626;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Compte vendeur suspendu
+    </div>
+    <div class="warning">
+      <p>Votre compte vendeur a été temporairement suspendu.</p>
+    </div>
+    
+    <div class="reason">
+      <strong>Motif de la suspension :</strong>
+      <p>{{suspensionReason}}</p>
+    </div>
+
+    <div class="contact">
+      <p>Pour réactiver votre compte :</p>
+      <ol>
+        <li>Examinez le motif de suspension</li>
+        <li>Rassemblez les documents nécessaires</li>
+        <li>Contactez notre équipe support</li>
+      </ol>
+    </div>
+
+    <a href="{{appealUrl}}" class="button">
+      Faire appel de la décision
+    </a>
+  </div>
+</body>
+</html> 

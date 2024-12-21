@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+    .product-list { background: #f3f4f6; padding: 15px; border-radius: 8px; }
+    .product-item { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
+    .footer { margin-top: 20px; color: #6b7280; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Alerte stock bas !
+    </div>
+    <div class="product-list">
+      {{#each products}}
+        <div class="product-item">
+          <p>Produit : <strong>{{name}}</strong></p>
+          <p>Stock restant : <strong>{{stock}} unités</strong></p>
+        </div>
+      {{/each}}
+    </div>
+    <div class="footer">
+      Pensez à réapprovisionner vos stocks pour continuer vos ventes.
+    </div>
+  </div>
+</body>
+</html> 

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+    .alert { background: #fee2e2; padding: 15px; border-radius: 8px; border: 1px solid #dc2626; }
+    .products { margin: 20px 0; }
+    .product { 
+      display: flex; 
+      align-items: center; 
+      margin: 10px 0; 
+      padding: 10px; 
+      background: #f3f4f6; 
+      border-radius: 6px; 
+    }
+    .product-image { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+    .product-info { margin-left: 15px; flex: 1; }
+    .stock-count { color: #dc2626; font-weight: bold; }
+    .button { 
+      background: #2563eb;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Alerte stock critique
+    </div>
+    <div class="alert">
+      <p>Les produits suivants ont atteint un niveau de stock critique :</p>
+    </div>
+    
+    <div class="products">
+      {{#each products}}
+        <div class="product">
+          <img src="{{image}}" alt="{{name}}" class="product-image">
+          <div class="product-info">
+            <h3>{{name}}</h3>
+            <p>Stock restant : <span class="stock-count">{{stock}} unités</span></p>
+          </div>
+        </div>
+      {{/each}}
+    </div>
+
+    <a href="{{inventoryUrl}}" class="button">
+      Gérer mon inventaire
+    </a>
+  </div>
+</body>
+</html> 

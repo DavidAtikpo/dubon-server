@@ -18,7 +18,6 @@ import pgSession from 'connect-pg-simple';
 import cartRoute from './Routers/cartRoute.js';
 import wishlistRoute from './Routers/wishlistRoute.js';
 import Training from './Routers/Training.js'
-import Admin from './Routers/Admin.js'
 import searchRouter from './Routers/searchRouter.js'
 import category from './Routers/category.js'
 import Seller from "./Routers/Seller.js"
@@ -27,6 +26,11 @@ import paymentRoutes from './Routers/payementRoute.js';
 import { sequelize } from './config/dbConfig.js';
 import pg from 'pg';
 import { initializeDatabase } from './config/dbConfig.js';
+import adminRoutes from './routes/admin.js';
+import { logError } from './utils/systemLogger.js';
+import systemRoutes from './routes/system.js';
+import themeRoutes from './routes/themes.js';
+import disputeRoutes from './routes/disputes.js';
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -142,7 +146,9 @@ app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
 
 // Use admin routes
-app.use('/api/admin', Admin);
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin/themes', themeRoutes);
+app.use('/api/disputes', disputeRoutes);
 
 // Monter les routes
 app.use('/api/seller', Seller);
@@ -150,6 +156,16 @@ app.use('/api/seller', Seller);
 // Error handling
 app.use(errorHandler.notFound);
 app.use(errorHandler.errorHandler);
+
+// Middleware de gestion des erreurs globales
+app.use((error, req, res, next) => {
+  logError(error, req);
+  res.status(500).json({
+    success: false,
+    message: "Une erreur est survenue",
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+});
 
 // Fonction pour configurer les dossiers d'upload
 const setupUploadDirectories = () => {
@@ -161,7 +177,8 @@ const setupUploadDirectories = () => {
     'uploads/contracts',
     'uploads/videos',
     'uploads/others',
-    'uploads/products'
+    'uploads/products',
+    'uploads/themes'
   ];
 
   dirs.forEach(dir => {
@@ -206,5 +223,7 @@ const testDatabaseConnection = async () => {
 };
 
 testDatabaseConnection();
+
+app.use('/api/admin/system', systemRoutes);
 
 

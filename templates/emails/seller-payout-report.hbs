@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .container { padding: 20px; font-family: Arial, sans-serif; }
+    .header { color: #2563eb; font-size: 24px; margin-bottom: 20px; }
+    .summary { background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .amount { font-size: 28px; color: #059669; margin: 15px 0; }
+    .details { margin: 20px 0; }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .footer { margin-top: 20px; color: #6b7280; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Rapport de paiement mensuel
+    </div>
+    <div class="summary">
+      <h3>Résumé du {{period}}</h3>
+      <div class="amount">
+        {{totalAmount}} FCFA
+      </div>
+      <p>Commissions : {{commissionAmount}} FCFA</p>
+      <p>Montant net : {{netAmount}} FCFA</p>
+    </div>
+    
+    <div class="details">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each transactions}}
+            <tr>
+              <td>{{description}}</td>
+              <td>{{amount}} FCFA</td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      Le paiement sera effectué sur votre compte bancaire dans les prochains jours.
+    </div>
+  </div>
+</body>
+</html> 
