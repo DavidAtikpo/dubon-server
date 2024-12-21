@@ -2,7 +2,7 @@ import { models } from '../models/index.js';
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 
-const { User } = models;
+import { models } from '../models/index.js';
 
 export const authMiddleware = async (req, res, next) => {
   try {
@@ -20,7 +20,7 @@ export const authMiddleware = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log('Token décodé:', decoded);
 
-      const user = await User.findOne({
+      const user = await models.User.findOne({
         where: { id: decoded.id }
       });
 
@@ -52,7 +52,7 @@ export const authMiddleware = async (req, res, next) => {
 
 export const isAdmin = asyncHandler(async (req, res, next) => {
   const { email } = req.user;
-  const adminUser = await User.findOne({ 
+  const adminUser = await models.User.findOne({ 
     where: { email, role: 'admin' }
   });
 
@@ -71,7 +71,7 @@ export const authorization = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findOne({
+    const user = await models.User.findOne({
       where: { id: decoded.id }
     });
 
@@ -107,7 +107,7 @@ export const verifyToken = asyncHandler(async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findOne({
+    const user = await models.User.findOne({
       where: { id: decoded.id }
     });
 
@@ -131,7 +131,7 @@ export const verifyToken = asyncHandler(async (req, res, next) => {
 
 export const verifyAdmin = asyncHandler(async (req, res, next) => {
   try {
-    const user = await User.findOne({
+    const user = await models.User.findOne({
       where: { id: req.user.id }
     });
 
