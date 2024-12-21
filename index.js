@@ -145,7 +145,7 @@ app.use("/api/", cartRoute);
 app.use('/api/wishlist', wishlistRoute);
 app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
-
+app.use('/api/admin/system', systemRoutes);
 // Use admin routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/themes', themeRoutes);
@@ -225,6 +225,6 @@ const testDatabaseConnection = async () => {
 
 testDatabaseConnection();
 
-app.use('/api/admin/system', systemRoutes);
+
 
 
