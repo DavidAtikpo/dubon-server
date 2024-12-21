@@ -1,897 +1,209 @@
 import { models } from '../models/index.js';
-import generateToken from '../utils/generateToken.js';
 import bcrypt from 'bcrypt';
-import sendEmail from '../utils/emailSender.js';
-import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import sequelize from 'sequelize';
+import generateToken from '../utils/generateToken.js';
+import sendEmail from '../utils/emailSender.js';
+import crypto from 'crypto';
 
-const { User, Order, Seller } = models;
+const { User, Seller, Product, Order, Review, SystemLog, SystemSettings, SellerProfile } = models;
 
 // Fonctions utilitaires
 async function calculateTotalRevenue() {
-  const result = await models.Order.sum('total', {
+  const result = await Order.sum('total', {
     where: { status: 'completed' }
   });
   return result || 0;
 }
 
 async function getRecentOrders(limit = 10) {
-  return models.Order.findAll({
+  return Order.findAll({
     limit,
-    order: [['createdAt', 'DESC']],
-    include: ['customer']
+    include: ['customer'],
+    order: [['createdAt', 'DESC']]
   });
 }
 
-async function getTopSellers(limit = 5) {
-  return models.SellerProfile.findAll({
-    limit,
-    include: [{
-      model: models.Order,
-      as: 'orders',
-      attributes: []
-    }],
-    attributes: {
-      include: [
-        [sequelize.fn('COUNT', sequelize.col('orders.id')), 'orderCount'],
-        [sequelize.fn('SUM', sequelize.col('orders.total')), 'totalRevenue']
-      ]
-    },
-    group: ['SellerProfile.id'],
-    order: [[sequelize.literal('totalRevenue'), 'DESC']]
-  });
-}
-
-async function getTopProducts(limit = 5) {
-  return models.Product.findAll({
-    limit,
-    include: [{
-      model: models.OrderItem,
-      as: 'orderItems',
-      attributes: []
-    }],
-    attributes: {
-      include: [
-        [sequelize.fn('COUNT', sequelize.col('orderItems.id')), 'orderCount'],
-        [sequelize.fn('SUM', sequelize.col('orderItems.quantity')), 'totalSold']
-      ]
-    },
-    group: ['Product.id'],
-    order: [[sequelize.literal('totalSold'), 'DESC']]
-  });
-}
-
-// Contrôleurs exportés
-export const register = async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Tous les champs sont obligatoires" 
-      });
-    }
-
-    // Vérifier si l'email existe déjà
-    const existingUser = await User.findOne({ 
-      where: { email: email.toLowerCase().trim() } 
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Cet email est déjà utilisé" 
-      });
-    }
-
-    // Hasher le mot de passe
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Créer l'administrateur
-    const admin = await User.create({
-      name,
-      email: email.toLowerCase().trim(),
-      password: hashedPassword,
-      role: 'admin',
-      email_verified: false
-    });
-
-    // Envoyer un email de confirmation
-    try {
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      const hashedToken = crypto
-        .createHash('sha256')
-        .update(verificationToken)
-        .digest('hex');
-
-      await admin.update({
-        email_verification_token: hashedToken,
-        email_verification_expires: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      });
-
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
-      
-      await sendEmail({
-        to: admin.email,
-        subject: 'Vérification de votre compte administrateur - Dubon Service',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #1D4ED8;">Bienvenue sur Dubon Service !</h1>
-            <p>Votre compte administrateur a été créé. Pour l'activer, veuillez cliquer sur le lien ci-dessous :</p>
-            <a href="${verificationUrl}" 
-               style="background-color: #1D4ED8; 
-                      color: white; 
-                      padding: 12px 24px; 
-                      text-decoration: none; 
-                      border-radius: 5px; 
-                      display: inline-block; 
-                      margin: 20px 0;">
-              Vérifier mon email
-            </a>
-            <p style="color: #666;">Ce lien expirera dans 24 heures.</p>
-            <hr style="border: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #666;">Cordialement,<br>L'équipe Dubon Service</p>
-          </div>
-        `
-      });
-    } catch (emailError) {
-      console.error('Erreur lors de l\'envoi de l\'email:', emailError);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: "Compte administrateur créé avec succès. Veuillez vérifier votre email.",
-      admin: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role
-      }
-    });
-
-  } catch (error) {
-    console.error("Erreur lors de l'inscription admin:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Erreur lors de la création du compte administrateur" 
-    });
-  }
-};
-
+// Authentification
 export const login = async (req, res) => {
   try {
-    const { email } = req.body;
-
-    // Validation de l'email
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email requis"
-      });
-    }
-
-    // Trouver l'administrateur
+    const { email, password } = req.body;
     const admin = await User.findOne({
-      where: {
-        email: email.toLowerCase().trim(),
-        role: 'admin'
-      }
+      where: { email, role: 'admin' }
     });
-
-    if (!admin) {
+    if (!admin || !(await bcrypt.compare(password, admin.password))) {
       return res.status(401).json({
         success: false,
-        message: "Email non reconnu ou vous n'avez pas les droits administrateur"
+        message: "Email ou mot de passe incorrect"
       });
     }
-
-    // Générer directement le JWT token
     const token = generateToken(admin.id);
-
-    // Retourner directement la réponse avec le token
-    res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: admin.id,
-        email: admin.email,
-        role: admin.role
-      }
-    });
-
+    res.json({ success: true, token, admin: { id: admin.id, email: admin.email } });
   } catch (error) {
-    console.error("Erreur lors de la tentative de connexion:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la connexion"
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-export const logout = async (req, res) => {
+// Dashboard
+export const getDashboard = async (req, res) => {
   try {
-    // Implémentation...
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const getAllUsers = async (req, res) => {
-  try {
-    // Vérifier si l'utilisateur est un admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Accès non autorisé"
-      });
-    }
-
-    // Récupérer tous les utilisateurs avec les informations nécessaires
-    const users = await User.findAll({
-      attributes: [
-        'id',
-        'name',
-        'email',
-        'role',
-        'profile_photo_url',
-        'is_blocked',
-        'email_verified',
-        'created_at',
-        'updated_at'
-      ],
-      order: [['created_at', 'DESC']]
-    });
-
-    // Formater les données pour correspondre à l'interface du frontend
-    const formattedUsers = users.map(user => ({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.profile_photo_url,
-      status: user.is_blocked 
-        ? 'Bloqué' 
-        : (user.email_verified ? 'Vérifié' : 'Non vérifié'),
-      lastConnection: user.updated_at,
-      role: user.role
-    }));
-
-    res.status(200).json({
-      success: true,
-      data: formattedUsers
-    });
-
-  } catch (error) {
-    console.error('Erreur lors de la récupération des utilisateurs:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des utilisateurs',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-export const getUserById = async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Accès non autorisé"
-      });
-    }
-
-    const userId = req.params.id;
-    const user = await User.findOne({
-      where: { id: userId },
-      attributes: [
-        'id',
-        'name',
-        'email',
-        'role',
-        'profile_photo_url',
-        'is_blocked',
-        'email_verified',
-        'created_at',
-        'updated_at'
-      ]
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Utilisateur non trouvé"
-      });
-    }
-
-    const formattedUser = {
-      _id: user.id,
-      displayName: user.name,
-      name: user.name,
-      email: user.email,
-      avatar: user.profile_photo_url,
-      status: user.is_blocked 
-        ? 'Bloqué' 
-        : (user.email_verified ? 'Vérifié' : 'Non vérifié'),
-      lastConnection: user.updated_at,
-      role: user.role,
-      createdAt: user.created_at
+    const stats = {
+      users: await User.count(),
+      orders: await Order.count(),
+      products: await Product.count(),
+      sellers: await SellerProfile.count(),
+      revenue: await calculateTotalRevenue(),
+      recentOrders: await getRecentOrders(5)
     };
-
-    res.status(200).json({
-      success: true,
-      data: formattedUser
-    });
-
+    res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Erreur lors de la récupération des détails utilisateur:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des détails utilisateur',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-export const blockUser = async (req, res) => {
-  try {
-    const user = await User.findByPk(req.params.id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
-    }
-    await user.update({ isBlocked: true });
-    res.status(200).json({ success: true, message: 'Utilisateur bloqué' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const unblockUser = async (req, res) => {
-  try {
-    const user = await User.findByPk(req.params.id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
-    }
-    await user.update({ isBlocked: false });
-    res.status(200).json({ success: true, message: 'Utilisateur débloqué' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const getAllSellers = async (req, res) => {
-  try {
-    const sellers = await Seller.findAll({
-      include: [{ model: User, as: 'sellerUser' }]
-    });
-    res.status(200).json({ success: true, data: sellers });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const getSellerById = async (req, res) => {
-  try {
-    const seller = await Seller.findByPk(req.params.id, {
-      include: [{ model: User, as: 'sellerUser' }]
-    });
-    if (!seller) {
-      return res.status(404).json({ success: false, message: 'Vendeur non trouvé' });
-    }
-    res.status(200).json({ success: true, data: seller });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const approveSeller = async (req, res) => {
-  try {
-    const seller = await Seller.findByPk(req.params.id);
-    if (!seller) {
-      return res.status(404).json({ success: false, message: 'Vendeur non trouvé' });
-    }
-    await seller.update({ status: 'approved' });
-    res.status(200).json({ success: true, message: 'Vendeur approuvé' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const rejectSeller = async (req, res) => {
-  try {
-    const seller = await Seller.findByPk(req.params.id);
-    if (!seller) {
-      return res.status(404).json({ success: false, message: 'Vendeur non trouvé' });
-    }
-    await seller.update({ status: 'rejected' });
-    res.status(200).json({ success: true, message: 'Vendeur rejeté' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
 export const getDashboardStats = async (req, res) => {
   try {
-    console.log('Récupération des stats du dashboard...');
-    console.log('User:', req.user);
-
-    // Récupérer les statistiques des utilisateurs
-    const usersStats = await User.findAll({
-      attributes: [
-        [sequelize.fn('COUNT', sequelize.col('*')), 'total'],
-        [
-          sequelize.fn('COUNT', 
-            sequelize.literal("CASE WHEN role = 'user' THEN 1 END")
-          ), 
-          'regular'
-        ],
-        [
-          sequelize.fn('COUNT', 
-            sequelize.literal("CASE WHEN role = 'seller' THEN 1 END")
-          ), 
-          'sellers'
-        ]
-      ],
-      raw: true
-    });
-
-    // Récupérer le nombre de demandes en attente
-    const pendingRequests = await models.Seller.count({
-      where: {
-        status: 'pending'
-      }
-    });
-
-    // Récupérer les statistiques des commandes
-    const ordersStats = await models.Order.findAll({
-      attributes: [
-        [sequelize.fn('COUNT', sequelize.col('*')), 'total'],
-        [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalRevenue'],
-        [
-          sequelize.fn('SUM', 
-            sequelize.literal("CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN total_amount ELSE 0 END")
-          ),
-          'weeklyRevenue'
-        ],
-        [
-          sequelize.fn('SUM', 
-            sequelize.literal("CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN total_amount ELSE 0 END")
-          ),
-          'monthlyRevenue'
-        ]
-      ],
-      raw: true
-    });
+    const today = new Date();
+    const lastMonth = new Date(today.setMonth(today.getMonth() - 1));
 
     const stats = {
       users: {
-        total: parseInt(usersStats[0].total) || 0,
-        regular: parseInt(usersStats[0].regular) || 0,
-        sellers: parseInt(usersStats[0].sellers) || 0
+        total: await User.count(),
+        new: await User.count({
+          where: { createdAt: { [Op.gte]: lastMonth } }
+        })
       },
-      pendingRequests: pendingRequests || 0,
-      totalOrders: parseInt(ordersStats[0]?.total) || 0,
-      revenue: {
-        total: parseFloat(ordersStats[0]?.totalRevenue) || 0,
-        weekly: parseFloat(ordersStats[0]?.weeklyRevenue) || 0,
-        monthly: parseFloat(ordersStats[0]?.monthlyRevenue) || 0
+      orders: {
+        total: await Order.count(),
+        recent: await Order.count({
+          where: { createdAt: { [Op.gte]: lastMonth } }
+        }),
+        revenue: await calculateTotalRevenue()
+      },
+      sellers: {
+        total: await SellerProfile.count(),
+        pending: await SellerProfile.count({
+          where: { status: 'pending' }
+        })
       }
     };
-
-    console.log('Stats récupérées:', stats);
-    res.status(200).json({
-      success: true,
-      data: stats
-    });
-
+    res.json({ success: true, data: stats });
   } catch (error) {
-    console.error("Erreur détaillée:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des statistiques",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// Remplacer l'ancienne fonction getRecentOrders par un contrôleur qui utilise la fonction utilitaire
-export const getRecentOrdersController = async (req, res) => {
-  try {
-    const orders = await getRecentOrders(10);
-    res.status(200).json({ success: true, data: orders });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const getRevenue = async (req, res) => {
-  try {
-    // Implémentation...
-    res.status(200).json({ success: true, data: {} });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const verifyLoginToken = async (req, res) => {
-  try {
-    const { token } = req.params;
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
-
-    const admin = await User.findOne({
-      where: {
-        email_verification_token: hashedToken,
-        role: 'admin',
-        email_verification_expires: {
-          [Op.gt]: new Date()
-        }
-      }
-    });
-
-    if (!admin) {
-      return res.status(400).json({
-        success: false,
-        message: "Le lien de connexion est invalide ou a expiré"
-      });
-    }
-
-    await admin.update({
-      email_verification_token: null,
-      email_verification_expires: null
-    });
-
-    // Renommé pour éviter le conflit
-    const jwtToken = generateToken(admin.id);
-
-    res.status(200).json({
-      success: true,
-      token: jwtToken,
-      admin: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role
-      }
-    });
-
-  } catch (error) {
-    console.error("Erreur lors de la vérification du token:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la vérification du token"
-    });
-  }
-};
-
-export const verifyLogin = async (req, res) => {
-  try {
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Token manquant"
-      });
-    }
-
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
-
-    const admin = await User.findOne({
-      where: {
-        email_verification_token: hashedToken,
-        email_verification_expires: {
-          [Op.gt]: new Date()
-        },
-        role: 'admin'
-      }
-    });
-
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Lien invalide ou expiré"
-      });
-    }
-
-    // Générer le JWT token
-    const jwtToken = generateToken(admin.id);
-
-    // Effacer le token de vérification
-    await admin.update({
-      email_verification_token: null,
-      email_verification_expires: null
-    });
-
-    res.status(200).json({
-      success: true,
-      token: jwtToken,
-      user: {
-        id: admin.id,
-        email: admin.email,
-        role: admin.role
-      }
-    });
-
-  } catch (error) {
-    console.error("Erreur lors de la vérification:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la vérification"
-    });
-  }
-};
-
-export const getApprovedSellers = async (req, res) => {
-  try {
-    const approvedSellers = await Seller.findAll({
-      where: { status: 'approved' },
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['name', 'email']
-      }],
-      order: [['createdAt', 'DESC']]
-    });
-
-    res.status(200).json({
-      success: true,
-      data: approvedSellers
-    });
-  } catch (error) {
-    console.error('Erreur lors de la récupération des vendeurs approuvés:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des vendeurs approuvés'
-    });
-  }
-};
-
-export const getSellerRequests = async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Accès non autorisé"
-      });
-    }
-
-    const requests = await Seller.findAll({
-      where: { status: 'pending' },
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'name', 'email']
-      }],
-      order: [['createdAt', 'DESC']]
-    });
-
-    // Formater les données pour le frontend
-    const formattedRequests = requests.map(request => ({
-      _id: request.id,
-      type: request.type,
-      userId: {
-        _id: request.user.id,
-        name: request.user.name,
-        email: request.user.email
-      },
-      personalInfo: request.personalInfo,
-      documents: request.documents,
-      contract: request.contract,
-      videoVerification: request.videoVerification,
-      businessInfo: request.businessInfo,
-      status: request.status,
-      createdAt: request.createdAt
-    }));
-
-    res.status(200).json({
-      success: true,
-      data: formattedRequests
-    });
-
-  } catch (error) {
-    console.error('Erreur lors de la récupération des demandes:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des demandes"
-    });
-  }
-};
-
-export const approveSellerRequest = async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Accès non autorisé"
-      });
-    }
-
-    const { id } = req.params;
-    const seller = await Seller.findByPk(id);
-
-    if (!seller) {
-      return res.status(404).json({
-        success: false,
-        message: "Demande non trouvée"
-      });
-    }
-
-    // Mettre à jour le statut
-    await seller.update({
-      status: 'approved'
-    });
-
-    // Mettre à jour le rôle de l'utilisateur
-    await User.update(
-      { role: 'seller' },
-      { where: { id: seller.userId } }
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Demande approuvée avec succès"
-    });
-
-  } catch (error) {
-    console.error('Erreur lors de l\'approbation:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'approbation de la demande"
-    });
-  }
-};
-
-export const rejectSellerRequest = async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Accès non autorisé"
-      });
-    }
-
-    const { id } = req.params;
-    const { reason } = req.body;
-
-    const seller = await Seller.findByPk(id);
-
-    if (!seller) {
-      return res.status(404).json({
-        success: false,
-        message: "Demande non trouvée"
-      });
-    }
-
-    // Mettre à jour le statut et ajouter la raison
-    await seller.update({
-      status: 'rejected',
-      message: reason
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Demande rejetée avec succès"
-    });
-
-  } catch (error) {
-    console.error('Erreur lors du rejet:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors du rejet de la demande"
-    });
-  }
-};
-
-export const getDashboard = async (req, res) => {
-  try {
-    const stats = {
-      users: await models.User.count(),
-      orders: await models.Order.count(),
-      products: await models.Product.count(),
-      sellers: await models.SellerProfile.count(),
-      revenue: await calculateTotalRevenue(),
-      recentOrders: await getRecentOrders(),
-      topSellers: await getTopSellers(),
-      topProducts: await getTopProducts()
-    };
-
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    console.error('Erreur dashboard admin:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des statistiques'
-    });
-  }
-};
-
+// Gestion des utilisateurs
 export const getUsers = async (req, res) => {
   try {
-    const users = await models.User.findAll({
+    const users = await User.findAll({
       include: ['profile'],
       order: [['createdAt', 'DESC']]
     });
-    res.json({
-      success: true,
-      data: users
-    });
+    res.json({ success: true, data: users });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des utilisateurs'
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
+export const getUserById = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      include: ['profile', 'orders']
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    }
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Gestion des vendeurs
 export const getSellers = async (req, res) => {
   try {
-    const sellers = await models.SellerProfile.findAll({
-      include: ['user', 'settings'],
+    const sellers = await SellerProfile.findAll({
+      include: ['user', 'products'],
       order: [['createdAt', 'DESC']]
     });
-    res.json({
-      success: true,
-      data: sellers
-    });
+    res.json({ success: true, data: sellers });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des vendeurs'
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
+export const getSellerById = async (req, res) => {
+  try {
+    const seller = await SellerProfile.findByPk(req.params.id, {
+      include: ['user', 'products', 'orders']
+    });
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Vendeur non trouvé' });
+    }
+    res.json({ success: true, data: seller });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Gestion des commandes
 export const getOrders = async (req, res) => {
   try {
-    const orders = await models.Order.findAll({
-      include: ['customer', 'items'],
+    const orders = await Order.findAll({
+      include: ['customer', 'items', 'seller'],
       order: [['createdAt', 'DESC']]
     });
-    res.json({
-      success: true,
-      data: orders
-    });
+    res.json({ success: true, data: orders });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération des commandes'
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Paramètres système
+export const getSystemSettings = async (req, res) => {
+  try {
+    const settings = await SystemSettings.findAll();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const updateSystemSettings = async (req, res) => {
+  try {
+    const { key, value } = req.body;
+    await SystemSettings.upsert({ key, value });
+    res.json({ success: true, message: 'Paramètres mis à jour' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Logs système
+export const getSystemLogs = async (req, res) => {
+  try {
+    const logs = await SystemLog.findAll({
+      order: [['createdAt', 'DESC']],
+      limit: 100
     });
+    res.json({ success: true, data: logs });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
 export default {
-  register,
   login,
-  verifyLoginToken,
-  logout,
-  getAllUsers,
-  getUserById,
-  blockUser,
-  unblockUser,
-  getAllSellers,
-  getSellerById,
-  approveSeller,
-  rejectSeller,
-  getDashboardStats,
-  getRecentOrdersController,
-  getRevenue,
-  getApprovedSellers,
-  getSellerRequests,
-  approveSellerRequest,
-  rejectSellerRequest,
   getDashboard,
+  getDashboardStats,
   getUsers,
+  getUserById,
   getSellers,
-  getOrders
+  getSellerById,
+  getOrders,
+  getSystemSettings,
+  updateSystemSettings,
+  getSystemLogs
 };

@@ -1,6 +1,6 @@
-import express from "express";
-import * as adminController from "../controllers/Admin.js";
-import { protect, admin } from "../middleware/authMiddleware.js";
+import express from 'express';
+import { protect, admin } from '../middleware/authMiddleware.js';
+import * as adminController from '../controllers/Admin.js';
 import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
@@ -10,37 +10,30 @@ router.post('/login', adminController.login);
 
 // Routes protégées
 router.use(protect);
+router.use(admin);
 
-// Routes de gestion des utilisateurs
-router.get('/users', adminController.getAllUsers);
-router.get('/users/:id', adminController.getUserById);
-router.put('/users/:id/block', adminController.blockUser);
-router.put('/users/:id/unblock', adminController.unblockUser);
-
-// Routes de gestion des vendeurs
-router.get('/sellers', adminController.getAllSellers);
-router.get('/sellers/:id', adminController.getSellerById);
-router.put('/sellers/:id/approve', adminController.approveSeller);
-router.put('/sellers/:id/reject', adminController.rejectSeller);
-
-// Routes du tableau de bord
+// Dashboard
+router.get('/dashboard', adminController.getDashboard);
 router.get('/dashboard/stats', adminController.getDashboardStats);
-router.get('/dashboard/recent-orders', adminController.getRecentOrders);
-router.get('/dashboard/revenue', adminController.getRevenue);
 
-router.get('/verify-login/:token', adminController.verifyLoginToken);
-router.post('/verify-login', adminController.verifyLogin);
+// Gestion des utilisateurs
+router.get('/users', adminController.getUsers);
+router.get('/users/:id', adminController.getUserById);
+
+// Gestion des vendeurs
+router.get('/sellers', adminController.getSellers);
+router.get('/sellers/:id', adminController.getSellerById);
+
+// Gestion des commandes
+router.get('/orders', adminController.getOrders);
+
+// Paramètres système
+router.get('/settings', adminController.getSystemSettings);
+router.put('/settings', adminController.updateSystemSettings);
+
+// Logs système
+router.get('/logs', adminController.getSystemLogs);
 
 router.use(corsErrorHandler);
-
-// Ajouter la route d'inscription admin
-router.post('/register', adminController.register);
-
-router.get('/approved-sellers', protect, adminController.getApprovedSellers);
-
-// Routes pour les demandes de vendeurs
-router.get('/seller-requests', protect, adminController.getSellerRequests);
-router.post('/seller-requests/:id/approve', protect, adminController.approveSellerRequest);
-router.post('/seller-requests/:id/reject', protect, adminController.rejectSellerRequest);
 
 export default router;

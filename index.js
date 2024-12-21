@@ -26,12 +26,12 @@ import paymentRoutes from './Routers/payementRoute.js';
 import { sequelize } from './config/dbConfig.js';
 import pg from 'pg';
 import { initializeDatabase } from './config/dbConfig.js';
-import adminRoutes from './routes/admin.js';
+import adminRoutes from './Routers/admin.js';
 import { logError } from './utils/systemLogger.js';
-import systemRoutes from './routes/system.js';
-import themeRoutes from './routes/themes.js';
-import disputeRoutes from './routes/disputes.js';
-import wishlistRoute from './routes/wishlist.js';
+import systemRoutes from './Routers/system.js';
+import themeRoutes from './Routers/themes.js';
+import disputeRoutes from './Routers/disputes.js';
+import wishlistRoute from './Routers/wishlist.js';
 
 // Charger les variables d'environnement
 dotenv.config();
