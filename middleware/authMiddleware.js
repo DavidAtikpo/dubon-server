@@ -2,7 +2,7 @@ import { models } from '../models/index.js';
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 
-import { models } from '../models/index.js';
+// import { models } from '../models/index.js';
 
 export const authMiddleware = async (req, res, next) => {
   try {
