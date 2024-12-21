@@ -2,7 +2,10 @@ import express from "express";
 import multer from 'multer';
 import path from 'path';
 import * as SellerController from "../Controllers/Sellers.js";
-import { verifyToken, isAdmin, verifyAdmin, corsErrorHandler, authMiddleware } from "../middleware/authMiddleware.js";
+import { protect, admin, seller } from "../middleware/authMiddleware.js";
+import { validateSellerRegistration } from "../middleware/sellerValidator.js";
+import uploadMiddleware from "../middleware/upload.js";
+import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
 
@@ -43,140 +46,79 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
+const fileUpload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max
-    fieldSize: 100 * 1024 * 1024, // 100MB max field size
-    files: 10 // maximum 10 fichiers
+    fileSize: 100 * 1024 * 1024,
+    fieldSize: 100 * 1024 * 1024,
+    files: 10
   }
 });
 
-const uploadFields = upload.fields([
-  { name: 'idCard', maxCount: 1 },
-  { name: 'proofOfAddress', maxCount: 1 },
-  { name: 'taxCertificate', maxCount: 1 },
-  { name: 'photos', maxCount: 5 },
-  { name: 'signedDocument', maxCount: 1 },
-  { name: 'verificationVideo', maxCount: 1 },
-  { name: 'images', maxCount: 5 }
-]);
+// Routes publiques
+router.get('/list', SellerController.getPublicSellers);
+router.get('/categories', SellerController.getSellerCategories);
 
-// Configuration multer pour les produits
-const productStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/products');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Routes protégées (utilisateur authentifié)
+router.use(protect);
 
-const productUpload = multer({ 
-  storage: productStorage,
-  limits: {
-    fileSize: file => {
-      // 50MB pour les vidéos, 10MB pour les images
-      if (file.fieldname === 'video') {
-        return 50 * 1024 * 1024; // 50MB
-      }
-      return 10 * 1024 * 1024; // 10MB
-    },
-    files: 6 // 5 images + 1 vidéo
-  },
-  fileFilter: function (req, file, cb) {
-    if (file.fieldname === 'video') {
-      // Vérifier le type de vidéo
-      if (file.mimetype.startsWith('video/')) {
-        cb(null, true);
-      } else {
-        cb(new Error('Seules les vidéos sont autorisées pour le champ video'), false);
-      }
-    } else if (file.fieldname === 'images') {
-      // Vérifier le type d'image
-      if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-      } else {
-        cb(new Error('Seules les images sont autorisées pour le champ images'), false);
-      }
-    } else {
-      cb(new Error('Type de fichier non autorisé'), false);
-    }
-  }
-}).fields([
-  { name: 'images', maxCount: 5 },
-  { name: 'video', maxCount: 1 }
-]);
-
-// Middleware pour gérer les erreurs multer
-const handleMulterError = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      const fieldname = err.field;
-      const message = fieldname === 'video' 
-        ? "La taille de la vidéo ne doit pas dépasser 50MB"
-        : "La taille de l'image ne doit pas dépasser 10MB";
-      return res.status(400).json({
-        success: false,
-        message: message
-      });
-    }
-    return res.status(400).json({
-      success: false,
-      message: `Erreur d'upload: ${err.message}`,
-      code: err.code
-    });
-  }
-  if (err.message.includes('Seules les')) {
-    return res.status(400).json({
-      success: false,
-      message: err.message
-    });
-  }
-  next(err);
-};
-
-// Routes spécifiques AVANT les routes avec paramètres dynamiques
-router.get("/validation-status", verifyToken, SellerController.checkValidationStatus);
-router.get("/all-requests", verifyAdmin, SellerController.getAllSellerRequests);
-router.get("/all-sellers", verifyAdmin, SellerController.getAllSellers);
-router.post("/register", authMiddleware, upload.fields([
+// Validation et inscription
+router.get("/validation-status", SellerController.checkValidationStatus);
+router.post("/register", fileUpload.fields([
   { name: 'idCard', maxCount: 1 },
   { name: 'proofOfAddress', maxCount: 1 },
   { name: 'taxCertificate', maxCount: 1 },
   { name: 'photos', maxCount: 5 },
   { name: 'signedDocument', maxCount: 1 },
   { name: 'verificationVideo', maxCount: 1 }
-]), SellerController.registerSeller);
+]), validateSellerRegistration, SellerController.registerSeller);
 
-// Modifier la route des produits
-router.post("/products", verifyToken, (req, res, next) => {
-  productUpload(req, res, (err) => {
-    if (err) {
-      return handleMulterError(err, req, res, next);
-    }
-    next();
-  });
-}, SellerController.createProduct);
-router.get("/products", verifyToken, SellerController.getSellerProducts);
+// Routes vendeur
+router.use(seller);
 
-// Routes avec paramètres dynamiques APRÈS
-router.get("/data/:id", verifyToken, SellerController.getSellerData);
-router.get("/details/:id", verifyAdmin, SellerController.getSellerById);
-router.post("/block/:id", verifyAdmin, SellerController.blockSeller);
-router.post("/unblock/:id", verifyAdmin, SellerController.unblockSeller);
-router.post("/trial/:id", verifyToken, SellerController.startFreeTrial);
-router.get("/trial-status/:id", verifyToken, SellerController.checkTrialStatus);
-router.post("/subscription/:id", verifyToken, SellerController.paySubscription);
+// Profil et paramètres
+router.get('/profile', SellerController.getProfile);
+router.put('/profile', uploadMiddleware.single('logo'), SellerController.updateProfile);
 
-// Ajouter la gestion des erreurs CORS
+// Gestion des produits
+router.post('/products', uploadMiddleware.array('images', 5), SellerController.createProduct);
+router.get('/products', SellerController.getSellerProducts);
+router.put('/products/:id', uploadMiddleware.array('images', 5), SellerController.updateProduct);
+router.delete('/products/:id', SellerController.deleteProduct);
+
+// Gestion des commandes
+router.get('/orders', SellerController.getSellerOrders);
+router.put('/orders/:id/status', SellerController.updateOrderStatus);
+
+// Statistiques et tableau de bord
+router.get('/dashboard', SellerController.getDashboard);
+router.get('/stats', SellerController.getStats);
+router.get('/analytics', SellerController.getAnalytics);
+
+// Gestion financière
+router.get('/earnings', SellerController.getEarnings);
+router.post('/withdraw', SellerController.requestWithdrawal);
+router.get('/transactions', SellerController.getTransactions);
+
+// Gestion des promotions
+router.post('/promotions', SellerController.createPromotion);
+router.get('/promotions', SellerController.getSellerPromotions);
+router.put('/promotions/:id', SellerController.updatePromotion);
+router.delete('/promotions/:id', SellerController.deletePromotion);
+
+// Routes admin
+router.use('/admin', admin);
+router.get('/admin/requests', SellerController.getAllSellerRequests);
+router.get('/admin/sellers', SellerController.getAllSellers);
+router.get('/admin/seller/:id', SellerController.getSellerById);
+router.post('/admin/block/:id', SellerController.blockSeller);
+router.post('/admin/unblock/:id', SellerController.unblockSeller);
+router.put('/admin/verify/:id', SellerController.verifySeller);
+router.put('/admin/status/:id', SellerController.updateSellerStatus);
+router.delete('/admin/seller/:id', SellerController.deleteSeller);
+
+// Gestion des erreurs
 router.use(corsErrorHandler);
-
-router.delete('/products/:productId', verifyToken, SellerController.deleteProduct);
-router.put('/products/:productId', verifyToken, SellerController.updateProduct);
-
-router.get('/orders', verifyToken, SellerController.getSellerOrders);
 
 export default router;
 

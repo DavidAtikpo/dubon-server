@@ -1,133 +1,100 @@
 import { models } from '../models/index.js';
-import { logSystemEvent } from '../utils/systemLogger.js';
-import fs from 'fs/promises';
-import path from 'path';
 
-export const getThemes = async (req, res) => {
+export const getActiveTheme = async (req, res) => {
   try {
-    const themes = await models.Theme.findAll({
-      order: [['createdAt', 'DESC']]
+    const theme = await models.Theme.findOne({
+      where: { isActive: true }
     });
-
-    res.status(200).json({
-      success: true,
-      data: themes
-    });
+    res.json({ success: true, data: theme });
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des thèmes"
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-export const activateTheme = async (req, res) => {
+export const getPublicThemes = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Désactiver tous les thèmes
-    await models.Theme.update(
-      { isActive: false },
-      { where: {} }
-    );
-
-    // Activer le thème sélectionné
-    await models.Theme.update(
-      { isActive: true },
-      { where: { id } }
-    );
-
-    await logSystemEvent({
-      type: 'theme',
-      action: 'activate',
-      description: `Thème ${id} activé`,
-      userId: req.user.id
+    const themes = await models.Theme.findAll({
+      where: { isSystem: false }
     });
-
-    res.status(200).json({
-      success: true,
-      message: "Thème activé avec succès"
-    });
+    res.json({ success: true, data: themes });
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'activation du thème"
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getUserThemePreference = async (req, res) => {
+  try {
+    const preference = await models.UserPreference.findOne({
+      where: { userId: req.user.id }
     });
+    res.json({ success: true, data: preference?.theme || 'default' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const updateUserThemePreference = async (req, res) => {
+  try {
+    await models.UserPreference.upsert({
+      userId: req.user.id,
+      theme: req.body.theme
+    });
+    res.json({ success: true, message: 'Préférence mise à jour' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const createTheme = async (req, res) => {
+  try {
+    const theme = await models.Theme.create(req.body);
+    res.status(201).json({ success: true, data: theme });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const updateTheme = async (req, res) => {
+  try {
+    await models.Theme.update(req.body, {
+      where: { id: req.params.id }
+    });
+    res.json({ success: true, message: 'Thème mis à jour' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
 export const deleteTheme = async (req, res) => {
   try {
-    const { id } = req.params;
-    const theme = await models.Theme.findByPk(id);
-
-    if (!theme) {
-      return res.status(404).json({
-        success: false,
-        message: "Thème non trouvé"
-      });
-    }
-
-    if (theme.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: "Impossible de supprimer le thème actif"
-      });
-    }
-
-    await theme.destroy();
-
-    await logSystemEvent({
-      type: 'theme',
-      action: 'delete',
-      description: `Thème ${id} supprimé`,
-      userId: req.user.id
+    await models.Theme.destroy({
+      where: { id: req.params.id }
     });
-
-    res.status(200).json({
-      success: true,
-      message: "Thème supprimé avec succès"
-    });
+    res.json({ success: true, message: 'Thème supprimé' });
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de la suppression du thème"
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-export const uploadTheme = async (req, res) => {
+export const activateTheme = async (req, res) => {
   try {
-    const { file } = req;
-    if (!file) {
-      return res.status(400).json({
-        success: false,
-        message: "Aucun fichier fourni"
-      });
-    }
-
-    // Logique d'installation du thème ici
-    // ...
-
-    await logSystemEvent({
-      type: 'theme',
-      action: 'upload',
-      description: 'Nouveau thème installé',
-      userId: req.user.id
+    await models.Theme.update({ isActive: false }, { where: {} });
+    await models.Theme.update({ isActive: true }, {
+      where: { id: req.params.id }
     });
-
-    res.status(200).json({
-      success: true,
-      message: "Thème installé avec succès"
-    });
+    res.json({ success: true, message: 'Thème activé' });
   } catch (error) {
-    console.error('Erreur:', error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'installation du thème"
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const deactivateTheme = async (req, res) => {
+  try {
+    await models.Theme.update({ isActive: false }, {
+      where: { id: req.params.id }
     });
+    res.json({ success: true, message: 'Thème désactivé' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 }; 

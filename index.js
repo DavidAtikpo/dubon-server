@@ -31,6 +31,7 @@ import { logError } from './utils/systemLogger.js';
 import systemRoutes from './routes/system.js';
 import themeRoutes from './routes/themes.js';
 import disputeRoutes from './routes/disputes.js';
+import wishlistRoute from './routes/wishlist.js';
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -141,7 +142,7 @@ app.use('/api/category', category);
 app.use('/api/orders', Order);
 app.use("/api", Event);
 app.use("/api/", cartRoute);
-app.use('/api', wishlistRoute);
+app.use('/api/wishlist', wishlistRoute);
 app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
 

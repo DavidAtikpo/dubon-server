@@ -1,32 +1,22 @@
 import express from 'express';
-import { authMiddleware } from '../middleware/authMiddleware.js';
-import { sellerMiddleware } from '../middleware/sellerMiddleware.js';
+import { protect, admin } from '../middleware/authMiddleware.js';
 import * as DisputeController from '../Controllers/DisputeController.js';
-import multer from 'multer';
 
 const router = express.Router();
-const upload = multer();
 
-// Routes client
-router.post('/', authMiddleware, DisputeController.createDispute);
+// Routes protégées (utilisateur authentifié)
+router.use(protect);
 
-// Routes vendeur
-router.use(authMiddleware, sellerMiddleware);
-router.get('/', DisputeController.getSellerDisputes);
-router.get('/stats', DisputeController.getDisputeStats);
-router.post('/:id/respond', DisputeController.respondToDispute);
+// Routes pour les utilisateurs
+router.post('/create', DisputeController.createDispute);
+router.get('/my-disputes', DisputeController.getUserDisputes);
+router.get('/:id', DisputeController.getDisputeDetails);
+router.post('/:id/message', DisputeController.addDisputeMessage);
+
+// Routes admin
+router.use(admin);
+router.get('/all', DisputeController.getAllDisputes);
+router.put('/:id/status', DisputeController.updateDisputeStatus);
 router.post('/:id/resolve', DisputeController.resolveDispute);
-
-// Routes pour les preuves
-router.post('/:disputeId/evidence', 
-  upload.array('files', 5), 
-  DisputeController.addEvidence
-);
-
-// Routes pour l'escalade
-router.post('/:id/escalate', DisputeController.escalateDispute);
-
-// Routes pour l'historique
-router.get('/:id/history', DisputeController.getDisputeHistory);
 
 export default router; 

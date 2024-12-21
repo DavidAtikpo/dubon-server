@@ -23,14 +23,56 @@ const sequelizeConfig = {
       rejectUnauthorized: false
     }
   },
-  logging: false
+  logging: false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  }
 };
 
 // Création de l'instance Sequelize
 export const sequelize = new Sequelize(dbUrl, sequelizeConfig);
 
-console.log('🔌 Tentative de connexion à la base de données...');
+// Fonction d'initialisation de la base de données
+export const initializeDatabase = async () => {
+  try {
+    // Test de la connexion
+    await sequelize.authenticate();
+    console.log('✅ Connexion à la base de données établie avec succès');
 
-export default sequelize;
+    // Synchronisation des modèles avec la base de données
+    if (process.env.NODE_ENV === 'development') {
+      await sequelize.sync({ alter: true });
+      console.log('✅ Base de données synchronisée en mode development');
+    } else {
+      await sequelize.sync();
+      console.log('✅ Base de données synchronisée en mode production');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur de connexion à la base de données:', error);
+    throw error;
+  }
+};
+
+// Fonction de fermeture de la connexion
+export const closeDatabase = async () => {
+  try {
+    await sequelize.close();
+    console.log('✅ Connexion à la base de données fermée');
+  } catch (error) {
+    console.error('❌ Erreur lors de la fermeture de la connexion:', error);
+    throw error;
+  }
+};
+
+export default {
+  sequelize,
+  initializeDatabase,
+  closeDatabase
+};
 
 

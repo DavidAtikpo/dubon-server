@@ -1,167 +1,103 @@
+import jwt from 'jsonwebtoken';
 import { models } from '../models/index.js';
-import jwt from "jsonwebtoken";
-import asyncHandler from "express-async-handler";
 
-// import { models } from '../models/index.js';
-
-export const authMiddleware = async (req, res, next) => {
+export const protect = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
+    let token;
+
+    // Vérifier si le token est présent dans les headers
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    // Vérifier si le token existe
     if (!token) {
-      console.log('Token manquant');
       return res.status(401).json({
         success: false,
-        message: 'Token non fourni'
+        message: 'Non autorisé - Token manquant'
       });
     }
 
     try {
+      // Vérifier le token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('Token décodé:', decoded);
 
-      const user = await models.User.findOne({
-        where: { id: decoded.id }
+      // Récupérer l'utilisateur
+      const user = await models.User.findByPk(decoded.id, {
+        attributes: { exclude: ['password'] }
       });
 
       if (!user) {
-        console.log('Utilisateur non trouvé');
         return res.status(401).json({
           success: false,
-          message: 'Utilisateur non trouvé'
+          message: 'Non autorisé - Utilisateur non trouvé'
         });
       }
 
+      // Vérifier si l'utilisateur est actif
+      if (user.status !== 'active') {
+        return res.status(401).json({
+          success: false,
+          message: 'Compte désactivé ou suspendu'
+        });
+      }
+
+      // Ajouter l'utilisateur à la requête
       req.user = user;
       next();
-    } catch (jwtError) {
-      console.log('Erreur JWT:', jwtError);
+    } catch (error) {
       return res.status(401).json({
         success: false,
-        message: 'Token invalide'
+        message: 'Non autorisé - Token invalide'
       });
     }
   } catch (error) {
-    console.error('Erreur d\'authentification:', error);
-    return res.status(500).json({
+    console.error('Erreur middleware auth:', error);
+    res.status(500).json({
       success: false,
       message: 'Erreur serveur'
     });
   }
 };
 
-export const isAdmin = asyncHandler(async (req, res, next) => {
-  const { email } = req.user;
-  const adminUser = await models.User.findOne({ 
-    where: { email, role: 'admin' }
-  });
-
-  if (!adminUser) {
-    throw new Error("Vous n'êtes pas administrateur");
-  }
-  next();
-});
-
-export const authorization = asyncHandler(async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: "Aucun token fourni" });
-  }
-
+export const admin = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await models.User.findOne({
-      where: { id: decoded.id }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé" });
-    }
-
-    if (user.role !== 'vendeur') {
-      return res.status(403).json({ 
-        message: "Accès refusé : vous devez être un vendeur pour effectuer cette action" 
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: "Token expiré" });
-    }
-    return res.status(401).json({ message: "Token invalide" });
-  }
-});
-
-export const verifyToken = asyncHandler(async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Token non fourni' 
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await models.User.findOne({
-      where: { id: decoded.id }
-    });
-
-    if (!user) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Utilisateur non trouvé' 
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    return res.status(401).json({ 
-      success: false,
-      message: 'Token invalide',
-      error: error.message
-    });
-  }
-});
-
-export const verifyAdmin = asyncHandler(async (req, res, next) => {
-  try {
-    const user = await models.User.findOne({
-      where: { id: req.user.id }
-    });
-
-    if (!user || user.role !== 'admin') {
+    if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: "Accès non autorisé - Droits administrateur requis"
+        message: 'Accès réservé aux administrateurs'
       });
     }
-
     next();
   } catch (error) {
-    console.error('Erreur de vérification admin:', error);
-    return res.status(500).json({
+    console.error('Erreur middleware admin:', error);
+    res.status(500).json({
       success: false,
       message: 'Erreur serveur'
     });
   }
-});
+};
 
-export const corsErrorHandler = (err, req, res, next) => {
-  if (err.name === 'UnauthorizedError') {
-    res.status(401).json({
+export const seller = async (req, res, next) => {
+  try {
+    if (!req.user || !['seller', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès réservé aux vendeurs'
+      });
+    }
+    next();
+  } catch (error) {
+    console.error('Erreur middleware vendeur:', error);
+    res.status(500).json({
       success: false,
-      message: 'Token invalide ou expiré',
-      error: err.message
+      message: 'Erreur serveur'
     });
-  } else {
-    next(err);
   }
 };
 
-export default{authMiddleware,isAdmin,authorization,verifyToken,verifyAdmin}
+export default {
+  protect,
+  admin,
+  seller
+};

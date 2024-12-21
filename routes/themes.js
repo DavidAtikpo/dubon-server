@@ -1,17 +1,28 @@
 import express from 'express';
-import { authMiddleware } from '../middleware/authMiddleware.js';
-import { adminMiddleware } from '../middleware/adminMiddleware.js';
+import { protect, admin } from '../middleware/authMiddleware.js';
 import * as ThemeController from '../Controllers/ThemeController.js';
-import multer from 'multer';
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/themes/' });
 
-router.use(authMiddleware, adminMiddleware);
+// Routes publiques
+router.get('/active', ThemeController.getActiveTheme);
+router.get('/list', ThemeController.getPublicThemes);
 
-router.get('/', ThemeController.getThemes);
-router.post('/:id/activate', ThemeController.activateTheme);
+// Routes protégées (utilisateur connecté)
+router.use(protect);
+
+// Routes de base
+router.get('/user-preference', ThemeController.getUserThemePreference);
+router.put('/user-preference', ThemeController.updateUserThemePreference);
+
+// Routes admin uniquement
+router.use(admin);
+
+// Gestion des thèmes
+router.post('/create', ThemeController.createTheme);
+router.put('/:id', ThemeController.updateTheme);
 router.delete('/:id', ThemeController.deleteTheme);
-router.post('/upload', upload.single('theme'), ThemeController.uploadTheme);
+router.put('/:id/activate', ThemeController.activateTheme);
+router.put('/:id/deactivate', ThemeController.deactivateTheme);
 
 export default router; 

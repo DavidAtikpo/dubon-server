@@ -1,42 +1,19 @@
 import express from 'express';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { protect } from '../middleware/authMiddleware.js';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
-import * as AdminController from '../Controllers/AdminController.js';
+import * as adminController from '../controllers/Admin.js';
 
 const router = express.Router();
 
-// Routes publiques
-router.post('/login', AdminController.adminLogin);
+// Appliquer le middleware d'authentification à toutes les routes
+router.use(protect);
+router.use(adminMiddleware);
 
-// Routes protégées
-router.use(authMiddleware, adminMiddleware);
-
-// Dashboard et statistiques
-router.get('/dashboard/stats', AdminController.getDashboardStats);
-router.get('/stats', AdminController.getAdminStats);
-router.get('/analytics', AdminController.getAnalytics);
-
-// Gestion des vendeurs
-router.get('/sellers/requests', AdminController.getSellerRequests);
-router.put('/sellers/requests/:id', AdminController.updateSellerRequest);
-
-// Gestion des utilisateurs
-router.put('/users/:id', AdminController.manageUser);
-
-// Gestion des produits
-router.post('/products/manage', AdminController.manageProducts);
-
-// Gestion des avis
-router.put('/reviews/:id/moderate', AdminController.moderateReview);
-
-// Logs système
-router.get('/logs', AdminController.getSystemLogs);
-
-// Paramètres système
-router.get('/settings', AdminController.getAdminSettings);
-router.put('/settings', AdminController.updateAdminSettings);
-
-// Notifications
-router.get('/notifications', AdminController.getAdminNotifications);
+// Routes d'administration
+router.get('/dashboard', adminController.getDashboard);
+router.get('/users', adminController.getUsers);
+router.get('/sellers', adminController.getSellers);
+router.get('/orders', adminController.getOrders);
+// ... autres routes
 
 export default router; 

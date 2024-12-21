@@ -8,6 +8,61 @@ import sequelize from 'sequelize';
 
 const { User, Order, Seller } = models;
 
+// Fonctions utilitaires
+async function calculateTotalRevenue() {
+  const result = await models.Order.sum('total', {
+    where: { status: 'completed' }
+  });
+  return result || 0;
+}
+
+async function getRecentOrders(limit = 10) {
+  return models.Order.findAll({
+    limit,
+    order: [['createdAt', 'DESC']],
+    include: ['customer']
+  });
+}
+
+async function getTopSellers(limit = 5) {
+  return models.SellerProfile.findAll({
+    limit,
+    include: [{
+      model: models.Order,
+      as: 'orders',
+      attributes: []
+    }],
+    attributes: {
+      include: [
+        [sequelize.fn('COUNT', sequelize.col('orders.id')), 'orderCount'],
+        [sequelize.fn('SUM', sequelize.col('orders.total')), 'totalRevenue']
+      ]
+    },
+    group: ['SellerProfile.id'],
+    order: [[sequelize.literal('totalRevenue'), 'DESC']]
+  });
+}
+
+async function getTopProducts(limit = 5) {
+  return models.Product.findAll({
+    limit,
+    include: [{
+      model: models.OrderItem,
+      as: 'orderItems',
+      attributes: []
+    }],
+    attributes: {
+      include: [
+        [sequelize.fn('COUNT', sequelize.col('orderItems.id')), 'orderCount'],
+        [sequelize.fn('SUM', sequelize.col('orderItems.quantity')), 'totalSold']
+      ]
+    },
+    group: ['Product.id'],
+    order: [[sequelize.literal('totalSold'), 'DESC']]
+  });
+}
+
+// Contrôleurs exportés
 export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -441,12 +496,10 @@ export const getDashboardStats = async (req, res) => {
   }
 };
 
-export const getRecentOrders = async (req, res) => {
+// Remplacer l'ancienne fonction getRecentOrders par un contrôleur qui utilise la fonction utilitaire
+export const getRecentOrdersController = async (req, res) => {
   try {
-    const orders = await Order.findAll({
-      limit: 10,
-      order: [['createdAt', 'DESC']]
-    });
+    const orders = await getRecentOrders(10);
     res.status(200).json({ success: true, data: orders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -462,7 +515,6 @@ export const getRevenue = async (req, res) => {
   }
 };
 
-// Nouvelle fonction pour vérifier le token de connexion
 export const verifyLoginToken = async (req, res) => {
   try {
     const { token } = req.params;
@@ -738,6 +790,86 @@ export const rejectSellerRequest = async (req, res) => {
   }
 };
 
+export const getDashboard = async (req, res) => {
+  try {
+    const stats = {
+      users: await models.User.count(),
+      orders: await models.Order.count(),
+      products: await models.Product.count(),
+      sellers: await models.SellerProfile.count(),
+      revenue: await calculateTotalRevenue(),
+      recentOrders: await getRecentOrders(),
+      topSellers: await getTopSellers(),
+      topProducts: await getTopProducts()
+    };
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Erreur dashboard admin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des statistiques'
+    });
+  }
+};
+
+export const getUsers = async (req, res) => {
+  try {
+    const users = await models.User.findAll({
+      include: ['profile'],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des utilisateurs'
+    });
+  }
+};
+
+export const getSellers = async (req, res) => {
+  try {
+    const sellers = await models.SellerProfile.findAll({
+      include: ['user', 'settings'],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({
+      success: true,
+      data: sellers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des vendeurs'
+    });
+  }
+};
+
+export const getOrders = async (req, res) => {
+  try {
+    const orders = await models.Order.findAll({
+      include: ['customer', 'items'],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({
+      success: true,
+      data: orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des commandes'
+    });
+  }
+};
+
 export default {
   register,
   login,
@@ -752,10 +884,14 @@ export default {
   approveSeller,
   rejectSeller,
   getDashboardStats,
-  getRecentOrders,
+  getRecentOrdersController,
   getRevenue,
   getApprovedSellers,
   getSellerRequests,
   approveSellerRequest,
-  rejectSellerRequest
+  rejectSellerRequest,
+  getDashboard,
+  getUsers,
+  getSellers,
+  getOrders
 };

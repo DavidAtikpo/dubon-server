@@ -1,36 +1,48 @@
 import twilio from 'twilio';
-import Handlebars from 'handlebars';
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+let client = null;
 
-const templates = {
-  'seller-new-order': 'Nouvelle commande #{{orderNumber}} reçue pour un total de {{total}} FCFA ({{items}} articles)',
-  'seller-low-stock': 'Alerte stock bas pour {{products.length}} produits',
-  'seller-withdrawal': 'Votre retrait de {{amount}} FCFA a été {{status}}'
+// Désactivé temporairement jusqu'à l'obtention des identifiants Twilio
+console.warn('⚠️ Service SMS désactivé - Identifiants Twilio non configurés');
+
+// Fonction de remplacement pour les SMS
+export const sendSMS = async (to, message) => {
+  console.log('📱 SMS simulé:', { to, message });
+  return true;
 };
 
-export const sendSMS = async ({ to, template, data }) => {
-  try {
-    const templateText = templates[template];
-    if (!templateText) {
-      throw new Error('Template SMS non trouvé');
-    }
+// Envoyer un code de vérification par SMS
+export const sendVerificationCode = async (phoneNumber, code) => {
+  const message = `Votre code de vérification DUBON est: ${code}`;
+  console.log('📱 Code de vérification simulé:', { phoneNumber, code });
+  return true;
+};
 
-    const compiledTemplate = Handlebars.compile(templateText);
-    const message = compiledTemplate(data);
+// Envoyer une notification de commande par SMS
+export const sendOrderNotificationSMS = async (phoneNumber, orderNumber) => {
+  const message = `Votre commande #${orderNumber} a été confirmée. Merci de votre confiance !`;
+  console.log('📱 Notification de commande simulée:', { phoneNumber, orderNumber });
+  return true;
+};
 
-    await client.messages.create({
-      body: message,
-      to,
-      from: process.env.TWILIO_PHONE_NUMBER
-    });
+// Envoyer une alerte de livraison par SMS
+export const sendDeliveryNotification = async (phoneNumber, orderNumber, estimatedTime) => {
+  const message = `Votre commande #${orderNumber} est en cours de livraison. Temps estimé: ${estimatedTime} minutes.`;
+  console.log('📱 Notification de livraison simulée:', { phoneNumber, orderNumber, estimatedTime });
+  return true;
+};
 
-    return true;
-  } catch (error) {
-    console.error('Erreur envoi SMS:', error);
-    return false;
-  }
+// Envoyer une notification de promotion par SMS
+export const sendPromotionNotification = async (phoneNumber, promoCode, discount) => {
+  const message = `Utilisez le code ${promoCode} pour bénéficier de ${discount}% de réduction sur votre prochaine commande !`;
+  console.log('📱 Notification de promotion simulée:', { phoneNumber, promoCode, discount });
+  return true;
+};
+
+export default {
+  sendSMS,
+  sendVerificationCode,
+  sendOrderNotificationSMS,
+  sendDeliveryNotification,
+  sendPromotionNotification
 }; 
