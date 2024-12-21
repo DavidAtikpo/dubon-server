@@ -26,7 +26,7 @@ import paymentRoutes from './Routers/payementRoute.js';
 import { sequelize } from './config/dbConfig.js';
 import pg from 'pg';
 import { initializeDatabase } from './config/dbConfig.js';
-import Admin from './Routers/admin.js';
+import Admin from './Routers/Admin.js';
 import { logError } from './utils/systemLogger.js';
 import systemRoutes from './Routers/system.js';
 import themeRoutes from './Routers/themes.js';
