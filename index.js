@@ -26,7 +26,7 @@ import paymentRoutes from './Routers/payementRoute.js';
 import { sequelize } from './config/dbConfig.js';
 import pg from 'pg';
 import { initializeDatabase } from './config/dbConfig.js';
-import adminRoutes from './Routers/admin.js'
+import Admin from './Routers/Admin.js';
 import { logError } from './utils/systemLogger.js';
 import systemRoutes from './Routers/system.js';
 import themeRoutes from './Routers/themes.js';
@@ -147,7 +147,7 @@ app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/system', systemRoutes);
 // Use admin routes
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', Admin);
 app.use('/api/admin/themes', themeRoutes);
 app.use('/api/disputes', disputeRoutes);
 
