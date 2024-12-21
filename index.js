@@ -16,7 +16,7 @@ import cors from 'cors';
 import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import cartRoute from './Routers/cartRoute.js';
-import wishlistRoute from './Routers/wishlistRoute.js';
+
 import Training from './Routers/Training.js'
 import searchRouter from './Routers/searchRouter.js'
 import category from './Routers/category.js'
