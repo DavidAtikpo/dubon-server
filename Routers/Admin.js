@@ -1,6 +1,6 @@
 import express from 'express';
 import { protect, admin } from '../middleware/authMiddleware.js';
-import * as adminController from '../controllers/Admin.js';
+import * as adminController from '../Controllers/Admin.js';
 import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
