@@ -64,7 +64,7 @@ router.use(protect);
 
 // Validation et inscription
 router.get("/validation-status", SellerController.checkValidationStatus);
-router.post("/register", fileUpload.fields([
+router.post("/register", protect, fileUpload.fields([
   { name: 'idCard', maxCount: 1 },
   { name: 'proofOfAddress', maxCount: 1 },
   { name: 'taxCertificate', maxCount: 1 },
