@@ -3,15 +3,15 @@ import { models } from '../models/index.js';
 
 export const protect = async (req, res, next) => {
   try {
-    let token;
+    let accessToken;
 
     // Vérifier si le token est présent dans les headers
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
+      accessToken = req.headers.authorization.split(' ')[1];
     }
 
     // Vérifier si le token existe
-    if (!token) {
+    if (!accessToken) {
       return res.status(401).json({
         success: false,
         message: 'Non autorisé - Token manquant'
@@ -20,7 +20,7 @@ export const protect = async (req, res, next) => {
 
     try {
       // Vérifier le token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
 
       // Récupérer l'utilisateur
       const user = await models.User.findByPk(decoded.id, {
