@@ -54,12 +54,21 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+    // Générer access token et refresh token
+    const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 
-    // Retourner plus d'informations sur l'utilisateur
+    // Sauvegarder le refresh token dans la base de données
+    await models.User.update(
+      { refreshToken: refreshToken },
+      { where: { id: user.id } }
+    );
+
+    // Envoyer les deux tokens
     res.json({ 
       success: true, 
-      token,
+      accessToken,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -75,7 +84,15 @@ export const login = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    // Logique de déconnexion
+    // Récupérer l'ID de l'utilisateur depuis le token
+    const userId = req.user.id;
+
+    // Supprimer le refresh token de la base de données
+    await models.User.update(
+      { refreshToken: null },
+      { where: { id: userId } }
+    );
+
     res.json({ success: true, message: 'Déconnexion réussie' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -259,4 +276,40 @@ export const updateUserStatus = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
   // Implémentation
+};
+
+// Ajouter une fonction pour rafraîchir le token
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ success: false, message: 'Refresh token manquant' });
+    }
+
+    const user = await models.User.findOne({
+      where: { refreshToken }
+    });
+
+    if (!user) {
+      return res.status(403).json({ success: false, message: 'Refresh token invalide' });
+    }
+
+    // Vérifier le refresh token
+    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+      if (err) {
+        return res.status(403).json({ success: false, message: 'Refresh token invalide' });
+      }
+
+      // Générer un nouveau access token
+      const newAccessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      res.json({
+        success: true,
+        accessToken: newAccessToken
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 };

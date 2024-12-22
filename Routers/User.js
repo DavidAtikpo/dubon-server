@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../middleware/authMiddleware.js';
 import * as userController from '../Controllers/User.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router()
 
@@ -19,7 +20,7 @@ router.use(protect);
 router.get('/profile', userController.getUserProfile);
 router.put('/profile', userController.updateUserProfile);
 router.put('/password', userController.updatePassword);
-router.post('/logout', userController.logout);
+router.post('/logout', verifyToken, userController.logout);
 
 // Adresses
 router.get('/addresses', userController.getUserAddresses);
