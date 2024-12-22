@@ -3,15 +3,15 @@ import { models } from '../models/index.js';
 
 export const protect = async (req, res, next) => {
   try {
-    let accessToken;
+    let token;
 
     // Vérifier si le token est présent dans les headers
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      accessToken = req.headers.authorization.split(' ')[1];
+      token = req.headers.authorization.split(' ')[1];
     }
 
     // Vérifier si le token existe
-    if (!accessToken) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: 'Non autorisé - Token manquant'
@@ -20,7 +20,7 @@ export const protect = async (req, res, next) => {
 
     try {
       // Vérifier le token
-      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Récupérer l'utilisateur
       const user = await models.User.findByPk(decoded.id, {
@@ -46,12 +46,6 @@ export const protect = async (req, res, next) => {
       req.user = user;
       next();
     } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          success: false,
-          message: 'Token expiré'
-        });
-      }
       return res.status(401).json({
         success: false,
         message: 'Non autorisé - Token invalide'
