@@ -7,6 +7,7 @@ const router = express.Router();
 
 // Routes publiques
 router.post('/login', adminController.login);
+router.post('/refresh-token', adminController.refreshAdminToken);
 
 // Routes protégées
 router.use(protect);

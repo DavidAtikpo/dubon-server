@@ -68,12 +68,29 @@ export const protect = async (req, res, next) => {
 
 export const admin = async (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
+    // Vérifier si l'utilisateur existe et est un admin
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non autorisé - Utilisateur non trouvé'
+      });
+    }
+
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Accès réservé aux administrateurs'
       });
     }
+
+    // Vérifier si l'admin est actif
+    if (req.user.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Compte administrateur désactivé'
+      });
+    }
+
     next();
   } catch (error) {
     console.error('Erreur middleware admin:', error);

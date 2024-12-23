@@ -28,20 +28,116 @@ async function getRecentOrders(limit = 10) {
 // Authentification
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email } = req.body;
     const admin = await User.findOne({
-      where: { email, role: 'admin' }
+      where: { 
+        email, 
+        role: 'admin',
+        status: 'active'
+      }
     });
-    if (!admin || !(await bcrypt.compare(password, admin.password))) {
+
+    if (!admin) {
       return res.status(401).json({
         success: false,
-        message: "Email ou mot de passe incorrect"
+        message: "Email incorrect ou compte non autorisé"
       });
     }
-    const token = generateToken(admin.id);
-    res.json({ success: true, token, admin: { id: admin.id, email: admin.email } });
+
+    // Générer access token et refresh token
+    const accessToken = jwt.sign(
+      { id: admin.id }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '1h' }
+    );
+    
+    const refreshToken = jwt.sign(
+      { id: admin.id }, 
+      process.env.REFRESH_TOKEN_SECRET, 
+      { expiresIn: '7d' }
+    );
+
+    // Sauvegarder le refresh token dans la base de données
+    await User.update(
+      { refreshToken: refreshToken },
+      { where: { id: admin.id } }
+    );
+
+    // Envoyer les tokens et les infos admin
+    res.json({ 
+      success: true, 
+      accessToken,
+      refreshToken,
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur login admin:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+};
+
+// Ajouter une fonction pour rafraîchir le token admin
+export const refreshAdminToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token manquant'
+      });
+    }
+
+    const admin = await User.findOne({
+      where: { 
+        refreshToken,
+        role: 'admin',
+        status: 'active'
+      }
+    });
+
+    if (!admin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Refresh token invalide ou compte non autorisé'
+      });
+    }
+
+    // Vérifier le refresh token
+    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+      if (err) {
+        return res.status(403).json({
+          success: false,
+          message: 'Refresh token invalide'
+        });
+      }
+
+      // Générer un nouveau access token
+      const newAccessToken = jwt.sign(
+        { id: admin.id }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '1h' }
+      );
+
+      res.json({
+        success: true,
+        accessToken: newAccessToken
+      });
+    });
+  } catch (error) {
+    console.error('Erreur refresh token admin:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 
