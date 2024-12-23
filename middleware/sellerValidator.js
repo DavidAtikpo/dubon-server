@@ -1,93 +1,53 @@
 import Joi from 'joi';
 
-// Schéma de validation pour l'inscription vendeur
 const sellerRegistrationSchema = Joi.object({
-  businessName: Joi.string()
-    .min(3)
-    .max(100)
-    .required()
-    .messages({
-      'string.base': 'Le nom de l\'entreprise doit être une chaîne de caractères',
-      'string.empty': 'Le nom de l\'entreprise est requis',
-      'string.min': 'Le nom de l\'entreprise doit contenir au moins {#limit} caractères',
-      'string.max': 'Le nom de l\'entreprise ne doit pas dépasser {#limit} caractères'
-    }),
+  data: Joi.object({
+    type: Joi.string()
+      .valid('individual', 'company')
+      .required()
+      .messages({
+        'any.only': 'Le type doit être "individual" ou "company"'
+      }),
 
-  businessType: Joi.string()
-    .required()
-    .messages({
-      'string.empty': 'Le type d\'entreprise est requis'
-    }),
+    personalInfo: Joi.object({
+      fullName: Joi.string().required(),
+      address: Joi.string().required(),
+      phone: Joi.string().required(),
+      idNumber: Joi.string().required(),
+      email: Joi.string().email().required(),
+      taxNumber: Joi.string().required()
+    }).required(),
 
-  registrationNumber: Joi.string()
-    .pattern(/^[A-Z0-9-]+$/)
-    .messages({
-      'string.pattern.base': 'Le numéro d\'enregistrement n\'est pas valide'
-    }),
+    businessInfo: Joi.object({
+      products: Joi.array().items(
+        Joi.object({
+          name: Joi.string().required(),
+          description: Joi.string().required(),
+          price: Joi.number().required(),
+          images: Joi.array()
+        })
+      ),
+      bankDetails: Joi.object({
+        accountNumber: Joi.string().required()
+      }).required(),
+      category: Joi.string().required(),
+      description: Joi.string().required(),
+      returnPolicy: Joi.string().required()
+    }).required(),
 
-  taxId: Joi.string()
-    .pattern(/^[A-Z0-9-]+$/)
-    .messages({
-      'string.pattern.base': 'Le numéro d\'identification fiscale n\'est pas valide'
-    }),
-
-  address: Joi.object({
-    street: Joi.string().required(),
-    city: Joi.string().required(),
-    state: Joi.string(),
-    postalCode: Joi.string().required(),
-    country: Joi.string().required()
-  }).required()
-    .messages({
-      'object.base': 'L\'adresse doit être un objet valide'
-    }),
-
-  phone: Joi.string()
-    .pattern(/^\+?[1-9]\d{1,14}$/)
-    .required()
-    .messages({
-      'string.pattern.base': 'Le numéro de téléphone n\'est pas valide'
-    }),
-
-  email: Joi.string()
-    .email()
-    .required()
-    .messages({
-      'string.email': 'L\'adresse email n\'est pas valide'
-    }),
-
-  website: Joi.string()
-    .uri()
-    .allow('')
-    .messages({
-      'string.uri': 'L\'URL du site web n\'est pas valide'
-    }),
-
-  description: Joi.string()
-    .min(50)
-    .max(1000)
-    .required()
-    .messages({
-      'string.min': 'La description doit contenir au moins {#limit} caractères',
-      'string.max': 'La description ne doit pas dépasser {#limit} caractères'
-    }),
-
-  bankInfo: Joi.object({
-    bankName: Joi.string().required(),
-    accountNumber: Joi.string().required(),
-    accountName: Joi.string().required(),
-    swift: Joi.string()
+    compliance: Joi.object({
+      termsAccepted: Joi.boolean().valid(true).required(),
+      qualityStandardsAccepted: Joi.boolean().valid(true).required(),
+      antiCounterfeitingAccepted: Joi.boolean().valid(true).required()
+    }).required()
   }).required()
 });
 
-// Middleware de validation
 export const validateSellerRegistration = async (req, res, next) => {
   try {
-    // Valider les données de la requête
     await sellerRegistrationSchema.validateAsync(req.body, { abortEarly: false });
     next();
   } catch (error) {
-    // Formater les erreurs de validation
     const errors = error.details.map(detail => ({
       field: detail.path.join('.'),
       message: detail.message
@@ -101,19 +61,6 @@ export const validateSellerRegistration = async (req, res, next) => {
   }
 };
 
-// Autres validations possibles
-export const validateSellerUpdate = async (req, res, next) => {
-  // Logique de validation pour la mise à jour du profil vendeur
-  next();
-};
-
-export const validateProductCreation = async (req, res, next) => {
-  // Logique de validation pour la création de produit
-  next();
-};
-
 export default {
-  validateSellerRegistration,
-  validateSellerUpdate,
-  validateProductCreation
+  validateSellerRegistration
 };

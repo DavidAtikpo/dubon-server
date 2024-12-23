@@ -24,18 +24,52 @@ export const registerSeller = async (req, res) => {
       });
     }
 
+    // Parser les données JSON
+    const formData = JSON.parse(req.body.data);
+
+    // Préparer les chemins des fichiers
+    const documents = {};
+    
+    if (req.files.idCard) {
+      documents.idCard = req.files.idCard[0].path;
+    }
+    if (req.files.proofOfAddress) {
+      documents.proofOfAddress = req.files.proofOfAddress[0].path;
+    }
+    if (req.files.taxCertificate) {
+      documents.taxCertificate = req.files.taxCertificate[0].path;
+    }
+    if (req.files.photos) {
+      documents.photos = req.files.photos.map(photo => photo.path);
+    }
+    if (req.files.signedDocument) {
+      documents.signedDocument = req.files.signedDocument[0].path;
+    }
+    if (req.files.verificationVideo) {
+      documents.verificationVideo = req.files.verificationVideo[0].path;
+    }
+
     const sellerRequest = await models.SellerRequest.create({
-      ...req.body,
       userId: req.user.id,
-      documents: req.files,
-      status: 'pending' // Ajouter un statut initial
+      type: formData.type,
+      personalInfo: formData.personalInfo,
+      businessInfo: formData.businessInfo,
+      compliance: formData.compliance,
+      documents: documents,
+      status: 'pending'
     });
 
-    res.status(201).json({ success: true, data: sellerRequest });
+    res.status(201).json({ 
+      success: true, 
+      message: "Demande d'inscription vendeur créée avec succès",
+      data: sellerRequest 
+    });
+
   } catch (error) {
     console.error('Erreur inscription vendeur:', error);
     res.status(400).json({ 
       success: false, 
+      message: "Erreur lors de l'inscription",
       error: error.message,
       details: error.errors?.map(e => e.message)
     });

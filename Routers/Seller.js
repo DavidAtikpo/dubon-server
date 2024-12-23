@@ -1,12 +1,35 @@
 import express from "express";
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import * as SellerController from "../Controllers/Sellers.js";
 import { protect, admin, seller } from "../middleware/authMiddleware.js";
 import { validateSellerRegistration } from "../middleware/sellerValidator.js";
 import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
+
+// Créer les dossiers d'upload s'ils n'existent pas
+const createUploadDirs = () => {
+  const dirs = [
+    'uploads/documents/id',
+    'uploads/documents/address',
+    'uploads/documents/tax',
+    'uploads/photos',
+    'uploads/contracts',
+    'uploads/videos',
+    'uploads/products',
+    'uploads/others'
+  ];
+
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+};
+
+createUploadDirs();
 
 // Configuration de multer
 const storage = multer.diskStorage({
@@ -45,7 +68,29 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    // Vérifier les types de fichiers
+    if (file.fieldname === 'verificationVideo') {
+      if (!file.mimetype.startsWith('video/')) {
+        return cb(new Error('Seules les vidéos sont autorisées'));
+      }
+    } else if (file.fieldname === 'photos' || file.fieldname === 'productImages' || file.fieldname === 'idCard') {
+      if (!file.mimetype.startsWith('image/')) {
+        return cb(new Error('Seules les images sont autorisées'));
+      }
+    } else if (file.fieldname === 'proofOfAddress' || file.fieldname === 'taxCertificate' || file.fieldname === 'signedDocument') {
+      if (!file.mimetype.startsWith('application/pdf') && !file.mimetype.startsWith('image/')) {
+        return cb(new Error('Seuls les PDF et images sont autorisés'));
+      }
+    }
+    cb(null, true);
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB max
+  }
+});
 
 // Routes publiques
 router.get('/list', SellerController.getPublicSellers);
