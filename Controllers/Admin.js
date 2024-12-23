@@ -31,10 +31,11 @@ export const login = async (req, res) => {
     const { email } = req.body;
     const admin = await models.User.findOne({
       where: { 
-        email, 
-      
+        email,
+        role: 'admin',
         status: 'active'
-      }
+      },
+      attributes: ['id', 'email', 'role', 'status']
     });
 
     if (!admin) {
@@ -71,7 +72,7 @@ export const login = async (req, res) => {
       admin: {
         id: admin.id,
         email: admin.email,
-        
+        role: admin.role
       }
     });
 
