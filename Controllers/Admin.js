@@ -32,7 +32,7 @@ export const login = async (req, res) => {
     const admin = await models.User.findOne({
       where: { 
         email, 
-        role: 'admin',
+      
         status: 'active'
       }
     });
