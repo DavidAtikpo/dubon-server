@@ -29,7 +29,7 @@ async function getRecentOrders(limit = 10) {
 export const login = async (req, res) => {
   try {
     const { email } = req.body;
-    const admin = await User.findOne({
+    const admin = await models.User.findOne({
       where: { 
         email, 
         role: 'admin',
@@ -58,7 +58,7 @@ export const login = async (req, res) => {
     );
 
     // Sauvegarder le refresh token dans la base de données
-    await User.update(
+    await models.User.update(
       { refreshToken: refreshToken },
       { where: { id: admin.id } }
     );
