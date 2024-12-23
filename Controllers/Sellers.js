@@ -16,14 +16,29 @@ export const checkValidationStatus = async (req, res) => {
 // Gestion des vendeurs
 export const registerSeller = async (req, res) => {
   try {
+    // Vérifier si l'utilisateur existe et est autorisé
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Non autorisé - Utilisateur non trouvé' 
+      });
+    }
+
     const sellerRequest = await models.SellerRequest.create({
       ...req.body,
       userId: req.user.id,
-      documents: req.files
+      documents: req.files,
+      status: 'pending' // Ajouter un statut initial
     });
+
     res.status(201).json({ success: true, data: sellerRequest });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    console.error('Erreur inscription vendeur:', error);
+    res.status(400).json({ 
+      success: false, 
+      error: error.message,
+      details: error.errors?.map(e => e.message)
+    });
   }
 };
 
