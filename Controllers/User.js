@@ -2,7 +2,7 @@ import { models } from '../models/index.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { sendEmail, sendWelcomeEmail } from '../utils/emailUtils.js';
-import cloudinary from '../config/cloudinary.js';
+
 
 // Authentification
 export const register = async (req, res) => {
@@ -120,7 +120,7 @@ export const updateUserProfile = async (req, res) => {
 
     // Si une photo est uploadée
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
+      const result = await uploader.upload(req.file.path, {
         folder: 'profile_photos',
         width: 200,
         crop: "fill"

@@ -4,7 +4,6 @@ import path from 'path';
 import * as SellerController from "../Controllers/Sellers.js";
 import { protect, admin, seller } from "../middleware/authMiddleware.js";
 import { validateSellerRegistration } from "../middleware/sellerValidator.js";
-import uploadMiddleware from "../middleware/upload.js";
 import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
@@ -46,14 +45,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const fileUpload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024,
-    fieldSize: 100 * 1024 * 1024,
-    files: 10
-  }
-});
+const upload = multer({ storage: storage });
 
 // Routes publiques
 router.get('/list', SellerController.getPublicSellers);
@@ -64,26 +56,30 @@ router.use(protect);
 
 // Validation et inscription
 router.get("/validation-status", SellerController.checkValidationStatus);
-router.post("/register", protect, fileUpload.fields([
-  { name: 'idCard', maxCount: 1 },
-  { name: 'proofOfAddress', maxCount: 1 },
-  { name: 'taxCertificate', maxCount: 1 },
-  { name: 'photos', maxCount: 5 },
-  { name: 'signedDocument', maxCount: 1 },
-  { name: 'verificationVideo', maxCount: 1 }
-]), validateSellerRegistration, SellerController.registerSeller);
+router.post("/register", protect,
+  upload.fields([
+    { name: 'idCard', maxCount: 1 },
+    { name: 'proofOfAddress', maxCount: 1 },
+    { name: 'taxCertificate', maxCount: 1 },
+    { name: 'photos', maxCount: 5 },
+    { name: 'signedDocument', maxCount: 1 },
+    { name: 'verificationVideo', maxCount: 1 }
+  ]),
+  validateSellerRegistration,
+  SellerController.registerSeller
+);
 
 // Routes vendeur
 router.use(seller);
 
 // Profil et paramètres
 router.get('/profile', SellerController.getProfile);
-router.put('/profile', uploadMiddleware.single('logo'), SellerController.updateProfile);
+// router.put('/profile', upload.single('logo'), SellerController.updateProfile);
 
 // Gestion des produits
-router.post('/products', uploadMiddleware.array('images', 5), SellerController.createProduct);
+router.post('/products', upload.array('images', 5), SellerController.createProduct);
 router.get('/products', SellerController.getSellerProducts);
-router.put('/products/:id', uploadMiddleware.array('images', 5), SellerController.updateProduct);
+router.put('/products/:id', upload.array('images', 5), SellerController.updateProduct);
 router.delete('/products/:id', SellerController.deleteProduct);
 
 // Gestion des commandes
