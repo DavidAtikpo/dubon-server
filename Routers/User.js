@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../middleware/authMiddleware.js';
 import * as userController from '../Controllers/User.js';
+import { uploadMiddleware } from '../middleware/upload.js';
 
 
 const router = express.Router()
@@ -18,7 +19,11 @@ router.use(protect);
 
 // Profil et paramètres
 router.get('/profile', userController.getUserProfile);
-router.put('/profile', userController.updateUserProfile);
+router.put('/profile', 
+  protect, 
+  uploadMiddleware.single('profilePhoto'),
+  userController.updateUserProfile
+);
 router.put('/password', userController.updatePassword);
 router.post('/logout', protect, userController.logout);
 

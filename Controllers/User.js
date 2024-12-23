@@ -2,6 +2,7 @@ import { models } from '../models/index.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { sendEmail, sendWelcomeEmail } from '../utils/emailUtils.js';
+import cloudinary from '../config/cloudinary.js';
 
 // Authentification
 export const register = async (req, res) => {
@@ -113,12 +114,50 @@ export const getUserProfile = async (req, res) => {
 
 export const updateUserProfile = async (req, res) => {
   try {
-    await models.User.update(req.body, {
-      where: { id: req.user.id }
+    const userId = req.user.id;
+    const { name, bio, phoneNumber } = req.body;
+    let profilePhotoUrl = null;
+
+    // Si une photo est uploadée
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'profile_photos',
+        width: 200,
+        crop: "fill"
+      });
+      profilePhotoUrl = result.secure_url;
+    }
+
+    // Mise à jour du profil
+    const updateData = {
+      name,
+      profile: {
+        bio,
+        phoneNumber,
+        ...(profilePhotoUrl && { profilePhotoUrl })
+      }
+    };
+
+    await models.User.update(updateData, {
+      where: { id: userId }
     });
-    res.json({ success: true, message: 'Profil mis à jour' });
+
+    // Récupérer l'utilisateur mis à jour
+    const updatedUser = await models.User.findByPk(userId, {
+      attributes: ['id', 'name', 'email', 'profilePhotoUrl']
+    });
+
+    res.json({
+      success: true,
+      message: 'Profil mis à jour avec succès',
+      user: updatedUser
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur mise à jour profil:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 
