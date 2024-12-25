@@ -35,7 +35,7 @@ export const login = async (req, res) => {
         role: 'admin',
         status: 'active'
       },
-      attributes: ['id', 'email', 'role', 'status']
+      attributes: ['id', 'email', 'role', 'status','name']
     });
 
     if (!admin) {
@@ -72,6 +72,7 @@ export const login = async (req, res) => {
       admin: {
         id: admin.id,
         email: admin.email,
+        name: admin.name,
         role: admin.role
       }
     });
