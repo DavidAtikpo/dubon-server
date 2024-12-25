@@ -5,17 +5,17 @@ import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
 
-// Routes publiques
+// Routes publiques (pas besoin d'authentification)
 router.post('/login', adminController.login);
 router.post('/refresh-token', adminController.refreshAdminToken);
 
-// Routes protégées
-router.use(protect);
-router.use(admin);
+// Appliquer les middlewares d'authentification pour toutes les routes suivantes
+router.use(protect);  // Vérifie le token
+router.use(admin);    // Vérifie le rôle admin
 
-// Dashboard
+// Routes du dashboard
 router.get('/dashboard', adminController.getDashboard);
-router.get('/dashboard/stats', adminController.getDashboardStats);
+router.get('/dashboard/stats', adminController.getDashboardStats);  // Retiré authMiddleware car déjà protégé
 
 // Gestion des utilisateurs
 router.get('/users', adminController.getUsers);

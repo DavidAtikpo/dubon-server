@@ -162,33 +162,89 @@ export const getDashboard = async (req, res) => {
 
 export const getDashboardStats = async (req, res) => {
   try {
+    // Obtenir la date de début de la journée
     const today = new Date();
-    const lastMonth = new Date(today.setMonth(today.getMonth() - 1));
+    today.setHours(0, 0, 0, 0);
 
-    const stats = {
-      users: {
-        total: await User.count(),
-        new: await User.count({
-          where: { createdAt: { [Op.gte]: lastMonth } }
-        })
-      },
-      orders: {
-        total: await Order.count(),
-        recent: await Order.count({
-          where: { createdAt: { [Op.gte]: lastMonth } }
-        }),
-        revenue: await calculateTotalRevenue()
-      },
-      sellers: {
-        total: await SellerProfile.count(),
-        pending: await SellerProfile.count({
-          where: { status: 'pending' }
-        })
+    // Statistiques des utilisateurs
+    const totalUsers = await User.count({
+      where: { role: 'user' }
+    });
+    
+    const newUsers = await User.count({
+      where: {
+        role: 'user',
+        createdAt: {
+          [Op.gte]: today
+        }
       }
-    };
-    res.json({ success: true, data: stats });
+    });
+
+    // Statistiques des vendeurs
+    const totalSellers = await Seller.count();
+    const pendingSellers = await Seller.count({
+      where: { status: 'pending' }
+    });
+
+    // Statistiques des produits
+    const totalProducts = await Product.count();
+
+    // Statistiques des commandes
+    const totalOrders = await Order.count();
+    const todayOrders = await Order.count({
+      where: {
+        createdAt: {
+          [Op.gte]: today
+        }
+      }
+    });
+
+    // Statistiques des revenus
+    const totalRevenue = await Order.sum('total', {
+      where: { status: 'completed' }
+    });
+
+    const todayRevenue = await Order.sum('total', {
+      where: {
+        status: 'completed',
+        createdAt: {
+          [Op.gte]: today
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        users: {
+          total: totalUsers,
+          new: newUsers
+        },
+        sellers: {
+          total: totalSellers,
+          pending: pendingSellers
+        },
+        products: {
+          total: totalProducts
+        },
+        orders: {
+          total: totalOrders,
+          today: todayOrders
+        },
+        revenue: {
+          total: totalRevenue || 0,
+          today: todayRevenue || 0
+        }
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur stats dashboard:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques",
+      error: error.message
+    });
   }
 };
 
