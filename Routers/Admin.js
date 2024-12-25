@@ -5,34 +5,34 @@ import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
 
-// Routes publiques (pas besoin d'authentification)
+// Routes publiques
 router.post('/login', adminController.login);
 router.post('/refresh-token', adminController.refreshAdminToken);
 
-// Appliquer les middlewares d'authentification pour toutes les routes suivantes
-router.use(protect);  // Vérifie le token
-router.use(admin);    // Vérifie le rôle admin
+// Routes protégées
+router.use(protect);
+router.use(admin);
 
-// Routes du dashboard
+// Dashboard
 router.get('/dashboard', adminController.getDashboard);
-router.get('/dashboard/stats', adminController.getDashboardStats);  // Retiré authMiddleware car déjà protégé
+router.get('/dashboard/stats', adminController.getDashboardStats);
 
-// Gestion des utilisateurs
+// Gestion des vendeurs et demandes
+router.get('/seller-requests', adminController.getSellerRequests);
+router.get('/seller-requests/:id', adminController.getSellerRequestById);
+router.put('/seller-requests/:id/approve', adminController.approveSellerRequest);
+router.put('/seller-requests/:id/reject', adminController.rejectSellerRequest);
+router.get('/sellers/pending', adminController.getPendingSellers);
+router.get('/sellers/active', adminController.getActiveSellers);
+
+// Autres routes existantes...
 router.get('/users', adminController.getUsers);
 router.get('/users/:id', adminController.getUserById);
-
-// Gestion des vendeurs
 router.get('/sellers', adminController.getSellers);
 router.get('/sellers/:id', adminController.getSellerById);
-
-// Gestion des commandes
 router.get('/orders', adminController.getOrders);
-
-// Paramètres système
 router.get('/settings', adminController.getSystemSettings);
 router.put('/settings', adminController.updateSystemSettings);
-
-// Logs système
 router.get('/logs', adminController.getSystemLogs);
 
 router.use(corsErrorHandler);

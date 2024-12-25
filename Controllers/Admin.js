@@ -180,9 +180,12 @@ export const getDashboardStats = async (req, res) => {
       }
     });
 
-    // Statistiques des vendeurs
-    const totalSellers = await Seller.count();
-    const pendingSellers = await Seller.count({
+    // Statistiques des vendeurs (correction)
+    const totalSellers = await User.count({
+      where: { role: 'seller' }
+    });
+    
+    const pendingSellers = await models.SellerRequest.count({
       where: { status: 'pending' }
     });
 
@@ -343,6 +346,130 @@ export const getSystemLogs = async (req, res) => {
       limit: 100
     });
     res.json({ success: true, data: logs });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Gestion des demandes vendeurs
+export const getSellerRequests = async (req, res) => {
+  try {
+    const requests = await models.SellerRequest.findAll({
+      include: [{
+        model: models.User,
+        as: 'user',
+        attributes: ['id', 'email', 'name']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getSellerRequestById = async (req, res) => {
+  try {
+    const request = await models.SellerRequest.findByPk(req.params.id, {
+      include: [{
+        model: models.User,
+        as: 'user',
+        attributes: ['id', 'email', 'name']
+      }]
+    });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Demande non trouvée' });
+    }
+    res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const approveSellerRequest = async (req, res) => {
+  try {
+    const request = await models.SellerRequest.findByPk(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Demande non trouvée' });
+    }
+
+    await sequelize.transaction(async (t) => {
+      // Mettre à jour la demande
+      await request.update({
+        status: 'approved',
+        reviewedBy: req.user.id,
+        reviewedAt: new Date()
+      }, { transaction: t });
+
+      // Mettre à jour le rôle de l'utilisateur
+      await models.User.update({
+        role: 'seller',
+        status: 'active'
+      }, {
+        where: { id: request.userId },
+        transaction: t
+      });
+    });
+
+    res.json({ success: true, message: 'Demande approuvée avec succès' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const rejectSellerRequest = async (req, res) => {
+  try {
+    const { rejectionReason } = req.body;
+    const request = await models.SellerRequest.findByPk(req.params.id);
+    
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Demande non trouvée' });
+    }
+
+    await request.update({
+      status: 'rejected',
+      reviewedBy: req.user.id,
+      reviewedAt: new Date(),
+      rejectionReason
+    });
+
+    res.json({ success: true, message: 'Demande rejetée' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getPendingSellers = async (req, res) => {
+  try {
+    const pendingSellers = await models.User.findAll({
+      where: { 
+        role: 'seller',
+        status: 'pending'
+      },
+      include: [{
+        model: models.SellerRequest,
+        as: 'sellerRequest'
+      }]
+    });
+    res.json({ success: true, data: pendingSellers });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getActiveSellers = async (req, res) => {
+  try {
+    const activeSellers = await models.User.findAll({
+      where: { 
+        role: 'seller',
+        status: 'active'
+      },
+      include: [{
+        model: models.SellerRequest,
+        as: 'sellerRequest'
+      }]
+    });
+    res.json({ success: true, data: activeSellers });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
