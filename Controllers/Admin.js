@@ -207,7 +207,10 @@ export const getDashboardStats = async (req, res) => {
       where: { status: 'completed' }
     });
 
+
     const todayRevenue = await Order.sum('total', {
+      
+      
       where: {
         status: 'completed',
         createdAt: {
@@ -215,6 +218,7 @@ export const getDashboardStats = async (req, res) => {
         }
       }
     });
+console.log('todayRevenue',todayRevenue);
 
     res.json({
       success: true,
