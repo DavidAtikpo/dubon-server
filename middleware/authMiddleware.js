@@ -2,16 +2,19 @@ import jwt from 'jsonwebtoken';
 import { models } from '../models/index.js';
 
 export const protect = async (req, res, next) => {
+  console.log('=== Middleware protect ===');
+  console.log('Headers:', req.headers);
+  
   try {
     let token;
 
-    // Vérifier si le token est présent dans les headers
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
+      console.log('Token extrait:', token);
     }
 
-    // Vérifier si le token existe
     if (!token) {
+      console.log('Pas de token trouvé');
       return res.status(401).json({
         success: false,
         message: 'Non autorisé - Token manquant'
@@ -19,46 +22,34 @@ export const protect = async (req, res, next) => {
     }
 
     try {
-      // Vérifier le token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Token décodé:', decoded);
 
-      // Récupérer l'utilisateur
       const user = await models.User.findByPk(decoded.id, {
         attributes: { exclude: ['password'] }
       });
+      console.log('Utilisateur trouvé:', user ? user.id : 'aucun');
 
       if (!user) {
+        console.log('Utilisateur non trouvé');
         return res.status(401).json({
           success: false,
           message: 'Non autorisé - Utilisateur non trouvé'
         });
       }
 
-      // Vérifier si l'utilisateur est actif
-      if (user.status !== 'active') {
-        return res.status(401).json({
-          success: false,
-          message: 'Compte désactivé ou suspendu'
-        });
-      }
-
-      // Ajouter l'utilisateur à la requête
       req.user = user;
+      console.log('Middleware protect OK');
       next();
     } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          success: false,
-          message: 'Token expiré'
-        });
-      }
+      console.error('Erreur de vérification du token:', error);
       return res.status(401).json({
         success: false,
         message: 'Non autorisé - Token invalide'
       });
     }
   } catch (error) {
-    console.error('Erreur middleware auth:', error);
+    console.error('Erreur middleware protect:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur serveur'
@@ -68,32 +59,46 @@ export const protect = async (req, res, next) => {
 
 export const admin = async (req, res, next) => {
   try {
-    // Vérifier si l'utilisateur existe et est un admin
-    if (!req.user) {
+    // Vérifier le token dans les headers
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Non autorisé - Utilisateur non trouvé'
+        message: 'Token manquant'
       });
     }
 
-    if (req.user.role !== 'admin') {
+    // Vérifier et décoder le token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Récupérer l'utilisateur admin
+    const admin = await models.User.findOne({
+      where: {
+        id: decoded.id,
+        role: 'admin',
+        status: 'active'
+      }
+    });
+
+    if (!admin) {
       return res.status(403).json({
         success: false,
         message: 'Accès réservé aux administrateurs'
       });
     }
 
-    // Vérifier si l'admin est actif
-    if (req.user.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'Compte administrateur désactivé'
-      });
-    }
-
+    // Ajouter l'admin à la requête
+    req.user = admin;
     next();
   } catch (error) {
     console.error('Erreur middleware admin:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expiré'
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Erreur serveur'

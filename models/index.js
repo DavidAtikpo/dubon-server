@@ -37,6 +37,11 @@ import CouponModel from './Coupon.js';
 import OrderItemModel from './OrderItem.js';
 import CartItemModel from './CartItem.js';
 import PromotionProductModel from './PromotionProduct.js';
+import SystemSettingsModel from './SystemSettings.js';
+import EventBookingModel from './EventBooking.js';
+import ReservationModel from './Reservation.js';
+import RestaurantModel from './Restaurant.js';
+import TableModel from './Table.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -63,6 +68,7 @@ const defineModels = () => {
   db.Product = ProductModel(sequelize);
   db.Service = ServiceModel(sequelize);
   db.Event = EventModel(sequelize);
+  db.EventBooking = EventBookingModel(sequelize);
   db.RestaurantItem = RestaurantItemModel(sequelize);
   db.Training = TrainingModel(sequelize);
   db.Order = OrderModel(sequelize);
@@ -86,6 +92,11 @@ const defineModels = () => {
   db.DisputeEvidence = DisputeEvidenceModel(sequelize);
   db.Coupon = CouponModel(sequelize);
   db.PromotionProduct = PromotionProductModel(sequelize);
+  db.SystemSettings = SystemSettingsModel(sequelize);
+  db.Restaurant = RestaurantModel(sequelize);
+  db.Table = TableModel(sequelize);
+  db.Reservation = ReservationModel(sequelize);
+
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {
     if (db[modelName].associate) {

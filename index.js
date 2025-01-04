@@ -13,6 +13,7 @@ import cookieParser from "cookie-parser";
 import Products from './Routers/Products.js'
 import morgan from "morgan";
 import cors from 'cors';
+// import authRoutes from './Routers/auth.js';
 import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import cartRoute from './Routers/cartRoute.js';
@@ -23,7 +24,7 @@ import category from './Routers/category.js'
 import Seller from "./Routers/Seller.js"
 import Event from './Routers/Event.js'
 import paymentRoutes from './Routers/payementRoute.js';
-import { sequelize } from './config/dbConfig.js';
+import { sequelize, models } from './models/index.js';
 import pg from 'pg';
 import { initializeDatabase } from './config/dbConfig.js';
 import Admin from './Routers/Admin.js';
@@ -32,6 +33,13 @@ import systemRoutes from './Routers/system.js';
 import themeRoutes from './Routers/themes.js';
 import disputeRoutes from './Routers/disputes.js';
 import wishlistRoute from './Routers/wishlist.js';
+import analyticsRouter from './Routers/analytics.js';
+import systemRouter from './Routers/system.js';
+import restaurantRoutes from './Routers/Restaurant.js';
+import eventRoutes from './Routers/Event.js';
+// import dishesRoutes from './routes/seller/dishes';
+import shopRoutes from './Routers/Shop.js';
+import apiRoutes from './Routers/api.js';
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -97,35 +105,189 @@ app.use(session({
   }
 }));
 
+const defaultSystemSettings = {
+  key: 'general_settings',
+  value: {
+    general: {
+      siteName: 'Dubon',
+      siteDescription: 'Plateforme de commerce en ligne',
+      contactEmail: 'contact@dubon.com',
+      phoneNumber: '',
+      address: ''
+    },
+    features: {
+      enableRegistration: true,
+      enableReviews: true,
+      enableChat: true,
+      maintenanceMode: false
+    },
+    email: {
+      smtpHost: process.env.SMTP_HOST || '',
+      smtpPort: parseInt(process.env.SMTP_PORT || '587'),
+      smtpUser: process.env.SMTP_USER || '',
+      smtpPassword: process.env.SMTP_PASSWORD || '',
+      senderEmail: process.env.SENDER_EMAIL || 'noreply@dubon.com',
+      senderName: 'Dubon'
+    },
+    social: {
+      facebook: '',
+      twitter: '',
+      instagram: '',
+      linkedin: ''
+    }
+  },
+  category: 'general',
+  description: 'Paramètres généraux du système'
+};
+
+// Fonction pour vérifier et rétablir la connexion
+const checkDatabaseConnection = async (retries = 5) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await sequelize.authenticate();
+      console.log('✓ Connexion à la base de données OK');
+      return true;
+    } catch (error) {
+      console.error(`Tentative ${i + 1}/${retries} échouée:`, error.message);
+      if (i < retries - 1) {
+        console.log('Nouvelle tentative dans 5 secondes...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
+  }
+  return false;
+};
+
+// Liste de toutes les tables à créer (sauf celles qui existent déjà)
+const tablesToCreate = [
+  'Product',
+  'Service', 
+  'Event',
+  'RestaurantItem',
+  'Restaurant',
+  'EventBooking',
+  'Reservation',
+  'Table',
+  'Training',
+  'Order',
+  'OrderItem',
+  'Cart',
+  'CartItem',
+  'Payment',
+  'Return',
+  'Refund',
+  'Address',
+  'Contract',
+  'Review',
+  'Rating',
+  'Message',
+  'Notification',
+  'Withdrawal',
+  'Favorite',
+  'Dispute',
+  'DisputeEvidence',
+  'Coupon',
+  'Promotion',
+  'PromotionProduct',
+  'CustomerFilter',
+  'UserActivity'
+];
+
 // Initialiser la base de données avant de démarrer le serveur
 const startServer = async () => {
   try {
-    // Synchroniser les modèles avec la base de données de manière sécurisée
-    await sequelize.sync();  // Sans { alter: true } ni { force: true } en production
-    console.log('✓ Base de données synchronisée');
-
-    // Initialiser la base de données
-    const dbInitialized = await initializeDatabase();
-    if (!dbInitialized) {
-      console.error('Échec de l\'initialisation de la base de données');
-      process.exit(1);
+    // 1. Vérifier la connexion
+    const isConnected = await checkDatabaseConnection();
+    if (!isConnected) {
+      throw new Error('Impossible de se connecter à la base de données après plusieurs tentatives');
     }
 
-    // Configurer les middlewares et les routes
-    // ... reste de la configuration ...
+    // 2. Vérifier les tables existantes
+    const [tables] = await sequelize.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public';
+    `);
+    const existingTables = tables.map(t => t.table_name.toLowerCase());
+    console.log('Tables existantes:', existingTables);
 
-    // Démarrer le serveur
+    // 3. Mettre à jour la table Users existante
+    console.log('Mise à jour de la table Users...');
+    try {
+      // D'abord, ajouter les colonnes avec NULL autorisé
+      await sequelize.query(`
+        ALTER TABLE "Users" 
+        ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE;
+      `);
+
+      // Mettre à jour les enregistrements existants
+      await sequelize.query(`
+        UPDATE "Users"
+        SET "createdAt" = CURRENT_TIMESTAMP,
+            "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "createdAt" IS NULL;
+      `);
+
+      // Maintenant ajouter la contrainte NOT NULL
+      await sequelize.query(`
+        ALTER TABLE "Users"
+        ALTER COLUMN "createdAt" SET NOT NULL,
+        ALTER COLUMN "updatedAt" SET NOT NULL;
+      `);
+
+      console.log('✓ Table Users mise à jour avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la table Users:', error);
+      throw error;
+    }
+
+    // 4. Créer les autres tables
+    // console.log('Création des tables manquantes...');
+    // await sequelize.sync({ alter: true });
+
+    // // 5. Vérifier et créer les paramètres système si nécessaire
+    // const systemSettings = await models.SystemSettings.findOne({
+    //   where: { key: 'general_settings' }
+    // });
+
+    // if (!systemSettings) {
+    //   console.log('Création des paramètres système par défaut...');
+    //   await models.SystemSettings.create(defaultSystemSettings);
+    //   console.log('✓ Paramètres système créés');
+    // }
+
+    // 6. Vérifier et créer l'admin par défaut si nécessaire
+    // const adminExists = await models.User.findOne({
+    //   where: { role: 'admin' }
+    // });
+
+    // if (!adminExists) {
+    //   console.log('Création de l\'utilisateur admin par défaut...');
+    //   await models.User.create({
+    //     name: 'Admin',
+    //     email: 'admin@dubon.com',
+    //     password: 'admin123',
+    //     role: 'admin',
+    //     status: 'active'
+    //   });
+    //   console.log('✓ Utilisateur admin créé');
+    // }
+
+    // 7. Configurer les dossiers d'upload
+    setupUploadDirectories();
+
+    // 8. Démarrer le serveur
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server is running at PORT ${PORT}`);
+      console.log(`✓ Serveur démarré sur le port ${PORT}`);
     });
+
   } catch (error) {
     console.error('Erreur au démarrage du serveur:', error);
     process.exit(1);
   }
 };
-
-startServer();
 
 // Routes
 app.get("/", (req, res) => {
@@ -133,8 +295,8 @@ app.get("/", (req, res) => {
 });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use("/api/user", User);
 
+app.use("/api/user", User);
 app.use("/api/product", Products);
 // app.use("/api", Seller);
 app.use("/api", Training);
@@ -146,10 +308,14 @@ app.use('/api/wishlist', wishlistRoute);
 app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/system', systemRoutes);
+
 // Use admin routes
 app.use('/api/admin', Admin);
 app.use('/api/admin/themes', themeRoutes);
 app.use('/api/disputes', disputeRoutes);
+app.use('/api/admin/system', systemRouter); 
+app.use('/api/admin/analytics', analyticsRouter);
+
 
 // Monter les routes
 app.use('/api/seller', Seller);
@@ -171,10 +337,11 @@ app.use((error, req, res, next) => {
 // Fonction pour configurer les dossiers d'upload
 const setupUploadDirectories = () => {
   const dirs = [
+    'uploads/photos',
+    'uploads/photos/temp',
     'uploads/documents/id',
     'uploads/documents/address',
     'uploads/documents/tax',
-    'uploads/photos',
     'uploads/contracts',
     'uploads/videos',
     'uploads/others',
@@ -186,44 +353,84 @@ const setupUploadDirectories = () => {
     const fullPath = path.join(__dirname, dir);
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
-      console.log(`Created upload directory: ${fullPath}`);
+      console.log(`Created directory: ${fullPath}`);
     }
   });
 };
 
-// Appeler la fonction au démarrage
-setupUploadDirectories();
-
 // Désactiver le timeout du serveur pour les uploads longs
 server.timeout = 300000; // 5 minutes
 
-// Au démarrage du serveur
-const testDatabaseConnection = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✓ Connexion à la base de données OK');
+// Démarrer le serveur avec gestion des erreurs
+startServer().catch(error => {
+  console.error('Erreur fatale au démarrage:', error);
+  process.exit(1);
+});
 
-    // Vérifier les tables - Notez le "Users" avec U majuscule
-    const [tables] = await sequelize.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public';
-    `);
-    console.log('Tables existantes:', tables.map(t => t.table_name));
+app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/events', eventRoutes);
+// app.use('/api/seller/dishes', dishesRoutes);
+app.use('/api/shops', shopRoutes);
 
-    // Vérifier les utilisateurs - Notez le "Users" avec U majuscule
-    const [users] = await sequelize.query(`
-      SELECT COUNT(*) as count FROM "Users";
-    `);
-    console.log('Nombre d\'utilisateurs:', users[0].count);
+app.use('/api', apiRoutes);
 
-  } catch (error) {
-    console.error('❌ Erreur de connexion à la base de données:', error);
-    process.exit(1);
-  }
-};
+// try {
+//   // Vérifier si la colonne existe déjà
+//   const checkColumn = await sequelize.query(`
+//     SELECT column_name 
+//     FROM information_schema.columns 
+//     WHERE table_name = 'UserActivities' AND column_name = 'userId';
+//   `);
 
-testDatabaseConnection();
+//   if (checkColumn[0].length === 0) {
+//     // Ajouter seulement la colonne si elle n'existe pas
+//     await sequelize.query(`
+//       ALTER TABLE "UserActivities" 
+//       ADD COLUMN "userId" UUID;
+//     `);
+
+//     // Vérifier si la contrainte existe
+//     const checkConstraint = await sequelize.query(`
+//       SELECT constraint_name 
+//       FROM information_schema.table_constraints 
+//       WHERE table_name = 'UserActivities' AND constraint_name = 'fk_user_activity_user';
+//     `);
+
+//     if (checkConstraint[0].length === 0) {
+//       // Ajouter la contrainte seulement si elle n'existe pas
+//       await sequelize.query(`
+//         ALTER TABLE "UserActivities"
+//         ADD CONSTRAINT fk_user_activity_user
+//         FOREIGN KEY ("userId") 
+//         REFERENCES "Users"(id)
+//         ON DELETE CASCADE;
+//       `);
+//     }
+
+//     // Mettre à jour les enregistrements existants si nécessaire
+//     await sequelize.query(`
+//       UPDATE "UserActivities"
+//       SET "userId" = (
+//         SELECT id FROM "Users" LIMIT 1
+//       )
+//       WHERE "userId" IS NULL;
+//     `);
+
+//     // Ajouter la contrainte NOT NULL
+//     await sequelize.query(`
+//       ALTER TABLE "UserActivities"
+//       ALTER COLUMN "userId" SET NOT NULL;
+//     `);
+
+//     console.log('✓ Table UserActivities mise à jour avec succès');
+//   } else {
+//     console.log('✓ La colonne userId existe déjà dans UserActivities');
+//   }
+// } catch (error) {
+//   console.error('Erreur lors de la mise à jour de la table UserActivities:', error);
+//   // Ne pas faire throw error pour éviter l'arrêt du serveur
+//   console.error(error);
+// }
 
 
 

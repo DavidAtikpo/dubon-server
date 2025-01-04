@@ -1,72 +1,7 @@
-import { DataTypes, Model } from 'sequelize';
+import { Model, DataTypes } from 'sequelize';
 
 export default (sequelize) => {
-  class User extends Model {
-    static associate(models) {
-      // One-to-Many Relations
-      User.hasMany(models.Order, {
-        foreignKey: 'userId',
-        as: 'orders'
-      });
-      
-      User.hasMany(models.Address, {
-        foreignKey: 'userId',
-        as: 'addresses'
-      });
-      
-      User.hasMany(models.Review, {
-        foreignKey: 'userId',
-        as: 'reviews'
-      });
-      
-      User.hasMany(models.UserActivity, {
-        foreignKey: 'userId',
-        as: 'activities'
-      });
-      
-      User.hasMany(models.Notification, {
-        foreignKey: 'userId',
-        as: 'notifications'
-      });
-      
-      User.hasMany(models.Favorite, {
-        foreignKey: 'userId',
-        as: 'favorites'
-      });
-      
-      User.hasMany(models.Rating, {
-        foreignKey: 'userId',
-        as: 'ratings'
-      });
-
-      // One-to-One Relations
-      User.hasOne(models.Cart, {
-        foreignKey: 'userId',
-        as: 'cart'
-      });
-      
-      User.hasOne(models.SellerProfile, {
-        foreignKey: 'userId',
-        as: 'sellerProfile'
-      });
-      
-      User.hasOne(models.UserProfile, {
-        foreignKey: 'userId',
-        as: 'profile'
-      });
-
-      // Messages Relations
-      User.hasMany(models.Message, {
-        foreignKey: 'senderId',
-        as: 'sentMessages'
-      });
-      
-      User.hasMany(models.Message, {
-        foreignKey: 'receiverId',
-        as: 'receivedMessages'
-      });
-    }
-  }
+  class User extends Model {}
 
   User.init({
     id: {
@@ -90,82 +25,65 @@ export default (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    phone: {
-      type: DataTypes.STRING,
-      validate: {
-        is: /^\+?[1-9]\d{1,14}$/ // Format E.164 pour numéros internationaux
-      }
-    },
-    address: {
-      type: DataTypes.JSONB,
-      defaultValue: null,
-      validate: {
-        isValidAddress(value) {
-          if (value && Object.keys(value).length > 0) {
-            const required = ['street', 'city', 'country'];
-            for (const field of required) {
-              if (!value[field]) {
-                throw new Error(`${field} est requis dans l'adresse`);
-              }
-            }
-          }
-        }
-      }
-    },
     role: {
       type: DataTypes.ENUM('user', 'seller', 'admin'),
       defaultValue: 'user'
     },
-    profilePhotoUrl: {
-      type: DataTypes.STRING,
-      allowNull: true
+    status: {
+      type: DataTypes.ENUM('active', 'suspended', 'banned'),
+      defaultValue: 'active'
     },
-    emailVerified: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    emailVerificationToken: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    emailVerificationExpires: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    refreshToken: {
-      type: DataTypes.STRING,
-      allowNull: true
+    avatar: {
+      type: DataTypes.STRING
     },
     lastLogin: {
       type: DataTypes.DATE
     },
-    status: {
-      type: DataTypes.ENUM('active', 'inactive', 'blocked'),
-      defaultValue: 'active'
+    // Champs spécifiques aux vendeurs
+    businessType: {
+      type: DataTypes.ENUM('products', 'restaurant', 'training', 'events', 'services'),
+      allowNull: true
     },
-    preferences: {
-      type: DataTypes.JSONB,
-      defaultValue: {
-        notifications: {
-          email: true,
-          push: true
-        },
-        language: 'fr',
-        currency: 'XOF'
+    businessName: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    storeId: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    subscriptionStatus: {
+      type: DataTypes.ENUM('trial', 'active', 'expired'),
+      allowNull: true
+    },
+    subscriptionEndsAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    trialEndsAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    // Informations business additionnelles
+    businessAddress: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    businessPhone: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    businessEmail: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isEmail: true
       }
     }
   }, {
     sequelize,
     modelName: 'User',
-    timestamps: true,
-    underscored: true,
-    tableName: 'Users',
-    indexes: [
-      { fields: ['email'] },
-      { fields: ['phone'] },
-      { fields: ['role'] },
-      { fields: ['status'] }
-    ]
+    timestamps: true
   });
 
   return User;

@@ -1,11 +1,23 @@
-import { DataTypes } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 
 export default (sequelize) => {
-  const SystemSettings = sequelize.define('SystemSettings', {
+  class SystemSettings extends Model {
+    static associate(models) {
+      SystemSettings.belongsTo(models.User, {
+        foreignKey: {
+          name: 'updated_by',
+          allowNull: true
+        },
+        as: 'lastUpdatedBy'
+      });
+    }
+  }
+
+  SystemSettings.init({
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
     key: {
       type: DataTypes.STRING,
@@ -14,41 +26,42 @@ export default (sequelize) => {
     },
     value: {
       type: DataTypes.JSONB,
-      allowNull: false
+      allowNull: false,
+      defaultValue: {}
     },
     description: {
       type: DataTypes.TEXT
     },
     category: {
-      type: DataTypes.STRING
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'general'
     },
-    isPublic: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
-    updatedBy: {
+    updated_by: {
       type: DataTypes.UUID,
+      allowNull: true,
+      field: 'updated_by',
       references: {
         model: 'Users',
         key: 'id'
       }
+    },
+    metadata: {
+      type: DataTypes.JSONB,
+      defaultValue: {}
     }
   }, {
-    timestamps: true,
+    sequelize,
+    modelName: 'SystemSettings',
+    tableName: 'SystemSettings',
     underscored: true,
-    tableName: 'system_settings',
+    timestamps: true,
     indexes: [
-      { fields: ['key'] },
-      { fields: ['category'] }
+      { fields: ['key'], unique: true },
+      { fields: ['category'] },
+      { fields: ['updated_by'] }
     ]
   });
-
-  SystemSettings.associate = (models) => {
-    SystemSettings.belongsTo(models.User, {
-      foreignKey: 'updatedBy',
-      as: 'lastUpdatedBy'
-    });
-  };
 
   return SystemSettings;
 }; 
