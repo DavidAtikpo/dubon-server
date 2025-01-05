@@ -13,6 +13,12 @@ const initializeFedaPay = () => {
   }
 };
 
+const getCheckoutBaseUrl = () => {
+  return process.env.NODE_ENV === 'production' 
+    ? 'https://checkout.fedapay.com'
+    : 'https://sandbox-checkout.fedapay.com';
+};
+
 export const createFedaPayTransaction = async ({
   amount,
   description,
@@ -61,14 +67,16 @@ export const createFedaPayTransaction = async ({
     }
 
     // Générer l'URL de paiement
-    const token = await transaction.generateToken();
+    const token = await Transaction.generateToken(transaction.id);
     
     if (!token || !token.token) {
       throw new Error('Token de paiement non généré par FedaPay');
     }
 
-    // Construire l'URL de paiement
-    const paymentUrl = `https://checkout.fedapay.com/${token.token}`;
+    // Utiliser l'URL de production
+    const paymentUrl = `${getCheckoutBaseUrl()}/${token.token}`;
+
+    console.log('URL de paiement générée:', paymentUrl);
 
     return {
       id: transaction.id,
