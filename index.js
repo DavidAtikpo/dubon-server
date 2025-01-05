@@ -5,7 +5,6 @@ import fs from 'fs';
 import bodyParser from "body-parser";
 import express from "express";
 import http from 'http';
-// import dbConnect from "./config/dbConfig.js";
 import Order from './Routers/Order.js'
 import User from './Routers/User.js'
 import errorHandler from "./middleware/errorHandler.js";
@@ -39,7 +38,8 @@ import restaurantRoutes from './Routers/Restaurant.js';
 import eventRoutes from './Routers/Event.js';
 // import dishesRoutes from './routes/seller/dishes';
 import shopRoutes from './Routers/Shop.js';
-import apiRoutes from './Routers/api.js';
+import subscriptionRoutes from './Routers/seller/subscription.routes.js';
+
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -196,6 +196,9 @@ const tablesToCreate = [
 // Initialiser la base de données avant de démarrer le serveur
 const startServer = async () => {
   try {
+    // Initialize the database
+    await initializeDatabase();
+
     // 1. Vérifier la connexion
     const isConnected = await checkDatabaseConnection();
     if (!isConnected) {
@@ -308,6 +311,7 @@ app.use('/api/wishlist', wishlistRoute);
 app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/system', systemRoutes);
+app.use('/api/seller/subscription', subscriptionRoutes);
 
 // Use admin routes
 app.use('/api/admin', Admin);
@@ -372,7 +376,7 @@ app.use('/api/events', eventRoutes);
 // app.use('/api/seller/dishes', dishesRoutes);
 app.use('/api/shops', shopRoutes);
 
-app.use('/api', apiRoutes);
+
 
 // try {
 //   // Vérifier si la colonne existe déjà
@@ -431,6 +435,62 @@ app.use('/api', apiRoutes);
 //   // Ne pas faire throw error pour éviter l'arrêt du serveur
 //   console.error(error);
 // }
+
+// Mise à jour de la table SellerRequests
+
+
+// (async () => {
+//   try {
+//     console.log('🔄 Début de la mise à jour de la table SellerRequests...');
+
+//     // Démarrer une transaction
+//     const transaction = await sequelize.transaction();
+
+//     try {
+//       // Supprimer la table SellerRequests si elle existe
+//       await sequelize.query(
+//         `
+//         DROP TABLE IF EXISTS "SellerRequests" CASCADE;
+//         `,
+//         { transaction }
+//       );
+//       console.log('✓ Table SellerRequests supprimée avec succès');
+
+//       // Recréer la table SellerRequests
+//       await sequelize.query(
+//         `
+//         CREATE TABLE "SellerRequests" (
+//           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//           "userId" UUID NOT NULL REFERENCES "Users"(id) ON DELETE CASCADE,
+//           type VARCHAR(50) NOT NULL CHECK (type IN ('individual', 'company')),
+//           status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+//           "personalInfo" JSONB NOT NULL,
+//           "businessInfo" JSONB NOT NULL,
+//           documents JSONB NOT NULL,
+//           compliance JSONB NOT NULL,
+//           contract JSONB NOT NULL,
+//           "videoVerification" JSONB NOT NULL,
+//           "rejectionReason" TEXT,
+//           "verifiedAt" TIMESTAMP WITH TIME ZONE,
+//           "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+//           "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+//         );
+//         `,
+//         { transaction }
+//       );
+//       console.log('✓ Table SellerRequests recréée avec succès');
+
+//       // Valider la transaction
+//       await transaction.commit();
+//     } catch (error) {
+//       // Annuler la transaction en cas d'erreur
+//       await transaction.rollback();
+//       throw error;
+//     }
+//   } catch (error) {
+//     console.error('❌ Erreur lors de la mise à jour de la table SellerRequests:', error);
+//   }
+// })();
 
 
 

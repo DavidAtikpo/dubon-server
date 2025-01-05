@@ -49,11 +49,6 @@ import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
-// Middleware d'authentification pour toutes les routes admin
-// router.use(verifyToken, isAdmin);
-
-// Routes d'authentification
-// router.post('/login', adminlogin);
 
 // Routes du tableau de bord
 router.get('/dashboard', getDashboard);
@@ -120,5 +115,9 @@ router.post('/maintenance/cleanup', performSystemCleanup);
 router.get('/system-logs', getLogs);
 
 // Logs système
+
+// Gestion des demandes vendeurs
+router.get('/seller-requests', getPendingSellerRequests);
+router.put('/seller-requests/:requestId', handleSellerRequest);
 
 export default router;

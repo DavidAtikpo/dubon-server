@@ -1,8 +1,7 @@
-import { models } from '../models/index.js';
+import { models, sequelize } from '../models/index.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
-import sequelize from 'sequelize';
 import generateToken from '../utils/generateToken.js';
 import sendEmail from '../utils/emailSender.js';
 import crypto from 'crypto';
@@ -1991,7 +1990,8 @@ export const getPendingSellerRequests = async (req, res) => {
       where: { status: 'pending' },
       include: [{
         model: models.User,
-        attributes: ['id', 'name', 'email', 'phone']
+        as: 'user',
+        attributes: ['id', 'name', 'email']
       }],
       order: [['createdAt', 'DESC']]
     });
@@ -2011,93 +2011,84 @@ export const getPendingSellerRequests = async (req, res) => {
 
 // Approuver/Rejeter une demande vendeur
 export const handleSellerRequest = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const { requestId } = req.params;
-    const { action, reason } = req.body; // 'approve' ou 'reject'
+    const { status, rejectionReason } = req.body;
 
     const request = await models.SellerRequest.findByPk(requestId, {
       include: [{
         model: models.User,
+        as: 'user',
         attributes: ['id', 'name', 'email']
       }]
     });
 
     if (!request) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: "Demande non trouvée"
       });
     }
 
-    if (action === 'approve') {
-      // Mettre à jour le statut de la demande
-      await request.update({ status: 'approved' });
+    if (status === 'approved') {
+      await request.update({ 
+        status: 'approved',
+        verifiedAt: new Date()
+      }, { transaction });
       
-      // Mettre à jour le rôle de l'utilisateur
       await models.User.update(
         { role: 'seller' },
-        { where: { id: request.userId } }
+        { 
+          where: { id: request.userId },
+          transaction 
+        }
       );
-
-      // Créer le profil vendeur
-      await models.SellerProfile.create({
-        userId: request.userId,
-        businessName: request.businessName,
-        businessType: request.businessType,
-        status: 'active'
-      });
 
       // Envoyer un email de confirmation
       await sendEmail({
-        to: request.User.email,
+        to: request.user.email,
         subject: 'Votre demande vendeur a été approuvée',
         template: 'seller-approved',
         context: {
-          name: request.User.name,
-          businessType: request.businessType
+          name: request.user.name
         }
       });
-    } else {
-      // Rejeter la demande
+    } else if (status === 'rejected') {
       await request.update({ 
         status: 'rejected',
-        rejectionReason: reason
-      });
+        rejectionReason
+      }, { transaction });
 
       // Envoyer un email de rejet
       await sendEmail({
-        to: request.User.email,
+        to: request.user.email,
         subject: 'Votre demande vendeur a été rejetée',
         template: 'seller-rejected',
         context: {
-          name: request.User.name,
-          reason: reason
+          name: request.user.name,
+          reason: rejectionReason
         }
       });
     }
 
-    // Logger l'action
-    await createSystemLog({
-      type: 'seller',
-      action: action === 'approve' ? 'SELLER_APPROVED' : 'SELLER_REJECTED',
-      description: `Demande vendeur ${action === 'approve' ? 'approuvée' : 'rejetée'} pour ${request.User.name}`,
-      userId: req.user.id,
-      metadata: { 
-        requestId,
-        sellerId: request.userId,
-        businessType: request.businessType
-      }
-    });
+    await transaction.commit();
 
     res.json({
       success: true,
-      message: `Demande ${action === 'approve' ? 'approuvée' : 'rejetée'} avec succès`
+      message: `Demande ${status === 'approved' ? 'approuvée' : 'rejetée'} avec succès`,
+      data: request
     });
+
   } catch (error) {
+    await transaction.rollback();
     console.error('Erreur handleSellerRequest:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors du traitement de la demande"
+      message: "Erreur lors du traitement de la demande",
+      error: error.message
     });
   }
 };

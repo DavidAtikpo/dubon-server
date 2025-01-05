@@ -31,66 +31,34 @@ const createUploadDirs = () => {
 
 createUploadDirs();
 
-// Configuration de multer
+// Configuration de multer pour le stockage des fichiers
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadPath = 'uploads/';
-    switch (file.fieldname) {
-      case 'idCard':
-        uploadPath += 'documents/id';
-        break;
-      case 'proofOfAddress':
-        uploadPath += 'documents/address';
-        break;
-      case 'taxCertificate':
-        uploadPath += 'documents/tax';
-        break;
-      case 'photos':
-        uploadPath += 'photos';
-        break;
-      case 'signedDocument':
-        uploadPath += 'contracts';
-        break;
-      case 'verificationVideo':
-        uploadPath += 'videos';
-        break;
-      case 'productImages':
-        uploadPath += 'products';
-        break;
-      default:
-        uploadPath += 'others';
-    }
-    cb(null, uploadPath);
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const upload = multer({ 
   storage: storage,
-  fileFilter: (req, file, cb) => {
-    // Vérifier les types de fichiers
-    if (file.fieldname === 'verificationVideo') {
-      if (!file.mimetype.startsWith('video/')) {
-        return cb(new Error('Seules les vidéos sont autorisées'));
-      }
-    } else if (file.fieldname === 'photos' || file.fieldname === 'productImages' || file.fieldname === 'idCard') {
-      if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Seules les images sont autorisées'));
-      }
-    } else if (file.fieldname === 'proofOfAddress' || file.fieldname === 'taxCertificate' || file.fieldname === 'signedDocument') {
-      if (!file.mimetype.startsWith('application/pdf') && !file.mimetype.startsWith('image/')) {
-        return cb(new Error('Seuls les PDF et images sont autorisés'));
-      }
-    }
-    cb(null, true);
-  },
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB max
+    fileSize: 50 * 1024 * 1024, // 50MB max
+    files: 10 // max number of files
   }
 });
+
+const uploadFields = upload.fields([
+  { name: 'idCard', maxCount: 1 },
+  { name: 'proofOfAddress', maxCount: 1 },
+  { name: 'taxCertificate', maxCount: 1 },
+  { name: 'photos', maxCount: 5 },
+  { name: 'shopImage', maxCount: 1 },
+  { name: 'signedDocument', maxCount: 1 },
+  { name: 'verificationVideo', maxCount: 1 }
+]);
 
 // Routes publiques
 router.get('/list', SellerController.getPublicSellers);
@@ -101,18 +69,7 @@ router.use(protect);
 
 // Validation et inscription
 router.get("/validation-status", SellerController.checkValidationStatus);
-router.post("/register", protect,
-  upload.fields([
-    { name: 'idCard', maxCount: 1 },
-    { name: 'proofOfAddress', maxCount: 1 },
-    { name: 'taxCertificate', maxCount: 1 },
-    { name: 'photos', maxCount: 5 },
-    { name: 'signedDocument', maxCount: 1 },
-    { name: 'verificationVideo', maxCount: 1 }
-  ]),
-  validateSellerRegistration,
-  SellerController.registerSeller
-);
+router.post("/register", protect, uploadFields, validateSellerRegistration, SellerController.registerSeller);
 
 // Routes vendeur
 router.use(seller);

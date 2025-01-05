@@ -6,7 +6,10 @@ import * as tableController from "../Controllers/TableController.js";
 import * as dashboardController from '../Controllers/RestaurantDashboardController.js';
 import * as dishController from "../Controllers/DishController.js";
 
+
+
 const router = express.Router();
+
 
 // Routes publiques
 router.get("/", restaurantController.getAllRestaurants);

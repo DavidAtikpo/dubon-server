@@ -42,6 +42,8 @@ import EventBookingModel from './EventBooking.js';
 import ReservationModel from './Reservation.js';
 import RestaurantModel from './Restaurant.js';
 import TableModel from './Table.js';
+import subscriptionModel from './subscription.js';
+import subscriptionPlanModel from './subscriptionPlan.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -96,6 +98,8 @@ const defineModels = () => {
   db.Restaurant = RestaurantModel(sequelize);
   db.Table = TableModel(sequelize);
   db.Reservation = ReservationModel(sequelize);
+  db.Subscription = subscriptionModel(sequelize, Sequelize.DataTypes);
+  db.SubscriptionPlan = subscriptionPlanModel(sequelize, Sequelize.DataTypes);
 
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {

@@ -5,18 +5,35 @@ import { sendEmail } from '../utils/emailUtils.js';
 export const checkValidationStatus = async (req, res) => {
   try {
     const request = await models.SellerRequest.findOne({
-      where: { userId: req.user.id }
+      where: { userId: req.user.id },
+      attributes: ['status', 'type', 'rejectionReason', 'verifiedAt']
     });
-    res.json({ success: true, data: request });
+
+    if (!request) {
+      return res.json({ 
+        success: true, 
+        status: 'not_started' 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      status: request.status,
+      data: request 
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 };
 
 // Gestion des vendeurs
 export const registerSeller = async (req, res) => {
   try {
-    // Vérifier si l'utilisateur existe et est autorisé
+    console.log("Début du traitement de la requête vendeur");
+    
     if (!req.user) {
       return res.status(401).json({ 
         success: false, 
@@ -24,49 +41,55 @@ export const registerSeller = async (req, res) => {
       });
     }
 
+    console.log("Fichiers reçus:", req.files);
+    console.log("Corps de la requête:", req.body);
+
     // Parser les données JSON
     const formData = JSON.parse(req.body.data);
+    console.log("Données parsées:", formData);
 
     // Préparer les chemins des fichiers
-    const documents = {};
-    
-    if (req.files.idCard) {
-      documents.idCard = req.files.idCard[0].path;
-    }
-    if (req.files.proofOfAddress) {
-      documents.proofOfAddress = req.files.proofOfAddress[0].path;
-    }
-    if (req.files.taxCertificate) {
-      documents.taxCertificate = req.files.taxCertificate[0].path;
-    }
-    if (req.files.photos) {
-      documents.photos = req.files.photos.map(photo => photo.path);
-    }
-    if (req.files.signedDocument) {
-      documents.signedDocument = req.files.signedDocument[0].path;
-    }
-    if (req.files.verificationVideo) {
-      documents.verificationVideo = req.files.verificationVideo[0].path;
-    }
+    const documents = {
+      idCardUrl: req.files.idCard?.[0]?.path,
+      proofOfAddressUrl: req.files.proofOfAddress?.[0]?.path,
+      taxCertificateUrl: req.files.taxCertificate?.[0]?.path,
+      photoUrls: req.files.photos?.map(photo => photo.path) || [],
+      signedDocumentUrl: req.files.signedDocument?.[0]?.path,
+      verificationVideoUrl: req.files.verificationVideo?.[0]?.path,
+      shopImageUrl: req.files.shopImage?.[0]?.path
+    };
 
-    const sellerRequest = await models.SellerRequest.create({
-      userId: req.user.id,
-      type: formData.type,
-      personalInfo: formData.personalInfo,
-      businessInfo: formData.businessInfo,
-      compliance: formData.compliance,
-      documents: documents,
-      status: 'pending'
-    });
+    console.log("Documents préparés:", documents);
 
-    res.status(201).json({ 
-      success: true, 
-      message: "Demande d'inscription vendeur créée avec succès",
-      data: sellerRequest 
-    });
+    try {
+      // Créer la demande de vendeur
+      const sellerRequest = await models.SellerRequest.create({
+        userId: req.user.id,
+        type: formData.type,
+        businessType: formData.businessType || 'Retail',
+        status: 'pending',
+        personalInfo: formData.personalInfo,
+        businessInfo: formData.businessInfo,
+        documents: documents,
+        compliance: formData.compliance,
+        contract: formData.contract || { signed: false, signedAt: null },
+        videoVerification: formData.videoVerification || { completed: false, verifiedAt: null }
+      });
+
+      console.log("Demande créée avec succès:", sellerRequest.id);
+      
+      res.status(201).json({ 
+        success: true, 
+        message: "Demande d'inscription vendeur créée avec succès",
+        data: sellerRequest 
+      });
+    } catch (dbError) {
+      console.error("Erreur lors de la création en base:", dbError);
+      throw dbError;
+    }
 
   } catch (error) {
-    console.error('Erreur inscription vendeur:', error);
+    console.error('Erreur complète inscription vendeur:', error);
     res.status(400).json({ 
       success: false, 
       message: "Erreur lors de l'inscription",
@@ -291,4 +314,58 @@ export const getPublicSellers = async (req, res) => {
 
 export const getSellerCategories = async (req, res) => {
   // Implémentation
+};
+
+// Vérifier le statut de l'abonnement
+export const checkSubscriptionStatus = async (req, res) => {
+  try {
+    const seller = await models.User.findByPk(req.user.id, {
+      include: [{
+        model: models.Subscription,
+        as: 'subscription'
+      }]
+    });
+
+    if (!seller.subscription || !seller.subscription.isActive) {
+      return res.json({
+        success: true,
+        status: 'inactive'
+      });
+    }
+
+    res.json({
+      success: true,
+      status: 'active',
+      data: seller.subscription
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// Initier un paiement FedaPay
+export const initiateSubscription = async (req, res) => {
+  try {
+    const { planId } = req.body;
+    
+    // Logique pour créer une transaction FedaPay
+    const fedaPayTransaction = await createFedaPayTransaction({
+      amount: planId === 'monthly' ? 10000 : 100000,
+      description: `Abonnement ${planId === 'monthly' ? 'mensuel' : 'annuel'} vendeur`,
+      callback_url: `${process.env.BASE_URL}/api/seller/subscription/callback`
+    });
+
+    res.json({
+      success: true,
+      paymentUrl: fedaPayTransaction.paymentUrl
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 };

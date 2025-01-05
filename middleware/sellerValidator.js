@@ -43,20 +43,45 @@ const sellerRegistrationSchema = Joi.object({
   }).required()
 });
 
-export const validateSellerRegistration = async (req, res, next) => {
+export const validateSellerRegistration = (req, res, next) => {
   try {
-    await sellerRegistrationSchema.validateAsync(req.body, { abortEarly: false });
+    // Vérifier que data est présent et est un objet JSON valide
+    if (!req.body.data) {
+      return res.status(400).json({
+        success: false,
+        message: 'Erreur de validation',
+        errors: [{ field: 'data', message: 'Les données sont requises' }]
+      });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(req.body.data);
+    } catch (e) {
+      return res.status(400).json({
+        success: false,
+        message: 'Erreur de validation',
+        errors: [{ field: 'data', message: 'Format JSON invalide' }]
+      });
+    }
+
+    // Vérifier les fichiers requis
+    if (!req.files.idCard || !req.files.proofOfAddress || 
+        !req.files.taxCertificate || !req.files.photos) {
+      return res.status(400).json({
+        success: false,
+        message: 'Erreur de validation',
+        errors: [{ field: 'files', message: 'Tous les documents sont requis' }]
+      });
+    }
+
     next();
   } catch (error) {
-    const errors = error.details.map(detail => ({
-      field: detail.path.join('.'),
-      message: detail.message
-    }));
-
+    console.error('Erreur de validation:', error);
     res.status(400).json({
       success: false,
       message: 'Erreur de validation',
-      errors
+      errors: [{ message: error.message }]
     });
   }
 };

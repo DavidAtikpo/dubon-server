@@ -5,65 +5,68 @@ export default (sequelize) => {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+      primaryKey: true,
     },
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: 'Users',
-        key: 'id'
-      }
+        key: 'id',
+      },
     },
+    type: {
+      type: DataTypes.ENUM('individual', 'company'),
+      allowNull: false,
+    },
+
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
-      defaultValue: 'pending'
+      defaultValue: 'pending',
     },
-    businessType: {
-      type: DataTypes.ENUM('products', 'restaurant', 'training', 'events', 'services'),
+    personalInfo: {
+      type: DataTypes.JSONB,
       allowNull: false
     },
-    businessName: {
-      type: DataTypes.STRING,
+    businessInfo: {
+      type: DataTypes.JSONB,
       allowNull: false
     },
-    businessAddress: {
-      type: DataTypes.STRING,
-      allowNull: false
+    documents: {
+      type: DataTypes.JSONB,
+      allowNull: false,
     },
-    idCardUrl: {
-      type: DataTypes.STRING,
-      allowNull: false
+    compliance: {
+      type: DataTypes.JSONB,
+      allowNull: false,
     },
-    addressProofUrl: {
-      type: DataTypes.STRING,
-      allowNull: false
+    contract: {
+      type: DataTypes.JSONB,
+      allowNull: false,
     },
-    businessDocumentUrl: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    subscriptionPlan: {
-      type: DataTypes.ENUM('commission', 'monthly', 'biannual', 'annual'),
-      allowNull: true
-    },
-    subscriptionStatus: {
-      type: DataTypes.ENUM('trial', 'active', 'expired'),
-      defaultValue: 'trial'
-    },
-    trialEndsAt: {
-      type: DataTypes.DATE
-    },
-    subscriptionEndsAt: {
-      type: DataTypes.DATE
+    videoVerification: {
+      type: DataTypes.JSONB,
+      allowNull: false,
     },
     rejectionReason: {
-      type: DataTypes.TEXT
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
-    adminNotes: {
-      type: DataTypes.TEXT
-    }
+    verifiedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+  }, {
+    tableName: 'SellerRequests',
+    timestamps: true
   });
 
+  SellerRequest.associate = (models) => {
+    SellerRequest.belongsTo(models.User, {
+      foreignKey: 'userId',
+      as: 'user'
+    });
+  };
+
   return SellerRequest;
-}; 
+};

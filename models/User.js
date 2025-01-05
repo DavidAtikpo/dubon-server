@@ -86,5 +86,13 @@ export default (sequelize) => {
     timestamps: true
   });
 
+  // Ajouter cette partie pour définir l'association
+  User.associate = (models) => {
+    User.hasMany(models.SellerRequest, {
+      foreignKey: 'userId',
+      as: 'sellerRequests'
+    });
+  };
+
   return User;
 };
