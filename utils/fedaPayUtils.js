@@ -22,7 +22,6 @@ export const createFedaPayTransaction = async ({
   customerName
 }) => {
   try {
-    // Initialiser FedaPay avant chaque transaction
     initializeFedaPay();
 
     console.log('Création transaction avec les données:', {
@@ -34,9 +33,8 @@ export const createFedaPayTransaction = async ({
       customerName
     });
 
-    // Créer la transaction avec la structure recommandée par FedaPay
     const transactionData = {
-      amount: parseInt(amount), // Assurez-vous que le montant est un nombre
+      amount: parseInt(amount),
       description: description,
       callback_url: callbackUrl,
       currency: {
@@ -53,28 +51,28 @@ export const createFedaPayTransaction = async ({
 
     console.log('Données de transaction formatées:', transactionData);
 
+    // Créer la transaction
     const transaction = await Transaction.create(transactionData);
 
     console.log('Réponse FedaPay brute:', transaction);
 
-    // Vérifier la réponse de FedaPay
-    if (!transaction) {
-      throw new Error('Aucune réponse de FedaPay');
-    }
-
-    // Vérifier si la transaction a été créée avec succès
-    if (!transaction.id) {
+    if (!transaction || !transaction.id) {
       throw new Error('ID de transaction non généré par FedaPay');
     }
 
-    // Vérifier si l'URL de paiement est disponible
-    if (!transaction.payment_url) {
-      throw new Error('URL de paiement non générée par FedaPay');
+    // Générer l'URL de paiement
+    const paymentToken = await Transaction.generateToken(transaction.id);
+    
+    if (!paymentToken || !paymentToken.token) {
+      throw new Error('Token de paiement non généré par FedaPay');
     }
+
+    // Construire l'URL de paiement
+    const paymentUrl = `https://checkout.fedapay.com/${paymentToken.token}`;
 
     return {
       id: transaction.id,
-      paymentUrl: transaction.payment_url,
+      paymentUrl: paymentUrl,
       status: transaction.status
     };
   } catch (error) {
@@ -84,7 +82,6 @@ export const createFedaPayTransaction = async ({
       stack: error.stack
     });
 
-    // Construire un message d'erreur plus détaillé
     const errorDetails = error.response?.data?.message 
       ? `${error.message}: ${error.response.data.message}`
       : error.message;
