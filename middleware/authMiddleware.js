@@ -1,58 +1,52 @@
 import jwt from 'jsonwebtoken';
 import { models } from '../models/index.js';
+const { User } = models;
 
 export const protect = async (req, res, next) => {
-  console.log('=== Middleware protect ===');
+  console.log('🔒 Middleware d\'authentification activé');
   console.log('Headers:', req.headers);
   
-  try {
-    let token;
+  let token;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-      console.log('Token extrait:', token);
-    }
-
-    if (!token) {
-      console.log('Pas de token trouvé');
-      return res.status(401).json({
-        success: false,
-        message: 'Non autorisé - Token manquant'
-      });
-    }
-
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
+      // Get token from header
+      token = req.headers.authorization.split(' ')[1];
+      console.log('Token trouvé:', token ? 'Oui' : 'Non');
+
+      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log('Token décodé:', decoded);
 
-      const user = await models.User.findByPk(decoded.id, {
+      // Get user from the token
+      req.user = await User.findByPk(decoded.id, {
         attributes: { exclude: ['password'] }
       });
-      console.log('Utilisateur trouvé:', user ? user.id : 'aucun');
+      console.log('Utilisateur trouvé:', req.user ? 'Oui' : 'Non');
 
-      if (!user) {
-        console.log('Utilisateur non trouvé');
+      if (!req.user) {
+        console.log('❌ Utilisateur non trouvé dans la base de données');
         return res.status(401).json({
           success: false,
-          message: 'Non autorisé - Utilisateur non trouvé'
+          message: "Non autorisé, utilisateur non trouvé"
         });
       }
 
-      req.user = user;
-      console.log('Middleware protect OK');
       next();
     } catch (error) {
-      console.error('Erreur de vérification du token:', error);
-      return res.status(401).json({
+      console.error('❌ Erreur d\'authentification:', error);
+      res.status(401).json({
         success: false,
-        message: 'Non autorisé - Token invalide'
+        message: "Non autorisé, token invalide"
       });
     }
-  } catch (error) {
-    console.error('Erreur middleware protect:', error);
-    res.status(500).json({
+  }
+
+  if (!token) {
+    console.log('❌ Pas de token trouvé dans les headers');
+    res.status(401).json({
       success: false,
-      message: 'Erreur serveur'
+      message: "Non autorisé, pas de token"
     });
   }
 };

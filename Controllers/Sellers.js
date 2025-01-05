@@ -112,18 +112,7 @@ export const getSellerData = async (req, res) => {
 };
 
 // Gestion des produits
-export const createProduct = async (req, res) => {
-  try {
-    const product = await models.Product.create({
-      ...req.body,
-      sellerId: req.user.sellerId,
-      images: req.files?.images?.map(f => f.path)
-    });
-    res.status(201).json({ success: true, data: product });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-};
+
 
 export const getSellerProducts = async (req, res) => {
   try {
@@ -346,26 +335,3 @@ export const checkSubscriptionStatus = async (req, res) => {
   }
 };
 
-// Initier un paiement FedaPay
-export const initiateSubscription = async (req, res) => {
-  try {
-    const { planId } = req.body;
-    
-    // Logique pour créer une transaction FedaPay
-    const fedaPayTransaction = await createFedaPayTransaction({
-      amount: planId === 'monthly' ? 10000 : 100000,
-      description: `Abonnement ${planId === 'monthly' ? 'mensuel' : 'annuel'} vendeur`,
-      callback_url: `${process.env.BASE_URL}/api/seller/subscription/callback`
-    });
-
-    res.json({
-      success: true,
-      paymentUrl: fedaPayTransaction.paymentUrl
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-};

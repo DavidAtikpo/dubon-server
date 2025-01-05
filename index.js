@@ -36,6 +36,7 @@ import analyticsRouter from './Routers/analytics.js';
 import systemRouter from './Routers/system.js';
 import restaurantRoutes from './Routers/Restaurant.js';
 import eventRoutes from './Routers/Event.js';
+import notificationsRouter from './Routers/NotificationsRouter.js';
 // import dishesRoutes from './routes/seller/dishes';
 import shopRoutes from './Routers/Shop.js';
 import subscriptionRoutes from './Routers/seller/subscription.routes.js';
@@ -282,9 +283,20 @@ const startServer = async () => {
 
     // 8. Démarrer le serveur
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`✓ Serveur démarré sur le port ${PORT}`);
-    });
+    try {
+      server.listen(PORT, '0.0.0.0', () => {
+        console.log('=================================');
+        console.log(`✅ Serveur démarré avec succès`);
+        console.log(`📡 Port: ${PORT}`);
+        console.log(`🌍 Environnement: ${process.env.NODE_ENV}`);
+        console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configuré' : 'Non configuré'}`);
+        console.log(`🗄️ Base de données: ${process.env.DATABASE_URL ? 'Configurée' : 'Non configurée'}`);
+        console.log('=================================');
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors du démarrage du serveur:', error);
+      process.exit(1);
+    }
 
   } catch (error) {
     console.error('Erreur au démarrage du serveur:', error);
@@ -299,9 +311,9 @@ app.get("/", (req, res) => {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// API Routes
 app.use("/api/user", User);
-app.use("/api/product", Products);
-// app.use("/api", Seller);
+app.use("/api/products", Products);
 app.use("/api", Training);
 app.use('/api/category', category);
 app.use('/api/orders', Order);
@@ -310,25 +322,27 @@ app.use("/api/", cartRoute);
 app.use('/api/wishlist', wishlistRoute);
 app.use('/api', searchRouter);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/admin/system', systemRoutes);
-app.use('/api/seller/subscription', subscriptionRoutes);
+app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/shops', shopRoutes);
 
-// Use admin routes
+// Admin Routes
 app.use('/api/admin', Admin);
 app.use('/api/admin/themes', themeRoutes);
-app.use('/api/disputes', disputeRoutes);
-app.use('/api/admin/system', systemRouter); 
+app.use('/api/admin/system', systemRoutes);
 app.use('/api/admin/analytics', analyticsRouter);
 
-
-// Monter les routes
+// Seller Routes
 app.use('/api/seller', Seller);
+app.use('/api/seller/subscription', subscriptionRoutes);
 
-// Error handling
+// Other Routes
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/disputes', disputeRoutes);
+
+// Error handling middlewares
 app.use(errorHandler.notFound);
 app.use(errorHandler.errorHandler);
-
-// Middleware de gestion des erreurs globales
 app.use((error, req, res, next) => {
   logError(error, req);
   res.status(500).json({
@@ -370,127 +384,6 @@ startServer().catch(error => {
   console.error('Erreur fatale au démarrage:', error);
   process.exit(1);
 });
-
-app.use('/api/restaurants', restaurantRoutes);
-app.use('/api/events', eventRoutes);
-// app.use('/api/seller/dishes', dishesRoutes);
-app.use('/api/shops', shopRoutes);
-
-
-
-// try {
-//   // Vérifier si la colonne existe déjà
-//   const checkColumn = await sequelize.query(`
-//     SELECT column_name 
-//     FROM information_schema.columns 
-//     WHERE table_name = 'UserActivities' AND column_name = 'userId';
-//   `);
-
-//   if (checkColumn[0].length === 0) {
-//     // Ajouter seulement la colonne si elle n'existe pas
-//     await sequelize.query(`
-//       ALTER TABLE "UserActivities" 
-//       ADD COLUMN "userId" UUID;
-//     `);
-
-//     // Vérifier si la contrainte existe
-//     const checkConstraint = await sequelize.query(`
-//       SELECT constraint_name 
-//       FROM information_schema.table_constraints 
-//       WHERE table_name = 'UserActivities' AND constraint_name = 'fk_user_activity_user';
-//     `);
-
-//     if (checkConstraint[0].length === 0) {
-//       // Ajouter la contrainte seulement si elle n'existe pas
-//       await sequelize.query(`
-//         ALTER TABLE "UserActivities"
-//         ADD CONSTRAINT fk_user_activity_user
-//         FOREIGN KEY ("userId") 
-//         REFERENCES "Users"(id)
-//         ON DELETE CASCADE;
-//       `);
-//     }
-
-//     // Mettre à jour les enregistrements existants si nécessaire
-//     await sequelize.query(`
-//       UPDATE "UserActivities"
-//       SET "userId" = (
-//         SELECT id FROM "Users" LIMIT 1
-//       )
-//       WHERE "userId" IS NULL;
-//     `);
-
-//     // Ajouter la contrainte NOT NULL
-//     await sequelize.query(`
-//       ALTER TABLE "UserActivities"
-//       ALTER COLUMN "userId" SET NOT NULL;
-//     `);
-
-//     console.log('✓ Table UserActivities mise à jour avec succès');
-//   } else {
-//     console.log('✓ La colonne userId existe déjà dans UserActivities');
-//   }
-// } catch (error) {
-//   console.error('Erreur lors de la mise à jour de la table UserActivities:', error);
-//   // Ne pas faire throw error pour éviter l'arrêt du serveur
-//   console.error(error);
-// }
-
-// Mise à jour de la table SellerRequests
-
-
-// (async () => {
-//   try {
-//     console.log('🔄 Début de la mise à jour de la table SellerRequests...');
-
-//     // Démarrer une transaction
-//     const transaction = await sequelize.transaction();
-
-//     try {
-//       // Supprimer la table SellerRequests si elle existe
-//       await sequelize.query(
-//         `
-//         DROP TABLE IF EXISTS "SellerRequests" CASCADE;
-//         `,
-//         { transaction }
-//       );
-//       console.log('✓ Table SellerRequests supprimée avec succès');
-
-//       // Recréer la table SellerRequests
-//       await sequelize.query(
-//         `
-//         CREATE TABLE "SellerRequests" (
-//           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//           "userId" UUID NOT NULL REFERENCES "Users"(id) ON DELETE CASCADE,
-//           type VARCHAR(50) NOT NULL CHECK (type IN ('individual', 'company')),
-//           status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-//           "personalInfo" JSONB NOT NULL,
-//           "businessInfo" JSONB NOT NULL,
-//           documents JSONB NOT NULL,
-//           compliance JSONB NOT NULL,
-//           contract JSONB NOT NULL,
-//           "videoVerification" JSONB NOT NULL,
-//           "rejectionReason" TEXT,
-//           "verifiedAt" TIMESTAMP WITH TIME ZONE,
-//           "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-//           "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-//         );
-//         `,
-//         { transaction }
-//       );
-//       console.log('✓ Table SellerRequests recréée avec succès');
-
-//       // Valider la transaction
-//       await transaction.commit();
-//     } catch (error) {
-//       // Annuler la transaction en cas d'erreur
-//       await transaction.rollback();
-//       throw error;
-//     }
-//   } catch (error) {
-//     console.error('❌ Erreur lors de la mise à jour de la table SellerRequests:', error);
-//   }
-// })();
 
 
 

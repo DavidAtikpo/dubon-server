@@ -79,7 +79,6 @@ router.get('/profile', SellerController.getProfile);
 // router.put('/profile', upload.single('logo'), SellerController.updateProfile);
 
 // Gestion des produits
-router.post('/products', upload.array('images', 5), SellerController.createProduct);
 router.get('/products', SellerController.getSellerProducts);
 router.put('/products/:id', upload.array('images', 5), SellerController.updateProduct);
 router.delete('/products/:id', SellerController.deleteProduct);
