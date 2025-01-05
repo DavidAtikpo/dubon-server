@@ -9,6 +9,12 @@ export const initiateSubscription = async (req, res) => {
     const { planId, billingCycle, amount } = req.body;
     const userId = req.user.id;
 
+    // Récupérer les informations de l'utilisateur
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      throw new Error('Utilisateur non trouvé');
+    }
+
     // Créer l'enregistrement de souscription
     const subscription = await models.Subscription.create({
       userId,
@@ -19,16 +25,19 @@ export const initiateSubscription = async (req, res) => {
       expiresAt: new Date(Date.now() + (billingCycle === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000)
     }, { transaction });
 
-    // Créer la transaction FedaPay
+    // Créer la transaction FedaPay avec les informations complètes du client
     const callbackUrl = `${process.env.BASE_URL}/api/seller/subscription/callback/${subscription.id}`;
     const fedaPayTransaction = await createFedaPayTransaction({
       amount,
       description: `Abonnement ${planId} - ${billingCycle}`,
       customerId: userId,
-      callbackUrl: callbackUrl,
+      callbackUrl,
+      customerEmail: user.email,
+      customerName: user.name || user.firstName || 'Client', // Utiliser le nom disponible
       currency: 'XOF'
     });
 
+    // Mettre à jour la souscription avec l'ID de transaction
     await subscription.update({
       transactionId: fedaPayTransaction.id
     }, { transaction });
@@ -46,7 +55,7 @@ export const initiateSubscription = async (req, res) => {
     console.error('Erreur initiation abonnement:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Une erreur est survenue lors de l\'initiation de l\'abonnement'
     });
   }
 };
