@@ -28,13 +28,12 @@ export const initiateSubscription = async (req, res) => {
     // Créer la transaction FedaPay avec les informations complètes du client
     const callbackUrl = `${process.env.BASE_URL}/api/seller/subscription/callback/${subscription.id}`;
     const fedaPayTransaction = await createFedaPayTransaction({
-      amount,
+      amount: parseInt(amount),
       description: `Abonnement ${planId} - ${billingCycle}`,
       customerId: userId,
       callbackUrl,
       customerEmail: user.email,
-      customerName: user.name || user.firstName || 'Client', // Utiliser le nom disponible
-      currency: 'XOF'
+      customerName: user.name || user.firstName || 'Client'
     });
 
     // Mettre à jour la souscription avec l'ID de transaction

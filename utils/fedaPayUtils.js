@@ -25,28 +25,52 @@ export const createFedaPayTransaction = async ({
     // Initialiser FedaPay avant chaque transaction
     initializeFedaPay();
 
-    // Créer la transaction avec plus de détails
-    const transaction = await Transaction.create({
-      amount: amount,
-      description: description,
-      currency: {
-        iso: 'XOF'
-      },
-      callback_url: callbackUrl,
-      customer: {
-        firstname: customerName || 'Client',
-        email: customerEmail || 'client@example.com',
-      },
-      custom_metadata: {
-        customer_id: customerId
-      }
+    console.log('Création transaction avec les données:', {
+      amount,
+      description,
+      customerId,
+      callbackUrl,
+      customerEmail,
+      customerName
     });
 
-    if (!transaction || !transaction.payment_url) {
-      throw new Error('La création de la transaction a échoué: URL de paiement non générée');
+    // Créer la transaction avec la structure recommandée par FedaPay
+    const transactionData = {
+      amount: parseInt(amount), // Assurez-vous que le montant est un nombre
+      description: description,
+      callback_url: callbackUrl,
+      currency: {
+        iso: "XOF"
+      },
+      customer: {
+        email: customerEmail,
+        firstname: customerName,
+      },
+      custom_data: {
+        customer_id: customerId
+      }
+    };
+
+    console.log('Données de transaction formatées:', transactionData);
+
+    const transaction = await Transaction.create(transactionData);
+
+    console.log('Réponse FedaPay brute:', transaction);
+
+    // Vérifier la réponse de FedaPay
+    if (!transaction) {
+      throw new Error('Aucune réponse de FedaPay');
     }
 
-    console.log('Transaction créée:', transaction);
+    // Vérifier si la transaction a été créée avec succès
+    if (!transaction.id) {
+      throw new Error('ID de transaction non généré par FedaPay');
+    }
+
+    // Vérifier si l'URL de paiement est disponible
+    if (!transaction.payment_url) {
+      throw new Error('URL de paiement non générée par FedaPay');
+    }
 
     return {
       id: transaction.id,
@@ -54,10 +78,18 @@ export const createFedaPayTransaction = async ({
       status: transaction.status
     };
   } catch (error) {
-    console.error('Erreur détaillée FedaPay:', error);
-    // Ajout de plus de détails dans le message d'erreur
-    const errorMessage = error.response?.data?.message || error.message;
-    throw new Error(`Erreur lors de la création de la transaction: ${errorMessage}`);
+    console.error('Erreur détaillée FedaPay:', {
+      message: error.message,
+      response: error.response?.data,
+      stack: error.stack
+    });
+
+    // Construire un message d'erreur plus détaillé
+    const errorDetails = error.response?.data?.message 
+      ? `${error.message}: ${error.response.data.message}`
+      : error.message;
+
+    throw new Error(`Erreur lors de la création de la transaction: ${errorDetails}`);
   }
 };
 
