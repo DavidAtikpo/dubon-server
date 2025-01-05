@@ -20,11 +20,12 @@ export const initiateSubscription = async (req, res) => {
     }, { transaction });
 
     // Créer la transaction FedaPay
+    const callbackUrl = `${process.env.BASE_URL}/api/seller/subscription/callback/${subscription.id}`;
     const fedaPayTransaction = await createFedaPayTransaction({
       amount,
       description: `Abonnement ${planId} - ${billingCycle}`,
       customerId: userId,
-      callbackUrl: `${process.env.BASE_URL}/api/subscription/callback/${subscription.id}`,
+      callbackUrl: callbackUrl,
       currency: 'XOF'
     });
 
