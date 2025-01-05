@@ -66,15 +66,8 @@ export const createFedaPayTransaction = async ({
       throw new Error('ID de transaction non généré par FedaPay');
     }
 
-    // Générer l'URL de paiement
-    const token = await Transaction.generateToken(transaction.id);
-    
-    if (!token || !token.token) {
-      throw new Error('Token de paiement non généré par FedaPay');
-    }
-
-    // Utiliser l'URL de production
-    const paymentUrl = `${getCheckoutBaseUrl()}/${token.token}`;
+    // Générer l'URL de paiement directement à partir de l'ID de transaction
+    const paymentUrl = `${getCheckoutBaseUrl()}/v1/transactions/${transaction.id}/token`;
 
     console.log('URL de paiement générée:', paymentUrl);
 
