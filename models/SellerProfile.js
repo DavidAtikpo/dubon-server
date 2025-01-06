@@ -43,6 +43,11 @@ export default (sequelize) => {
         foreignKey: 'sellerId',
         as: 'services'
       });
+
+      SellerProfile.hasOne(models.Subscription, {
+        foreignKey: 'sellerProfileId',
+        as: 'subscription'
+      });
     }
   }
 

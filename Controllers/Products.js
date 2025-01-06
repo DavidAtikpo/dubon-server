@@ -142,18 +142,55 @@ export const getAllProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.productId);
+    const product = await Product.findByPk(req.params.productId, {
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['storeName', 'status']
+        }
+      ]
+    });
+
     if (!product) {
       return res.status(404).json({
         success: false,
         message: "Produit non trouvé"
       });
     }
+
+    // Formater les données pour le frontend
+    const formattedProduct = {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      compareAtPrice: product.compareAtPrice,
+      discount: product.discount,
+      sku: product.sku,
+      quantity: product.quantity,
+      images: product.images || [],
+      category: {
+        name: product.category?.name || 'Non catégorisé'
+      },
+      seller: {
+        storeName: product.seller?.storeName || 'Vendeur inconnu',
+        status: product.seller?.status || 'inactive'
+      },
+      ratings: product.ratings || { average: 0, count: 0 }
+    };
+
     res.status(200).json({
       success: true,
-      data: product
+      data: formattedProduct
     });
   } catch (error) {
+    console.error('Erreur récupération produit:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération du produit",
@@ -429,39 +466,492 @@ export const getSellerProducts = async (req, res) => {
   }
 };
 
-// Autres méthodes nécessaires
+export const getAllPublicProducts = async (req, res) => {
+  try {
+    console.log('🔍 Récupération de tous les produits publics');
+    
+    const products = await Product.findAll({
+      where: {
+        status: 'active' // Ne récupérer que les produits actifs
+      },
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['storeName', 'status']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Formater les données pour le frontend
+    const formattedProducts = products.map(product => {
+      // Calculer le pourcentage de réduction si compareAtPrice existe
+      const discount = product.compareAtPrice && product.price
+        ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
+        : null;
+
+      return {
+        _id: product.id,
+        title: product.name,
+        description: product.description,
+        shortDescription: product.shortDescription,
+        price: product.price,
+        compareAtPrice: product.compareAtPrice,
+        images: product.images || [],
+        category: product.category?.name || 'Non catégorisé',
+        rating: product.ratings?.average || 0,
+        stock: product.quantity || 0,
+        seller: {
+          storeName: product.seller?.storeName,
+          status: product.seller?.status
+        },
+        featured: product.featured || false,
+        isDigital: product.isDigital || false,
+        lowStockThreshold: product.lowStockThreshold || 5,
+        discount: discount // Pourcentage de réduction calculé
+      };
+    });
+
+    console.log(`✅ ${formattedProducts.length} produits trouvés`);
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des produits:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits",
+      error: error.message
+    });
+  }
+};
+
+// Implémentation des méthodes manquantes
+const getQuickSales = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      where: {
+        status: 'active',
+        discount: {
+          [Op.gt]: 0
+        }
+      },
+      limit: 8,
+      order: [['discount', 'DESC']],
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0,
+      discount: product.discount
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des ventes rapides",
+      error: error.message
+    });
+  }
+};
+
+const getTopRated = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      where: {
+        status: 'active'
+      },
+      order: [[models.sequelize.literal('"ratings"->\'average\''), 'DESC']],
+      limit: 8,
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits les mieux notés",
+      error: error.message
+    });
+  }
+};
+
+const getBestSellers = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      where: {
+        status: 'active'
+      },
+      order: [['salesCount', 'DESC']],
+      limit: 8,
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des meilleures ventes",
+      error: error.message
+    });
+  }
+};
+
+const getNewArrivals = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      where: {
+        status: 'active'
+      },
+      order: [['createdAt', 'DESC']],
+      limit: 8,
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des nouveaux produits",
+      error: error.message
+    });
+  }
+};
+
+const Promotion = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      where: {
+        status: 'active',
+        discount: {
+          [Op.gt]: 0
+        }
+      },
+      order: [['discount', 'DESC']],
+      limit: 8,
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0,
+      discount: product.discount
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des promotions",
+      error: error.message
+    });
+  }
+};
+
+const getNewProduct = async (req, res) => {
+  try {
+    const products = await Product.findAll({
+      where: {
+        status: 'active'
+      },
+      order: [['createdAt', 'DESC']],
+      limit: 8,
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des nouveaux produits",
+      error: error.message
+    });
+  }
+};
+
+const getProductsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const products = await Product.findAll({
+      where: {
+        status: 'active',
+        '$category.name$': category
+      },
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['name']
+        }
+      ]
+    });
+
+    const formattedProducts = products.map(product => ({
+      _id: product.id,
+      title: product.name,
+      description: product.description,
+      price: product.price,
+      images: product.images || [],
+      category: product.category?.name || 'Non catégorisé',
+      rating: product.ratings?.average || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedProducts
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits par catégorie",
+      error: error.message
+    });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    // Vérifier si le produit existe
+    const product = await Product.findByPk(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Produit non trouvé"
+      });
+    }
+
+    // Vérifier que le vendeur est propriétaire du produit
+    const seller = await SellerProfile.findOne({
+      where: { userId: req.user.id }
+    });
+
+    if (!seller || product.sellerId !== seller.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Non autorisé à modifier ce produit"
+      });
+    }
+
+    // Mise à jour des données du produit
+    const updatedData = {
+      ...req.body,
+      slug: req.body.name ? 
+        `${slugify(req.body.name, { lower: true })}-${Date.now()}` : 
+        product.slug
+    };
+
+    // Si de nouvelles images sont fournies
+    if (req.files?.images) {
+      const newImages = req.files.images.map(file => file.path.replace(/\\/g, '/'));
+      updatedData.images = [...(product.images || []), ...newImages];
+      updatedData.mainImage = updatedData.images[0];
+    }
+
+    // Mise à jour du produit
+    await product.update(updatedData);
+
+    res.status(200).json({
+      success: true,
+      message: "Produit mis à jour avec succès",
+      data: product
+    });
+
+  } catch (error) {
+    console.error('Erreur mise à jour produit:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour du produit",
+      error: error.message
+    });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    // Vérifier si le produit existe
+    const product = await Product.findByPk(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Produit non trouvé"
+      });
+    }
+
+    // Vérifier que le vendeur est propriétaire du produit
+    const seller = await SellerProfile.findOne({
+      where: { userId: req.user.id }
+    });
+
+    if (!seller || product.sellerId !== seller.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Non autorisé à supprimer ce produit"
+      });
+    }
+
+    // Supprimer les fichiers associés
+    if (product.images && product.images.length > 0) {
+      product.images.forEach(imagePath => {
+        const fullPath = path.join(__dirname, '..', imagePath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      });
+    }
+
+    // Supprimer le produit
+    await product.destroy();
+
+    res.status(200).json({
+      success: true,
+      message: "Produit supprimé avec succès"
+    });
+
+  } catch (error) {
+    console.error('Erreur suppression produit:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la suppression du produit",
+      error: error.message
+    });
+  }
+};
+
+// Mettre à jour l'objet productsController
 const productsController = {
   addProduct,
   getAllProducts,
   getProductById,
-  getQuickSales: async (req, res) => {
-    // Implémentation...
-  },
-  getTopRated: async (req, res) => {
-    // Implémentation...
-  },
-  getBestSellers: async (req, res) => {
-    // Implémentation...
-  },
-  getNewArrivals: async (req, res) => {
-    // Implémentation...
-  },
-  Promotion: async (req, res) => {
-    // Implémentation...
-  },
-  getNewProduct: async (req, res) => {
-    // Implémentation...
-  },
-  getProductsByCategory: async (req, res) => {
-    // Implémentation...
-  },
-  updateProduct: async (req, res) => {
-    // Implémentation...
-  },
-  deleteProduct: async (req, res) => {
-    // Implémentation...
-  },
-  getSellerProducts
+  createProduct,
+  getQuickSales,
+  getTopRated,
+  getBestSellers,
+  getNewArrivals,
+  Promotion,
+  getNewProduct,
+  getProductsByCategory,
+  updateProduct,
+  deleteProduct,
+  getSellerProducts,
+  getAllPublicProducts
 };
 
 export default productsController;

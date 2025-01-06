@@ -1,8 +1,14 @@
-const notFound = (req,res,next)=>{
-  const error = new Error (`not Found :${req.originalUrl}`)
+export const notFound = (req, res, next) => {
+  console.log('❌ Route non trouvée:', {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path
+  });
+  const error = new Error(`Not Found - ${req.originalUrl}`);
   res.status(404);
-  next(error)
-}
+  next(error);
+};
 
 
 const errorHandler = (err,req,res,next)=>{

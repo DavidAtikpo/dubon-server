@@ -194,116 +194,6 @@ const tablesToCreate = [
   'UserActivity'
 ];
 
-// Initialiser la base de données avant de démarrer le serveur
-const startServer = async () => {
-  try {
-    // Initialize the database
-    await initializeDatabase();
-
-    // 1. Vérifier la connexion
-    const isConnected = await checkDatabaseConnection();
-    if (!isConnected) {
-      throw new Error('Impossible de se connecter à la base de données après plusieurs tentatives');
-    }
-
-    // 2. Vérifier les tables existantes
-    const [tables] = await sequelize.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public';
-    `);
-    const existingTables = tables.map(t => t.table_name.toLowerCase());
-    console.log('Tables existantes:', existingTables);
-
-    // 3. Mettre à jour la table Users existante
-    console.log('Mise à jour de la table Users...');
-    try {
-      // D'abord, ajouter les colonnes avec NULL autorisé
-      await sequelize.query(`
-        ALTER TABLE "Users" 
-        ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE,
-        ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE;
-      `);
-
-      // Mettre à jour les enregistrements existants
-      await sequelize.query(`
-        UPDATE "Users"
-        SET "createdAt" = CURRENT_TIMESTAMP,
-            "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "createdAt" IS NULL;
-      `);
-
-      // Maintenant ajouter la contrainte NOT NULL
-      await sequelize.query(`
-        ALTER TABLE "Users"
-        ALTER COLUMN "createdAt" SET NOT NULL,
-        ALTER COLUMN "updatedAt" SET NOT NULL;
-      `);
-
-      console.log('✓ Table Users mise à jour avec succès');
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour de la table Users:', error);
-      throw error;
-    }
-
-    // 4. Créer les autres tables
-    // console.log('Création des tables manquantes...');
-    // await sequelize.sync({ alter: true });
-
-    // // 5. Vérifier et créer les paramètres système si nécessaire
-    // const systemSettings = await models.SystemSettings.findOne({
-    //   where: { key: 'general_settings' }
-    // });
-
-    // if (!systemSettings) {
-    //   console.log('Création des paramètres système par défaut...');
-    //   await models.SystemSettings.create(defaultSystemSettings);
-    //   console.log('✓ Paramètres système créés');
-    // }
-
-    // 6. Vérifier et créer l'admin par défaut si nécessaire
-    // const adminExists = await models.User.findOne({
-    //   where: { role: 'admin' }
-    // });
-
-    // if (!adminExists) {
-    //   console.log('Création de l\'utilisateur admin par défaut...');
-    //   await models.User.create({
-    //     name: 'Admin',
-    //     email: 'admin@dubon.com',
-    //     password: 'admin123',
-    //     role: 'admin',
-    //     status: 'active'
-    //   });
-    //   console.log('✓ Utilisateur admin créé');
-    // }
-
-    // 7. Configurer les dossiers d'upload
-    setupUploadDirectories();
-
-    // 8. Démarrer le serveur
-    const PORT = process.env.PORT || 5000;
-    try {
-      server.listen(PORT, '0.0.0.0', () => {
-        console.log('=================================');
-        console.log(`✅ Serveur démarré avec succès`);
-        console.log(`📡 Port: ${PORT}`);
-        console.log(`🌍 Environnement: ${process.env.NODE_ENV}`);
-        console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configuré' : 'Non configuré'}`);
-        console.log(`🗄️ Base de données: ${process.env.DATABASE_URL ? 'Configurée' : 'Non configurée'}`);
-        console.log('=================================');
-      });
-    } catch (error) {
-      console.error('❌ Erreur lors du démarrage du serveur:', error);
-      process.exit(1);
-    }
-
-  } catch (error) {
-    console.error('Erreur au démarrage du serveur:', error);
-    process.exit(1);
-  }
-};
-
 // Routes
 app.get("/", (req, res) => {
     res.json("Hello")
@@ -378,6 +268,80 @@ const setupUploadDirectories = () => {
 
 // Désactiver le timeout du serveur pour les uploads longs
 server.timeout = 300000; // 5 minutes
+
+const startServer = async () => {
+  try {
+    // Initialize the database
+    await initializeDatabase();
+
+    // 1. Vérifier la connexion
+    const isConnected = await checkDatabaseConnection();
+    if (!isConnected) {
+      throw new Error('Impossible de se connecter à la base de données après plusieurs tentatives');
+    }
+
+    // 2. Vérifier les tables existantes
+    const [tables] = await sequelize.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public';
+    `);
+    const existingTables = tables.map(t => t.table_name.toLowerCase());
+    console.log('Tables existantes:', existingTables);
+
+    // 3. Mettre à jour la table Users existante
+    console.log('Mise à jour de la table Users...');
+    try {
+      await sequelize.query(`
+        ALTER TABLE "Users" 
+        ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE;
+      `);
+
+      await sequelize.query(`
+        UPDATE "Users"
+        SET "createdAt" = CURRENT_TIMESTAMP,
+            "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "createdAt" IS NULL;
+      `);
+
+      await sequelize.query(`
+        ALTER TABLE "Users"
+        ALTER COLUMN "createdAt" SET NOT NULL,
+        ALTER COLUMN "updatedAt" SET NOT NULL;
+      `);
+
+      console.log('✓ Table Users mise à jour avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la table Users:', error);
+      throw error;
+    }
+
+    // 7. Configurer les dossiers d'upload
+    setupUploadDirectories();
+
+    // 8. Démarrer le serveur
+    const PORT = process.env.PORT || 5000;
+    try {
+      server.listen(PORT, '0.0.0.0', () => {
+        console.log('=================================');
+        console.log(`✅ Serveur démarré avec succès`);
+        console.log(`📡 Port: ${PORT}`);
+        console.log(`🌍 Environnement: ${process.env.NODE_ENV}`);
+        console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configuré' : 'Non configuré'}`);
+        console.log(`🗄️ Base de données: ${process.env.DATABASE_URL ? 'Configurée' : 'Non configurée'}`);
+        console.log('=================================');
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors du démarrage du serveur:', error);
+      process.exit(1);
+    }
+
+  } catch (error) {
+    console.error('Erreur au démarrage du serveur:', error);
+    process.exit(1);
+  }
+};
 
 // Démarrer le serveur avec gestion des erreurs
 startServer().catch(error => {

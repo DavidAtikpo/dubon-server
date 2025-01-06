@@ -47,29 +47,25 @@ const upload = multer({
   }
 })
 
-// Routes pour les produits
-router.post('/create', 
-  protect, 
-  upload.fields([
-    { name: 'images', maxCount: 5 },
-    { name: 'digitalFiles', maxCount: 5 }
-  ]),
-  createProduct
-)
+// Routes publiques
+router.get('/get-all', productsController.getAllPublicProducts);
+router.get('/quick-sale', productsController.getQuickSales);
+router.get('/top-rate', productsController.getTopRated);
+router.get('/best-sellers', productsController.getBestSellers);
+router.get('/new-arrival', productsController.getNewArrivals);
+router.get('/promotion', productsController.Promotion);
+router.get('/new-product', productsController.getNewProduct);
+router.get('/product-detail/:productId', productsController.getProductById);
+router.get('/category/:category', productsController.getProductsByCategory);
 
-router.get('/promotion', productsController.Promotion)
-router.get('/get-all', protect, productsController.getAllProducts)
-router.get('/quick-sele', productsController.getQuickSales)
-router.get('/top-rate', productsController.getTopRated)
-router.get('/best-sellers', productsController.getBestSellers)
-router.get('/new-arrival', productsController.getNewArrivals)
-router.get('/product-detail/:productId', productsController.getProductById)
-router.get('/new-product', productsController.getNewProduct)
-router.get('/category/:category', productsController.getProductsByCategory)
-
-router.delete('/delete-product/:productId', productsController.deleteProduct)
-router.put('/update-product/:productId', productsController.updateProduct)
-
-router.get('/seller/products', protect, productsController.getSellerProducts)
+// Routes protégées
+router.use(protect);
+router.get('/seller/products', productsController.getSellerProducts);
+router.post('/create', upload.fields([
+  { name: 'images', maxCount: 5 },
+  { name: 'digitalFiles', maxCount: 5 }
+]), createProduct);
+router.put('/update-product/:productId', productsController.updateProduct);
+router.delete('/delete-product/:productId', productsController.deleteProduct);
 
 export default router

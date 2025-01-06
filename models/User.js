@@ -39,46 +39,9 @@ export default (sequelize) => {
     lastLogin: {
       type: DataTypes.DATE
     },
-    // Champs spécifiques aux vendeurs
-    businessType: {
-      type: DataTypes.ENUM('products', 'restaurant', 'training', 'events', 'services'),
-      allowNull: true
-    },
-    businessName: {
+    phone: {
       type: DataTypes.STRING,
       allowNull: true
-    },
-    storeId: {
-      type: DataTypes.UUID,
-      allowNull: true
-    },
-    subscriptionStatus: {
-      type: DataTypes.ENUM('trial', 'active', 'expired'),
-      allowNull: true
-    },
-    subscriptionEndsAt: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    trialEndsAt: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-    // Informations business additionnelles
-    businessAddress: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    businessPhone: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    businessEmail: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      validate: {
-        isEmail: true
-      }
     }
   }, {
     sequelize,
@@ -86,11 +49,71 @@ export default (sequelize) => {
     timestamps: true
   });
 
-  // Ajouter cette partie pour définir l'association
   User.associate = (models) => {
+    // Profil vendeur
+    User.hasOne(models.SellerProfile, {
+      foreignKey: 'userId',
+      as: 'sellerProfile'
+    });
+
+    // Demandes vendeur
     User.hasMany(models.SellerRequest, {
       foreignKey: 'userId',
       as: 'sellerRequests'
+    });
+
+    // Commandes
+    User.hasMany(models.Order, {
+      foreignKey: 'userId',
+      as: 'orders'
+    });
+
+    // Reviews
+    User.hasMany(models.Review, {
+      foreignKey: 'userId',
+      as: 'reviews'
+    });
+
+    // Favoris
+    User.hasMany(models.Favorite, {
+      foreignKey: 'userId',
+      as: 'favorites'
+    });
+
+    // Activité utilisateur
+    User.hasMany(models.UserActivity, {
+      foreignKey: 'userId',
+      as: 'activities'
+    });
+
+    // Préférences utilisateur
+    User.hasOne(models.UserProfile, {
+      foreignKey: 'userId',
+      as: 'profile'
+    });
+
+    // Panier
+    User.hasOne(models.Cart, {
+      foreignKey: 'userId',
+      as: 'cart'
+    });
+
+    // Messages envoyés
+    User.hasMany(models.Message, {
+      foreignKey: 'senderId',
+      as: 'sentMessages'
+    });
+
+    // Messages reçus
+    User.hasMany(models.Message, {
+      foreignKey: 'receiverId',
+      as: 'receivedMessages'
+    });
+
+    // Ratings
+    User.hasMany(models.Rating, {
+      foreignKey: 'userId',
+      as: 'ratings'
     });
   };
 

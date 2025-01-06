@@ -166,9 +166,8 @@ export const getDashboardStats = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-
-    // Statistiques des utilisateurs (correction pour compter tous les utilisateurs sauf admin)
-    const totalUsers = await User.count({
+    // Statistiques des utilisateurs
+    const totalUsers = await models.User.count({
       where: { 
         role: {
           [Op.ne]: 'admin'  // Ne pas compter les admins
@@ -176,64 +175,55 @@ export const getDashboardStats = async (req, res) => {
       }
     });
     
-    
-    const newUsers = await User.count({
+    const newUsers = await models.User.count({
       where: {
         role: {
-          [Op.ne]: 'admin'  // Ne pas compter les admins
+          [Op.ne]: 'admin'
         },
         createdAt: {
           [Op.gte]: today
         }
       }
     });
-    
 
     // Statistiques des vendeurs
-    const totalSellers = await User.count({
+    const totalSellers = await models.User.count({
       where: { role: 'seller' }
     });
-    
     
     const pendingSellers = await models.SellerRequest.count({
       where: { status: 'pending' }
     });
-    
 
     // Statistiques des produits
-    const totalProducts = await Product.count();
-    
+    const totalProducts = await models.Product.count();
 
     // Statistiques des commandes
-    const totalOrders = await Order.count();
-    
+    const totalOrders = await models.Order.count();
 
-    const todayOrders = await Order.count({
+    const todayOrders = await models.Order.count({
       where: {
         createdAt: {
           [Op.gte]: today
         }
       }
     });
-    
 
-    // Statistiques des revenus (correction du statut)
-    const totalRevenue = await Order.sum('total', {
+    // Statistiques des revenus
+    const totalRevenue = await models.Order.sum('total', {
       where: { 
-        status: 'COMPLETED'  // Utiliser la bonne valeur de l'enum
+        status: 'delivered'
       }
     }) || 0;
-    console.log('Revenu total:', totalRevenue);
 
-    const todayRevenue = await Order.sum('total', {
+    const todayRevenue = await models.Order.sum('total', {
       where: {
-        status: 'COMPLETED',  // Utiliser la bonne valeur de l'enum
+        status: 'delivered',
         createdAt: {
           [Op.gte]: today
         }
       }
     }) || 0;
-    
 
     const responseData = {
       success: true,
@@ -260,16 +250,14 @@ export const getDashboardStats = async (req, res) => {
       }
     };
 
-    
     res.json(responseData);
 
   } catch (error) {
-    
+    console.error('Erreur getDashboardStats:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des statistiques",
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 };
@@ -277,22 +265,23 @@ export const getDashboardStats = async (req, res) => {
 // Gestion des utilisateurs
 export const getUsers = async (req, res) => {
   try {
-    const { role, status } = req.query;
-    const where = {};
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || '';
 
-    if (role && role !== 'all') {
-      where.role = role;
-    }
+    const whereCondition = search ? {
+      [Op.or]: [
+        { name: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } }
+      ]
+    } : {};
 
-    if (status && status !== 'all') {
-      where.status = status;
-    }
-
-    const users = await User.findAll({
-      where,
+    const { count, rows } = await User.findAndCountAll({
+      where: whereCondition,
       attributes: [
-        'id', 
-        'name', 
+        'id',
+        'name',
         'email',
         'phone',
         'role',
@@ -300,87 +289,93 @@ export const getUsers = async (req, res) => {
         'avatar',
         'lastLogin',
         'createdAt',
-        [
-          models.sequelize.literal(`(
-            SELECT COUNT(*) 
-            FROM Orders 
-            WHERE Orders.userId = User.id
-          )`),
-            'totalOrders'
-          ],
-          [
-          models.sequelize.literal(`(
-            SELECT COALESCE(SUM(total), 0) 
-            FROM Orders 
-            WHERE Orders.userId = User.id
-          )`),
-            'totalSpent'
-          ],
-          [
-          models.sequelize.literal(`(
-            SELECT COUNT(*) 
-            FROM Reviews 
-            WHERE Reviews.userId = User.id
-          )`),
-            'reviewCount'
-          ]
+        'updatedAt'
       ],
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
     });
 
-    res.json({ 
-      success: true, 
-      data: users
+    const users = rows.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      status: user.status,
+      avatar: user.avatar,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          total: count,
+          page,
+          totalPages: Math.ceil(count / limit),
+          limit
+        }
+      }
     });
+
   } catch (error) {
     console.error('Erreur getUsers:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Erreur lors de la récupération des utilisateurs"
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des utilisateurs",
+      error: error.message
     });
   }
 };
 
 export const getUserById = async (req, res) => {
   try {
-    console.log('=== Début getUserById ===');
-    console.log('ID utilisateur recherché:', req.params.id);
+    const { id } = req.params;
+    console.log('Recherche utilisateur:', id);
 
-    const user = await models.User.findOne({
-      where: { id: req.params.id },
+    const user = await User.findOne({
+      where: { id },
+      include: [
+        {
+          model: SellerProfile,
+          as: 'sellerProfile',
+          required: false
+        }
+      ],
       attributes: [
-        'id', 
-        'name', 
-        'email', 
-        'role', 
-        'status', 
-        'createdAt',
+        'id',
+        'name',
+        'email',
         'phone',
-        'address'
+        'role',
+        'status',
+        'createdAt',
+        'updatedAt'
       ]
     });
 
     if (!user) {
-      console.log('Utilisateur non trouvé');
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Utilisateur non trouvé' 
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
       });
     }
 
-    console.log('Utilisateur trouvé:', user.id);
-
-    res.json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: user
     });
 
   } catch (error) {
     console.error('Erreur getUserById:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Erreur lors de la récupération de l'utilisateur",
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des détails de l'utilisateur",
+      error: error.message
     });
   }
 };
@@ -2158,58 +2153,37 @@ export const updateSellerStatus = async (req, res) => {
 
 export const updateUserStatus = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const { status, reason } = req.body;
 
-    // Vérifier que le statut est valide
-    const validStatuses = ['active', 'suspended', 'banned'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Statut invalide"
-      });
-    }
-
-    // Vérifier que l'utilisateur existe
-    const user = await models.User.findByPk(userId);
+    const user = await models.User.findByPk(id);
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Utilisateur non trouvé"
+        message: 'Utilisateur non trouvé'
       });
     }
 
-    // Empêcher la modification d'un admin
-    if (user.role === 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Impossible de modifier le statut d'un administrateur"
-      });
-    }
-
-    // Mettre à jour le statut
     await user.update({ status });
 
-    // Enregistrer l'historique du changement
+    // Enregistrer l'historique du changement de statut
     await models.UserStatusHistory.create({
-      userId,
+      userId: id,
       oldStatus: user.status,
       newStatus: status,
       reason,
-      performedById: req.user.id
+      changedBy: req.user.id
     });
 
     res.json({
       success: true,
-      message: "Statut mis à jour avec succès"
+      message: 'Statut mis à jour avec succès'
     });
-
   } catch (error) {
-    console.error('Erreur updateUserStatus:', error);
+    console.error('Erreur lors de la mise à jour du statut:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la mise à jour du statut",
-      error: error.message
+      message: 'Erreur lors de la mise à jour du statut'
     });
   }
 };
@@ -2287,6 +2261,39 @@ export const getUserStatusHistory = async (req, res) => {
   }
 };
 
+export const getUserDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await models.User.findByPk(id, {
+      include: [
+        {
+          model: models.SellerProfile,
+          include: ['subscription']
+        },
+        'products'
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des détails de l\'utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des détails de l\'utilisateur'
+    });
+  }
+};
+
 export default {
   adminlogin,
   getDashboard,
@@ -2333,5 +2340,6 @@ export default {
   updateSellerStatus,
   updateUserStatus,
   getUserStats,
-  getUserStatusHistory
+  getUserStatusHistory,
+  getUserDetails
 };

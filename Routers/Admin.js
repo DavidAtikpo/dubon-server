@@ -42,7 +42,8 @@ import {
   getPendingSellerRequests,
   handleSellerRequest,
   updateSellerStatus,
-  updateUserStatus
+  updateUserStatus,
+  getUserDetails
 } from '../Controllers/Admin.js';
 import { verifyToken, isAdmin } from '../middleware/auth.js';
 import upload from '../middleware/upload.js';
@@ -56,8 +57,8 @@ router.get('/dashboard/stats', getDashboardStats);
 
 // Gestion des utilisateurs
 router.get('/users', getUsers);
-router.get('/users/:id', getUserById);
-router.put('/users/:userId/status', updateUserStatus);
+router.get('/users/:id', getUserDetails);
+router.put('/users/:id/status', updateUserStatus);
 
 // Gestion des vendeurs
 router.get('/sellers', getSellers);

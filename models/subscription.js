@@ -1,5 +1,21 @@
-export default (sequelize, DataTypes) => {
-  const Subscription = sequelize.define('Subscription', {
+import { Model, DataTypes } from 'sequelize';
+
+export default (sequelize) => {
+  class Subscription extends Model {
+    static associate(models) {
+      Subscription.belongsTo(models.User, {
+        foreignKey: 'userId',
+        as: 'user'
+      });
+
+      Subscription.belongsTo(models.SellerProfile, {
+        foreignKey: 'sellerProfileId',
+        as: 'sellerProfile'
+      });
+    }
+  }
+
+  Subscription.init({
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
@@ -7,11 +23,11 @@ export default (sequelize, DataTypes) => {
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: 'Users',
-        key: 'id'
-      }
+      allowNull: false
+    },
+    sellerProfileId: {
+      type: DataTypes.UUID,
+      allowNull: true
     },
     planId: {
       type: DataTypes.STRING,
@@ -35,23 +51,13 @@ export default (sequelize, DataTypes) => {
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
     }
+  }, {
+    sequelize,
+    modelName: 'Subscription',
+    tableName: 'Subscriptions',
+    timestamps: true
   });
-
-  Subscription.associate = (models) => {
-    Subscription.belongsTo(models.User, {
-      foreignKey: 'userId',
-      as: 'user'
-    });
-  };
 
   return Subscription;
 }; 
