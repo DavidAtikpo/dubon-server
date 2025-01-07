@@ -4,14 +4,19 @@ export default (sequelize) => {
   class OrderItem extends Model {
     static associate(models) {
       OrderItem.belongsTo(models.Order, {
-        foreignKey: 'orderId',
+        foreignKey: 'OrderId',
         as: 'order'
       });
     }
   }
 
   OrderItem.init({
-    orderId: {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    OrderId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
@@ -19,13 +24,23 @@ export default (sequelize) => {
         key: 'id'
       }
     },
-    name: DataTypes.STRING,
-    quantity: DataTypes.INTEGER,
-    price: DataTypes.DECIMAL(10, 2)
-    // ... autres champs
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1
+    },
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false
+    }
   }, {
     sequelize,
-    modelName: 'OrderItem'
+    modelName: 'OrderItem',
+    tableName: 'OrderItems'
   });
 
   return OrderItem;

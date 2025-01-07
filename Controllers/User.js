@@ -134,15 +134,35 @@ export const getUserProfile = async (req, res) => {
         'name', 
         'email', 
         'avatar',
-        'businessPhone',
+        'phone',
         'role'
       ]
     });
 
-    // Construire l'URL complète
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    // Construire l'URL complète pour l'avatar
     const avatarUrl = user.avatar 
-      ? `${process.env.BASE_URL}${user.avatar}`
+      ? `${process.env.BASE_URL || 'http://localhost:5000'}${user.avatar}`
       : null;
+
+    // Préférences par défaut
+    const preferences = {
+      language: 'fr',
+      currency: 'XOF',
+      theme: 'light',
+      notifications: {
+        email: true,
+        push: true,
+        sms: false
+      },
+      newsletter: true
+    };
 
     res.json({ 
       success: true, 
@@ -151,22 +171,19 @@ export const getUserProfile = async (req, res) => {
         name: user.name,
         email: user.email,
         avatarUrl,
-        phoneNumber: user.businessPhone || '',
-        preferences: {
-          language: 'fr',
-          currency: 'FCFA',
-          theme: 'light',
-          notifications: {
-            email: true,
-            push: true,
-            sms: false
-          },
-          newsletter: true
-        }
-      } 
+        phoneNumber: user.phone || '',
+        role: user.role,
+        preferences
+      }
     });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur getUserProfile:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors de la récupération du profil",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -495,11 +512,16 @@ export const getDashboard = async (req, res) => {
           'id',
           'status',
           'total',
-          'items',
           'createdAt'
         ],
-        limit: 5,
-        order: [['createdAt', 'DESC']]
+        include: [{
+          model: models.OrderItem,
+          as: 'orderItems',
+          attributes: ['id', 'quantity', 'price', 'name'],
+          required: false
+        }],
+        order: [['createdAt', 'DESC']],
+        limit: 5
       }),
 
       // Produits favoris

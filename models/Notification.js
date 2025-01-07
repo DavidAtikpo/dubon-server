@@ -18,7 +18,7 @@ const NotificationModel = (sequelize) => {
     type: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'info' // 'info', 'success', 'warning', 'error'
+      defaultValue: 'info'
     },
     title: {
       type: DataTypes.STRING,
@@ -35,9 +35,17 @@ const NotificationModel = (sequelize) => {
     data: {
       type: DataTypes.JSON,
       defaultValue: {}
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
     }
   }, {
-    tableName: 'notifications',
+    tableName: 'Notifications',
     timestamps: true
   });
 
@@ -45,6 +53,11 @@ const NotificationModel = (sequelize) => {
     Notification.belongsTo(models.SellerProfile, {
       foreignKey: 'sellerId',
       as: 'seller'
+    });
+    
+    Notification.belongsTo(models.User, {
+      foreignKey: 'userId',
+      as: 'user'
     });
   };
 

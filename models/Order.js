@@ -8,9 +8,8 @@ export default (sequelize) => {
         as: 'user'
       });
       
-      // Changement du nom de l'association de 'items' à 'orderItems'
       Order.hasMany(models.OrderItem, {
-        foreignKey: 'orderId',
+        foreignKey: 'OrderId',
         as: 'orderItems'
       });
     }
@@ -21,14 +20,6 @@ export default (sequelize) => {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
-    },
-    restaurantId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: 'Restaurants',
-        key: 'id'
-      }
     },
     userId: {
       type: DataTypes.UUID,
@@ -42,35 +33,15 @@ export default (sequelize) => {
       type: DataTypes.ENUM('pending', 'preparing', 'ready', 'delivering', 'delivered', 'cancelled'),
       defaultValue: 'pending'
     },
-    orderDetails: {
-      type: DataTypes.JSONB,
-      allowNull: false
-    },
     total: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
-    },
-    deliveryAddress: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    customerPhone: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    notes: {
-      type: DataTypes.TEXT
-    },
-    paymentStatus: {
-      type: DataTypes.ENUM('pending', 'paid', 'failed'),
-      defaultValue: 'pending'
-    },
-    paymentMethod: {
-      type: DataTypes.STRING
+      allowNull: false,
+      defaultValue: 0
     }
   }, {
     sequelize,
-    modelName: 'Order'
+    modelName: 'Order',
+    tableName: 'Orders'
   });
 
   return Order;

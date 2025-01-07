@@ -67,7 +67,7 @@ export const createFedaPayTransaction = async ({
     }
 
     // Générer l'URL de paiement directement à partir de l'ID de transaction
-    const paymentUrl = `${getCheckoutBaseUrl()}/v1/transactions/${transaction.id}/token`;
+    const paymentUrl = `${getCheckoutBaseUrl()}/payment/${transaction.id}`;
 
     console.log('URL de paiement générée:', paymentUrl);
 

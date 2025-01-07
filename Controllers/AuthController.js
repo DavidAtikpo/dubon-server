@@ -9,17 +9,17 @@ const { User } = models;
 const baseAttributes = ['id', 'name', 'email', 'role', 'avatar', 'status'];
 
 // Attributs supplémentaires pour les vendeurs
-const sellerAttributes = [
-  'businessType',
-  'businessName',
-  'storeId',
-  'subscriptionStatus',
-  'subscriptionEndsAt',
-  'trialEndsAt',
-  'businessAddress',
-  'businessPhone',
-  'businessEmail'
-];
+// const sellerAttributes = [
+  
+//   'businessName',
+//   'storeId',
+//   'subscriptionStatus',
+//   'subscriptionEndsAt',
+//   'trialEndsAt',
+//   'businessAddress',
+//   'businessPhone',
+//   'businessEmail'
+// ];
 
 // Vérifier l'utilisateur connecté
 export const me = async (req, res) => {
@@ -77,12 +77,12 @@ export const login = async (req, res) => {
     }
 
     // Si c'est un vendeur, récupérer les informations supplémentaires
-    if (user.role === 'seller') {
-      const sellerInfo = await User.findByPk(user.id, {
-        attributes: sellerAttributes
-      });
-      Object.assign(user, sellerInfo.toJSON());
-    }
+    // if (user.role === 'seller') {
+    //   const sellerInfo = await User.findByPk(user.id, {
+    //     attributes: sellerAttributes
+    //   });
+    //   Object.assign(user, sellerInfo.toJSON());
+    // }
 
     // Générer les tokens
     const accessToken = jwt.sign(

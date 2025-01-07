@@ -1,28 +1,32 @@
-import { DataTypes } from 'sequelize';
+import { Model, DataTypes } from 'sequelize';
 
 export default (sequelize) => {
-  const SellerRequest = sequelize.define('SellerRequest', {
+  class SellerRequest extends Model {}
+
+  SellerRequest.init({
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
+      primaryKey: true
     },
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: 'Users',
-        key: 'id',
-      },
+        key: 'id'
+      }
     },
     type: {
       type: DataTypes.ENUM('individual', 'company'),
       allowNull: false,
     },
-
     status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+      type: DataTypes.STRING,
       defaultValue: 'pending',
+      validate: {
+        isIn: [['pending', 'approved', 'rejected']]
+      }
     },
     personalInfo: {
       type: DataTypes.JSONB,
@@ -57,7 +61,8 @@ export default (sequelize) => {
       allowNull: true,
     },
   }, {
-    tableName: 'SellerRequests',
+    sequelize,
+    modelName: 'SellerRequest',
     timestamps: true
   });
 

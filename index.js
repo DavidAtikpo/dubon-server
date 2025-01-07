@@ -271,56 +271,24 @@ server.timeout = 300000; // 5 minutes
 
 const startServer = async () => {
   try {
-    // Initialize the database
-    await initializeDatabase();
-
-    // 1. Vérifier la connexion
+    // Vérifier la connexion
     const isConnected = await checkDatabaseConnection();
     if (!isConnected) {
-      throw new Error('Impossible de se connecter à la base de données après plusieurs tentatives');
+      throw new Error('Impossible de se connecter à la base de données');
     }
 
-    // 2. Vérifier les tables existantes
-    const [tables] = await sequelize.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public';
-    `);
-    const existingTables = tables.map(t => t.table_name.toLowerCase());
-    console.log('Tables existantes:', existingTables);
-
-    // 3. Mettre à jour la table Users existante
-    console.log('Mise à jour de la table Users...');
-    try {
-      await sequelize.query(`
-        ALTER TABLE "Users" 
-        ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE,
-        ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE;
-      `);
-
-      await sequelize.query(`
-        UPDATE "Users"
-        SET "createdAt" = CURRENT_TIMESTAMP,
-            "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "createdAt" IS NULL;
-      `);
-
-      await sequelize.query(`
-        ALTER TABLE "Users"
-        ALTER COLUMN "createdAt" SET NOT NULL,
-        ALTER COLUMN "updatedAt" SET NOT NULL;
-      `);
-
-      console.log('✓ Table Users mise à jour avec succès');
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour de la table Users:', error);
-      throw error;
+    // En production, on ne force pas la synchronisation
+    if (process.env.NODE_ENV === 'development') {
+      await sequelize.sync({ alter: true });
+    } else {
+      // En production, on vérifie juste la connexion
+      await sequelize.authenticate();
     }
 
-    // 7. Configurer les dossiers d'upload
+    // Configurer les dossiers d'upload
     setupUploadDirectories();
 
-    // 8. Démarrer le serveur
+    // Démarrer le serveur
     const PORT = process.env.PORT || 5000;
     try {
       server.listen(PORT, '0.0.0.0', () => {
