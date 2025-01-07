@@ -30,16 +30,8 @@ export const createFedaPayTransaction = async ({
   try {
     initializeFedaPay();
 
-    console.log('Création transaction avec les données:', {
-      amount,
-      description,
-      customerId,
-      callbackUrl,
-      customerEmail,
-      customerName
-    });
-
-    const transactionData = {
+    // 1. Créer la transaction
+    const transaction = await Transaction.create({
       amount: parseInt(amount),
       description: description,
       callback_url: callbackUrl,
@@ -53,21 +45,18 @@ export const createFedaPayTransaction = async ({
       custom_data: {
         customer_id: customerId
       }
-    };
-
-    console.log('Données de transaction formatées:', transactionData);
-
-    // Créer la transaction
-    const transaction = await Transaction.create(transactionData);
-
-    console.log('Réponse FedaPay brute:', transaction);
+    });
 
     if (!transaction || !transaction.id) {
       throw new Error('ID de transaction non généré par FedaPay');
     }
 
-    // Générer l'URL de paiement directement à partir de l'ID de transaction
-    const paymentUrl = `${getCheckoutBaseUrl()}/payment/${transaction.id}`;
+    // 2. Générer le token en utilisant la méthode correcte
+    const tokenResponse = await Transaction.prototype.generateToken.call(transaction);
+    const token = tokenResponse.token;
+
+    // 3. Construire l'URL de paiement
+    const paymentUrl = `${getCheckoutBaseUrl()}/checkout/${token}`;
 
     console.log('URL de paiement générée:', paymentUrl);
 
@@ -79,15 +68,9 @@ export const createFedaPayTransaction = async ({
   } catch (error) {
     console.error('Erreur détaillée FedaPay:', {
       message: error.message,
-      response: error.response?.data,
       stack: error.stack
     });
-
-    const errorDetails = error.response?.data?.message 
-      ? `${error.message}: ${error.response.data.message}`
-      : error.message;
-
-    throw new Error(`Erreur lors de la création de la transaction: ${errorDetails}`);
+    throw error;
   }
 };
 
