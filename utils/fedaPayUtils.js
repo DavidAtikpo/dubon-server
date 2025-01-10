@@ -1,22 +1,30 @@
 import { FedaPay, Transaction } from 'fedapay';
 
-// Configuration de FedaPay
+// Configuration initiale de FedaPay
 const initializeFedaPay = () => {
+  const environment = process.env.NODE_ENV === 'production' ? 'live' : 'sandbox';
+  const apiKey = process.env.NODE_ENV === 'production' 
+    ? process.env.FEDAPAY_LIVE_SECRET_KEY 
+    : process.env.FEDAPAY_TEST_SECRET_KEY;
+
+  if (!apiKey) {
+    throw new Error(`Clé API FedaPay ${environment} non définie`);
+  }
+
   try {
-    FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY);
-    FedaPay.setEnvironment(process.env.NODE_ENV === 'production' ? 'live' : 'sandbox');
-    FedaPay.setApiVersion('v1');
+    FedaPay.setApiKey(apiKey);
+    FedaPay.setEnvironment(environment);
+    console.log('🔧 Configuration FedaPay:', { 
+      environment, 
+      apiVersion: 'v1',
+      keyLength: apiKey.length 
+    });
     console.log('✓ FedaPay initialisé avec succès');
+    return Transaction;
   } catch (error) {
-    console.error('Erreur initialisation FedaPay:', error);
+    console.error('⚠️ Erreur d\'initialisation FedaPay:', error.message);
     throw error;
   }
-};
-
-const getCheckoutBaseUrl = () => {
-  return process.env.NODE_ENV === 'production' 
-    ? 'https://checkout.fedapay.com'
-    : 'https://sandbox-checkout.fedapay.com';
 };
 
 export const createFedaPayTransaction = async ({
@@ -27,64 +35,66 @@ export const createFedaPayTransaction = async ({
   customerEmail,
   customerName
 }) => {
-  try {
-    initializeFedaPay();
+  console.log('🔄 Début création transaction FedaPay:', {
+    amount,
+    description,
+    customerId,
+    callbackUrl,
+    customerEmail,
+    customerName
+  });
 
-    // 1. Créer la transaction
-    const transaction = await Transaction.create({
-      amount: parseInt(amount),
+  try {
+    const transaction = await initializeFedaPay().create({
+      amount: amount,
+      currency: {
+        iso: 'XOF'
+      },
       description: description,
       callback_url: callbackUrl,
-      currency: {
-        iso: "XOF"
-      },
       customer: {
         email: customerEmail,
-        firstname: customerName,
-      },
-      custom_data: {
-        customer_id: customerId
+        firstname: customerName
       }
     });
 
-    if (!transaction || !transaction.id) {
-      throw new Error('ID de transaction non généré par FedaPay');
-    }
+    console.log('✓ Transaction créée:', { 
+      id: transaction.id, 
+      status: transaction.status 
+    });
 
-    // 2. Générer le token en utilisant la méthode correcte
-    const tokenResponse = await Transaction.prototype.generateToken.call(transaction);
-    const token = tokenResponse.token;
+    // Générer le token de paiement
+    const token = await transaction.generateToken();
+    console.log('✓ Token généré:', token.substring(0, 10) + '...');
 
-    // 3. Construire l'URL de paiement
-    const paymentUrl = `${getCheckoutBaseUrl()}/checkout/${token}`;
-
-    console.log('URL de paiement générée:', paymentUrl);
+    // Construire l'URL de paiement
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? 'https://checkout.fedapay.com'
+      : 'https://sandbox-checkout.fedapay.com';
+    
+    console.log('🌐 URL de base FedaPay:', baseUrl);
+    
+    const paymentUrl = `${baseUrl}/checkout/${token}`;
+    console.log('✓ URL de paiement générée:', paymentUrl);
 
     return {
       id: transaction.id,
-      paymentUrl: paymentUrl,
-      status: transaction.status
+      paymentUrl: paymentUrl
     };
   } catch (error) {
-    console.error('Erreur détaillée FedaPay:', {
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('❌ Erreur création transaction FedaPay:', error);
     throw error;
   }
 };
 
 export const verifyTransaction = async (transactionId) => {
   try {
-    initializeFedaPay();
-    const transaction = await Transaction.retrieve(transactionId);
+    const transaction = await initializeFedaPay().retrieve(transactionId);
     return {
-      status: transaction.status,
-      amount: transaction.amount,
-      currency: transaction.currency.iso
+      status: transaction.status
     };
   } catch (error) {
-    console.error('Erreur vérification FedaPay:', error);
-    throw new Error('Erreur lors de la vérification de la transaction: ' + error.message);
+    console.error('❌ Erreur vérification transaction:', error);
+    throw error;
   }
-}; 
+};

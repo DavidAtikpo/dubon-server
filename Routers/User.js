@@ -5,7 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { login, logout, me } from '../Controllers/AuthController.js';
+import { login, logout, me, register, forgotPassword, resetPassword } from '../Controllers/AuthController.js';
 import { adminlogin } from '../Controllers/Admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,14 +41,13 @@ const upload = multer({
 });
 
 // Routes publiques
-router.post('/register', userController.register);
-// router.post('/login', userController.login);
+router.post('/register',register);
 router.post('/login', login);
 router.post('/adminlogin',adminlogin)
 router.post('/logout', logout);
 router.get('/me', me);
-router.post('/forgot-password', userController.forgotPassword);
-router.post('/reset-password/:token', userController.resetPassword);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.get('/verify-email/:token', userController.verifyEmail);
 router.post('/resend-verification', userController.resendVerificationEmail);
 
@@ -78,6 +77,7 @@ router.get('/order/:id', userController.getOrderDetails);
 // Favoris et préférences
 router.get('/favorites', userController.getFavorites);
 router.post('/favorites/toggle', userController.toggleFavorite);
+router.get('/reviews', userController.getUserReviews);
 router.put('/preferences', userController.updateUserPreferences);
 
 // Notifications

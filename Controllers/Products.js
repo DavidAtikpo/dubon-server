@@ -24,15 +24,12 @@ uploadDirs.forEach(dir => {
 // Configuration de Multer pour les uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Choisir le dossier en fonction du type de fichier
-    const isDigital = req.body.isDigital === 'true' && file.fieldname === 'digitalFiles';
-    const uploadPath = isDigital ? uploadDirs[1] : uploadDirs[0];
+    const uploadPath = path.join(__dirname, '../uploads');
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Générer un nom de fichier unique
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
 
@@ -142,17 +139,21 @@ export const getAllProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.productId, {
+    const product = await Product.findOne({
+      where: { 
+        id: req.params.productId,
+        deletedAt: null
+      },
       include: [
         {
           model: models.Category,
           as: 'category',
-          attributes: ['name']
+          attributes: ['id', 'name']
         },
         {
           model: models.SellerProfile,
           as: 'seller',
-          attributes: ['storeName', 'status']
+          attributes: ['id', 'businessInfo', 'status']
         }
       ]
     });
@@ -164,37 +165,26 @@ export const getProductById = async (req, res) => {
       });
     }
 
-    // Formater les données pour le frontend
-    const formattedProduct = {
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      compareAtPrice: product.compareAtPrice,
-      discount: product.discount,
-      sku: product.sku,
-      quantity: product.quantity,
-      images: product.images || [],
-      category: {
-        name: product.category?.name || 'Non catégorisé'
-      },
-      seller: {
-        storeName: product.seller?.storeName || 'Vendeur inconnu',
-        status: product.seller?.status || 'inactive'
-      },
-      ratings: product.ratings || { average: 0, count: 0 }
+    // Transformer les données pour inclure storeName depuis businessInfo
+    const plainProduct = product.get({ plain: true });
+    const transformedProduct = {
+      ...plainProduct,
+      seller: plainProduct.seller ? {
+        id: plainProduct.seller.id,
+        storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
+        status: plainProduct.seller.status
+      } : null
     };
 
     res.status(200).json({
       success: true,
-      data: formattedProduct
+      data: transformedProduct
     });
   } catch (error) {
-    console.error('Erreur récupération produit:', error);
+    console.error('❌ Erreur lors de la récupération du produit:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération du produit",
-      error: error.message
+      message: "Erreur lors de la récupération du produit"
     });
   }
 };
@@ -212,28 +202,12 @@ export const createProduct = async (req, res) => {
     });
 
     if (!seller) {
-      // Récupérer les informations de l'utilisateur
-      const user = await models.User.findByPk(req.user.id);
-      
-      // Créer un profil vendeur si il n'existe pas
+      console.log('Création d\'un nouveau profil vendeur');
       seller = await SellerProfile.create({
         userId: req.user.id,
-        status: 'active',
-        storeName: user.name || 'Ma Boutique',
-        description: 'Description de la boutique',
-        address: user.address || '',
-        phone: user.phone || '',
-        email: user.email || '',
-        logo: null,
-        banner: null,
-        socialMedia: {},
-        settings: {
-          currency: 'XOF',
-          language: 'fr',
-          timezone: 'Africa/Porto-Novo'
-        }
+        status: 'pending',
+        verificationStatus: 'pending'
       });
-      console.log('Nouveau profil vendeur créé:', seller.id);
     }
 
     // Validation des champs requis
@@ -249,44 +223,62 @@ export const createProduct = async (req, res) => {
 
     // Traitement des images
     const images = req.files?.images?.map(file => file.path.replace(/\\/g, '/')) || [];
-    
-    if (images.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Au moins une image est requise"
-      });
-    }
 
     // Parse des données JSON
-    let dimensions = {};
-    try {
-      dimensions = JSON.parse(req.body.dimensions);
-    } catch (e) {
-      console.error('Erreur parsing dimensions:', e);
-    }
-
-    let attributes = {};
-    try {
-      attributes = JSON.parse(req.body.attributes);
-    } catch (e) {
-      console.error('Erreur parsing attributes:', e);
-    }
-
-    // Trouver ou créer la catégorie
-    let categoryId = null;
-    if (req.body.categoryId) {
+    let nutritionalInfo = {
+      calories: null,
+      proteins: null,
+      carbohydrates: null,
+      fats: null,
+      fiber: null,
+      sodium: null,
+      allergens: [],
+      servingSize: null
+    };
+    if (req.body.nutritionalInfo && typeof req.body.nutritionalInfo === 'string') {
       try {
-        const [category] = await models.Category.findOrCreate({
-          where: { name: req.body.categoryId },
-          defaults: {
-            name: req.body.categoryId,
-            slug: slugify(req.body.categoryId, { lower: true }),
-            description: `Catégorie ${req.body.categoryId}`
-          }
-        });
-        categoryId = category.id;
-      } catch (error) {
-        console.error('Erreur création catégorie:', error);
+        const parsed = JSON.parse(req.body.nutritionalInfo);
+        if (Array.isArray(parsed)) {
+          nutritionalInfo = JSON.parse(parsed[1]); // Use the second element which contains the actual data
+        } else {
+          nutritionalInfo = parsed;
+        }
+      } catch (e) {
+        console.error('Erreur parsing nutritionalInfo:', e);
+      }
+    }
+
+    let temperature = {
+      min: 0,
+      max: 25,
+      unit: '°C'
+    };
+    if (req.body.temperature && typeof req.body.temperature === 'string') {
+      try {
+        temperature = JSON.parse(req.body.temperature);
+        if (!['°C', '°F'].includes(temperature.unit)) {
+          temperature.unit = '°C';
+        }
+      } catch (e) {
+        console.error('Erreur parsing temperature:', e);
+      }
+    }
+
+    let packaging = {
+      type: 'standard',
+      material: 'carton',
+      dimensions: {
+        length: 0,
+        width: 0,
+        height: 0,
+        unit: 'cm'
+      }
+    };
+    if (req.body.packaging && typeof req.body.packaging === 'string') {
+      try {
+        packaging = JSON.parse(req.body.packaging);
+      } catch (e) {
+        console.error('Erreur parsing packaging:', e);
       }
     }
 
@@ -298,34 +290,22 @@ export const createProduct = async (req, res) => {
       description: req.body.description,
       shortDescription: req.body.shortDescription || '',
       sku: req.body.sku || `SKU-${Date.now()}`,
-      barcode: req.body.barcode || null,
       price: parseFloat(req.body.price),
       compareAtPrice: req.body.compareAtPrice ? parseFloat(req.body.compareAtPrice) : null,
-      costPrice: req.body.costPrice ? parseFloat(req.body.costPrice) : null,
       quantity: parseInt(req.body.quantity) || 0,
-      lowStockThreshold: parseInt(req.body.lowStockThreshold) || 5,
-      weight: req.body.weight ? parseFloat(req.body.weight) : null,
-      dimensions,
       images,
-      mainImage: images[0],
+      mainImage: images[0] || null,
       status: 'active',
-      isDigital: req.body.isDigital === 'true',
-      attributes,
-      categoryId: categoryId,
-      seoTitle: req.body.seoTitle || '',
-      seoDescription: req.body.seoDescription || '',
-      seoKeywords: req.body.seoKeywords ? 
-        req.body.seoKeywords.split(',').map(keyword => keyword.trim()) : 
-        [],
-      ratings: {
-        average: 0,
-        count: 0
-      },
-      featured: false,
-      digitalFiles: [],
-      variants: [],
-      tags: [],
-      metadata: {}
+      nutritionalInfo,
+      temperature,
+      packaging,
+      productType: req.body.productType || 'frais',
+      storageConditions: req.body.storageConditions || 'ambiant',
+      expirationDate: req.body.expirationDate || null,
+      shelfLife: req.body.shelfLife || null,
+      origin: req.body.origin || '',
+      featured: req.body.featured === 'true',
+      categoryId: req.body.categoryId || null
     };
 
     console.log('Données du produit à créer:', productData);
@@ -472,64 +452,46 @@ export const getAllPublicProducts = async (req, res) => {
     
     const products = await Product.findAll({
       where: {
-        status: 'active' // Ne récupérer que les produits actifs
+        deletedAt: null,
+        status: 'active'
       },
       include: [
         {
           model: models.Category,
           as: 'category',
-          attributes: ['name']
+          attributes: ['id', 'name']
         },
         {
           model: models.SellerProfile,
           as: 'seller',
-          attributes: ['storeName', 'status']
+          attributes: ['id', 'businessInfo', 'status']
         }
       ],
       order: [['createdAt', 'DESC']]
     });
 
-    // Formater les données pour le frontend
-    const formattedProducts = products.map(product => {
-      // Calculer le pourcentage de réduction si compareAtPrice existe
-      const discount = product.compareAtPrice && product.price
-        ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
-        : null;
-
+    // Transformer les données pour inclure storeName depuis businessInfo
+    const transformedProducts = products.map(product => {
+      const plainProduct = product.get({ plain: true });
       return {
-        _id: product.id,
-        title: product.name,
-        description: product.description,
-        shortDescription: product.shortDescription,
-        price: product.price,
-        compareAtPrice: product.compareAtPrice,
-        images: product.images || [],
-        category: product.category?.name || 'Non catégorisé',
-        rating: product.ratings?.average || 0,
-        stock: product.quantity || 0,
-        seller: {
-          storeName: product.seller?.storeName,
-          status: product.seller?.status
-        },
-        featured: product.featured || false,
-        isDigital: product.isDigital || false,
-        lowStockThreshold: product.lowStockThreshold || 5,
-        discount: discount // Pourcentage de réduction calculé
+        ...plainProduct,
+        seller: plainProduct.seller ? {
+          id: plainProduct.seller.id,
+          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
+          status: plainProduct.seller.status
+        } : null
       };
     });
 
-    console.log(`✅ ${formattedProducts.length} produits trouvés`);
-
     res.status(200).json({
       success: true,
-      data: formattedProducts
+      products: transformedProducts
     });
   } catch (error) {
     console.error('❌ Erreur lors de la récupération des produits:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des produits",
-      error: error.message
+      message: "Erreur lors de la récupération des produits"
     });
   }
 };

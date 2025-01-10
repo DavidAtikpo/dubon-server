@@ -9,43 +9,57 @@ const router = express.Router()
 // Configuration de Multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const isDigital = req.body.isDigital === 'true' && file.fieldname === 'digitalFiles'
-    const uploadPath = isDigital ? './uploads/digital' : './uploads/products'
-    cb(null, uploadPath)
+    let uploadPath;
+    if (file.fieldname === 'images') {
+      uploadPath = './uploads/products';
+    } else if (file.fieldname === 'video') {
+      uploadPath = './uploads/videos';
+    } else if (file.fieldname === 'digitalFiles') {
+      uploadPath = './uploads/digital';
+    }
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   }
-})
+});
 
 const fileFilter = (req, file, cb) => {
   if (file.fieldname === 'images') {
     if (file.mimetype.startsWith('image/')) {
-      cb(null, true)
+      cb(null, true);
     } else {
-      cb(new Error('Format de fichier non supporté. Seules les images sont acceptées.'), false)
+      cb(new Error('Format de fichier non supporté. Seules les images sont acceptées.'), false);
+    }
+  } else if (file.fieldname === 'video') {
+    const allowedMimes = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Format de vidéo non supporté.'), false);
     }
   } else if (file.fieldname === 'digitalFiles') {
-    const allowedMimes = ['application/pdf', 'application/zip', 'application/x-zip-compressed']
+    const allowedMimes = ['application/pdf', 'application/zip', 'application/x-zip-compressed'];
     if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true)
+      cb(null, true);
     } else {
-      cb(new Error('Format de fichier digital non supporté.'), false)
+      cb(new Error('Format de fichier digital non supporté.'), false);
     }
   } else {
-    cb(null, false)
+    cb(null, false);
   }
-}
+};
 
 const upload = multer({ 
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
+    fileSize: 50 * 1024 * 1024, // 50MB max pour les vidéos
     files: 10 // Maximum 10 fichiers
   }
-})
+});
 
 // Routes publiques
 router.get('/get-all', productsController.getAllPublicProducts);
@@ -63,9 +77,14 @@ router.use(protect);
 router.get('/seller/products', productsController.getSellerProducts);
 router.post('/create', upload.fields([
   { name: 'images', maxCount: 5 },
+  { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }
 ]), createProduct);
-router.put('/update-product/:productId', productsController.updateProduct);
+router.put('/update-product/:productId', upload.fields([
+  { name: 'images', maxCount: 5 },
+  { name: 'video', maxCount: 1 },
+  { name: 'digitalFiles', maxCount: 5 }
+]), productsController.updateProduct);
 router.delete('/delete-product/:productId', productsController.deleteProduct);
 
 export default router

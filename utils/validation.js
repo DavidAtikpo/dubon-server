@@ -168,4 +168,74 @@ export const validateSellerProfileUpdate = (data) => {
   });
 
   return schema.validate(data, { abortEarly: false });
+};
+
+/**
+ * Valide un email
+ * @param {string} email - L'email à valider
+ * @returns {Object} - { isValid: boolean, message: string }
+ */
+export const validateEmail = (email) => {
+  if (!email) {
+    return { isValid: false, message: "L'email est requis" };
+  }
+
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+  
+  if (!emailRegex.test(email)) {
+    return { isValid: false, message: "Format d'email invalide" };
+  }
+
+  return { isValid: true, message: "" };
+};
+
+/**
+ * Valide un mot de passe
+ * @param {string} password - Le mot de passe à valider
+ * @returns {Object} - { isValid: boolean, message: string }
+ */
+export const validatePassword = (password) => {
+  if (!password) {
+    return { isValid: false, message: "Le mot de passe est requis" };
+  }
+
+  if (password.length < 8) {
+    return { isValid: false, message: "Le mot de passe doit contenir au moins 8 caractères" };
+  }
+
+  // Au moins une majuscule
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, message: "Le mot de passe doit contenir au moins une majuscule" };
+  }
+
+  // Au moins une minuscule
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, message: "Le mot de passe doit contenir au moins une minuscule" };
+  }
+
+  // Au moins un chiffre
+  if (!/[0-9]/.test(password)) {
+    return { isValid: false, message: "Le mot de passe doit contenir au moins un chiffre" };
+  }
+
+  // Au moins un caractère spécial
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return { isValid: false, message: "Le mot de passe doit contenir au moins un caractère spécial" };
+  }
+
+  return { isValid: true, message: "" };
+};
+
+/**
+ * Valide la confirmation du mot de passe
+ * @param {string} password - Le mot de passe
+ * @param {string} confirmPassword - La confirmation du mot de passe
+ * @returns {Object} - { isValid: boolean, message: string }
+ */
+export const validatePasswordConfirmation = (password, confirmPassword) => {
+  if (password !== confirmPassword) {
+    return { isValid: false, message: "Les mots de passe ne correspondent pas" };
+  }
+
+  return { isValid: true, message: "" };
 }; 

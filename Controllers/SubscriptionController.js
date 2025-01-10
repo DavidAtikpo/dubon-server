@@ -2,12 +2,89 @@ import { models, sequelize } from '../models/index.js';
 import { createFedaPayTransaction, verifyTransaction } from '../utils/fedaPayUtils.js';
 import { sendEmail } from '../utils/emailUtils.js';
 
+// Vérifier le statut de l'abonnement
+export const checkSubscriptionStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Vérifier si l'utilisateur a déjà un abonnement actif
+    const activeSubscription = await models.Subscription.findOne({
+      where: {
+        userId,
+        status: 'active',
+        expiresAt: {
+          [sequelize.Op.gt]: new Date()
+        }
+      }
+    });
+
+    // Vérifier si l'utilisateur a un abonnement en attente
+    const pendingSubscription = await models.Subscription.findOne({
+      where: {
+        userId,
+        status: 'pending'
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Vérifier si l'utilisateur est déjà vendeur
+    const sellerProfile = await models.SellerProfile.findOne({
+      where: { userId }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        hasActiveSubscription: !!activeSubscription,
+        hasPendingSubscription: !!pendingSubscription,
+        isAlreadySeller: !!sellerProfile,
+        subscription: activeSubscription || pendingSubscription,
+        sellerProfile
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur vérification statut abonnement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la vérification du statut de l\'abonnement'
+    });
+  }
+};
+
 export const initiateSubscription = async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
     const { planId, billingCycle, amount } = req.body;
     const userId = req.user.id;
+
+    // Vérifier si l'utilisateur a déjà un abonnement actif
+    const activeSubscription = await models.Subscription.findOne({
+      where: {
+        userId,
+        status: 'active',
+        expiresAt: {
+          [sequelize.Op.gt]: new Date()
+        }
+      }
+    });
+
+    if (activeSubscription) {
+      throw new Error('Vous avez déjà un abonnement actif');
+    }
+
+    // Vérifier si l'utilisateur a déjà un abonnement en attente
+    const pendingSubscription = await models.Subscription.findOne({
+      where: {
+        userId,
+        status: 'pending'
+      }
+    });
+
+    if (pendingSubscription) {
+      throw new Error('Vous avez déjà une demande d\'abonnement en cours');
+    }
 
     // Récupérer les informations de l'utilisateur
     const user = await models.User.findByPk(userId);
@@ -26,7 +103,7 @@ export const initiateSubscription = async (req, res) => {
     }, { transaction });
 
     // Créer la transaction FedaPay avec les informations complètes du client
-    const callbackUrl = `${process.env.BASE_URL}/api/seller/subscription/callback/${subscription.id}`;
+    const callbackUrl = `${process.env.BASE_URL}/api/subscription/callback/${subscription.id}`;
     const fedaPayTransaction = await createFedaPayTransaction({
       amount: parseInt(amount),
       description: `Abonnement ${planId} - ${billingCycle}`,
@@ -84,9 +161,27 @@ export const handlePaymentCallback = async (req, res) => {
         activatedAt: new Date()
       }, { transaction });
 
-      // Mettre à jour le statut du vendeur
+      // Créer ou mettre à jour le profil vendeur
+      const [sellerProfile] = await models.SellerProfile.findOrCreate({
+        where: { userId: subscription.userId },
+        defaults: {
+          status: 'active',
+          verificationStatus: 'pending',
+          settings: {
+            notifications: true,
+            autoAcceptOrders: false,
+            displayEmail: true,
+            displayPhone: true,
+            language: 'fr',
+            currency: 'XOF'
+          }
+        },
+        transaction
+      });
+
+      // Mettre à jour le rôle de l'utilisateur
       await models.User.update({
-        sellerStatus: 'active'
+        role: 'seller'
       }, { 
         where: { id: subscription.userId },
         transaction 

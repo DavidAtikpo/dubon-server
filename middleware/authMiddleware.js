@@ -1,52 +1,73 @@
 import jwt from 'jsonwebtoken';
 import { models } from '../models/index.js';
-const { User } = models;
 
 export const protect = async (req, res, next) => {
-  console.log('🔒 Middleware d\'authentification activé');
-  console.log('Headers:', req.headers);
-  
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      // Get token from header
+  try {
+    console.log('🔒 Début de la vérification d\'authentification');
+    
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-      console.log('Token trouvé:', token ? 'Oui' : 'Non');
+      console.log('Token extrait:', token.substring(0, 20) + '...');
+    }
 
-      // Verify token
+    if (!token) {
+      console.log('❌ Pas de token trouvé');
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
+    try {
+      console.log('Vérification du token...');
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log('Token décodé:', decoded);
-
-      // Get user from the token
-      req.user = await User.findByPk(decoded.id, {
-        attributes: { exclude: ['password'] }
+      
+      console.log('Recherche de l\'utilisateur...');
+      const user = await models.User.findOne({
+        where: { 
+          id: decoded.id,
+          status: 'active'
+        },
+        attributes: ['id', 'name', 'email', 'role', 'status', 'avatar', 'lastLogin']
       });
-      console.log('Utilisateur trouvé:', req.user ? 'Oui' : 'Non');
 
-      if (!req.user) {
+      console.log('Utilisateur trouvé:', user ? 'Oui' : 'Non');
+
+      if (!user) {
         console.log('❌ Utilisateur non trouvé dans la base de données');
         return res.status(401).json({
           success: false,
-          message: "Non autorisé, utilisateur non trouvé"
+          message: 'Utilisateur non trouvé'
         });
       }
 
-      next();
-    } catch (error) {
-      console.error('❌ Erreur d\'authentification:', error);
-      res.status(401).json({
+      // Convertir l'instance Sequelize en objet simple et ajouter au req
+      const userData = user.get({ plain: true });
+      req.user = userData;
+      console.log('✅ Authentification réussie pour:', userData.email);
+      console.log('Données utilisateur attachées:', userData);
+      
+      return next();
+    } catch (jwtError) {
+      console.error('❌ Erreur JWT:', jwtError.message);
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          success: false,
+          message: 'Token expiré'
+        });
+      }
+      return res.status(401).json({
         success: false,
-        message: "Non autorisé, token invalide"
+        message: 'Token invalide'
       });
     }
-  }
-
-  if (!token) {
-    console.log('❌ Pas de token trouvé dans les headers');
-    res.status(401).json({
+  } catch (error) {
+    console.error('❌ Erreur d\'authentification:', error);
+    return res.status(500).json({
       success: false,
-      message: "Non autorisé, pas de token"
+      message: 'Erreur serveur'
     });
   }
 };
@@ -102,18 +123,31 @@ export const admin = async (req, res, next) => {
 
 export const seller = async (req, res, next) => {
   try {
-    if (!req.user || !['seller', 'admin'].includes(req.user.role)) {
-      return res.status(403).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: 'Accès réservé aux vendeurs'
+        message: "Non authentifié"
       });
     }
+
+    const sellerProfile = await models.SellerProfile.findOne({
+      where: { userId: req.user.id }
+    });
+
+    if (!sellerProfile) {
+      return res.status(403).json({
+        success: false,
+        message: "Accès refusé - Profil vendeur requis"
+      });
+    }
+
+    req.seller = sellerProfile;
     next();
   } catch (error) {
-    console.error('Erreur middleware vendeur:', error);
+    console.error('Erreur middleware seller:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: "Erreur lors de la vérification du profil vendeur"
     });
   }
 };

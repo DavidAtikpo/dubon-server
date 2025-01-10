@@ -1,138 +1,166 @@
-import Order from "../models/Order.js"; 
+import { models } from '../models/index.js';
+import { createFedaPayTransaction } from '../utils/fedaPayUtils.js';
+import { sendOrderConfirmationEmail } from '../utils/emailUtils.js';
 
-
-//  const createOrder = async (req, res) => {
-//   try {
-//     const { 
-//       buyer_id, 
-//       product_id, 
-//       quantity, 
-//       order_price, 
-//       payment_method, 
-//       order_category, 
-//       delivery_address 
-//     } = req.body;
-
-//     // Calcul du prix total (quantité * prix unitaire)
-//     const total_price = quantity * order_price;
-
-//     // Création de la commande
-//     const newOrder = new Orders({
-//       buyer_id,
-//       product_id,
-//       quantity,
-//       order_price,
-//       total_price,
-//       payment_method,
-//       order_category,
-//       delivery_address,
-//       order_date: new Date(),  // Date automatique à la création
-//       status: "pending",  // Statut initial de la commande
-//     });
-
-//     // Enregistrer la commande dans la base de données
-//     const savedOrder = await newOrder.save();
-//     res.status(201).json(savedOrder);  // Renvoie la commande créée avec un statut 201
-//   } catch (error) {
-//     console.error("Erreur lors de la création de la commande :", error);
-//     res.status(500).json({ message: "Erreur du serveur lors de la création de la commande." });
-//   }
-// };
-
-
-// Créer une commande et générer un lien de paiement
 const createOrder = async (req, res) => {
-  const { fullName, email, phone, address, items, total } = req.body;
-
-  if (!fullName || !email || !phone || !address || !items || !total) {
-    return res.status(400).json({ message: "Tous les champs sont requis." });
-  }
-console.log("req.body",req.body);
-
   try {
-    const order = await Order.create({ fullName, email, phone, address, items, total });
-console.log("order",order);
+    const { items, total, shippingAddress } = req.body;
+    const userId = req.user.id; // from auth middleware
 
-const response = await fedapayAPI.post("/transactions", {
-  description: `Commande #${order._id}`,
-  amount: total * 100, // Montant en centimes
-  currency: "XOF",
-  customer: {
-    firstname: fullName,
-    email,
-    phone_number: phone,
-  },
-  callback_url: `${process.env.BASE_URL}/api/payment-success/${order._id}`,
-  return_url: `${process.env.BASE_URL}/payment-success`,
-});
-console.log("response",response);
+    if (!items || !total || !shippingAddress) {
+      return res.status(400).json({
+        success: false,
+        message: "Tous les champs sont requis"
+      });
+    }
 
-    
+    // Récupérer l'utilisateur
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
 
-    const paymentUrl = response.data.data.authorization_url;
-    res.status(201).json({ order, paymentUrl });
+    // Créer la commande
+    const order = await models.Order.create({
+      userId,
+      total,
+      items,
+      shippingAddress,
+      status: 'pending',
+      paymentStatus: 'pending'
+    });
+
+    // Initialiser la transaction FedaPay
+    const fedaPayTransaction = await createFedaPayTransaction({
+      amount: total,
+      description: `Commande #${order.id}`,
+      customerId: userId,
+      callbackUrl: `${process.env.BASE_URL}/api/payment/callback/${order.id}`,
+      customerEmail: shippingAddress.email,
+      customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`
+    });
+
+    // Mettre à jour la commande avec l'ID de transaction
+    await order.update({
+      transactionId: fedaPayTransaction.id,
+      paymentMethod: 'fedapay'
+    });
+
+    // Envoyer l'email de confirmation
+    try {
+      await sendOrderConfirmationEmail(order, user);
+    } catch (emailError) {
+      console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+      // On continue même si l'envoi de l'email échoue
+    }
+
+    res.status(201).json({
+      success: true,
+      orderId: order.id,
+      paymentUrl: fedaPayTransaction.paymentUrl
+    });
   } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ message: "Erreur lors de la création de la commande." });
+    console.error('Erreur création commande:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création de la commande"
+    });
   }
 };
 
-
-
-// Récupérer les commandes par identifiant de l'acheteur
+// Récupérer les commandes d'un utilisateur
 const getOrdersByUserId = async (req, res) => {
-    try {
-      const orders = await Orders.find({ user_id_id: req.params.user_id });
-      if (orders.length === 0) {
-        return res.status(404).json({ message: "Aucune commande trouvée pour cet acheteur." });
-      }
-      res.status(200).json(orders);
-    } catch (error) {
-      console.error("Erreur lors de la récupération des commandes :", error);
-      res.status(500).json({ message: "Erreur du serveur." });
+  try {
+    const orders = await models.Order.findAll({
+      where: { userId: req.user.id },
+      include: [{
+        model: models.OrderItem,
+        as: 'orderItems'
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: orders
+    });
+  } catch (error) {
+    console.error('Erreur récupération commandes:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des commandes"
+    });
+  }
+};
+
+// Récupérer une commande par son ID
+const getOrderById = async (req, res) => {
+  try {
+    const order = await models.Order.findOne({
+      where: { 
+        id: req.params.id,
+        userId: req.user.id 
+      },
+      include: [{
+        model: models.OrderItem,
+        as: 'orderItems'
+      }]
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande non trouvée"
+      });
     }
-  };
-  
-  // Récupérer les commandes par catégorie
-   const getOrderByCategory = async (req, res) => {
-    try {
-      const orders = await Orders.aggregate([
-        {
-          $match: {
-            user_id: req.params.user_id,
-            order_category: req.params.order_category.toUpperCase(),
-          },
-        },
-      ]);
-      if (orders.length === 0) {
-        return res.status(404).json({ message: "Aucune commande trouvée pour cette catégorie." });
-      }
-      res.status(200).json(orders);
-    } catch (error) {
-      console.error("Erreur lors de la récupération par catégorie :", error);
-      res.status(500).json({ message: "Erreur du serveur." });
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    console.error('Erreur récupération commande:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération de la commande"
+    });
+  }
+};
+
+// Mettre à jour le statut d'une commande
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const order = await models.Order.findByPk(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande non trouvée"
+      });
     }
-  };
-  
-  // Récupérer les commandes par date d'achat
-   const getOrdersByPurchaseDate = async (req, res) => {
-    try {
-      const orders = await Orders.aggregate([
-        {
-          $match: {
-            user_id: req.params.user_id,
-            order_date: new Date(req.params.order_date),
-          },
-        },
-      ]);
-      if (orders.length === 0) {
-        return res.status(404).json({ message: "Aucune commande trouvée pour cette date." });
-      }
-      res.status(200).json(orders);
-    } catch (error) {
-      console.error("Erreur lors de la récupération par date :", error);
-      res.status(500).json({ message: "Erreur du serveur." });
-    }
-  };
-  
-  export default {createOrder,getOrdersByUserId,getOrderByCategory,getOrdersByPurchaseDate}
+
+    await order.update({ status });
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    console.error('Erreur mise à jour commande:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour de la commande"
+    });
+  }
+};
+
+export default {
+  createOrder,
+  getOrdersByUserId,
+  getOrderById,
+  updateOrderStatus
+};

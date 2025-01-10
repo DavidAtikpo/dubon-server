@@ -100,4 +100,4 @@ router.put('/profile',
 router.get('/status', protect, sellerRequestController.checkRequestStatus);
 router.post('/activate-subscription', protect, sellerRequestController.activateSubscription);
 
-export default router; 
+export default router;

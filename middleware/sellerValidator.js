@@ -1,5 +1,94 @@
 import Joi from 'joi';
 
+const personalInfoSchema = {
+  individual: Joi.object({
+    fullName: Joi.string().required().messages({
+      'string.empty': 'Le nom complet est requis'
+    }),
+    address: Joi.string().required().messages({
+      'string.empty': 'L\'adresse est requise'
+    }),
+    phone: Joi.string().required().pattern(/^\+?[0-9]{8,}$/).messages({
+      'string.empty': 'Le numéro de téléphone est requis',
+      'string.pattern.base': 'Format de numéro de téléphone invalide'
+    }),
+    email: Joi.string().email().required().messages({
+      'string.email': 'Format d\'email invalide',
+      'string.empty': 'L\'email est requis'
+    }),
+    taxNumber: Joi.string().required().length(13).pattern(/^\d+$/).messages({
+      'string.empty': 'Le numéro IFU est requis',
+      'string.length': 'Le numéro IFU doit contenir exactement 13 chiffres',
+      'string.pattern.base': 'Le numéro IFU doit contenir uniquement des chiffres'
+    }),
+    idType: Joi.string().required().valid('CIP', 'PASSPORT', 'CEDEAO', 'RAVIP').messages({
+      'any.only': 'Type de document d\'identité invalide'
+    }),
+    idNumber: Joi.string().required().messages({
+      'string.empty': 'Le numéro d\'identification est requis'
+    })
+  }),
+  company: Joi.object({
+    companyName: Joi.string().required().messages({
+      'string.empty': 'La raison sociale est requise'
+    }),
+    rccmNumber: Joi.string().required().messages({
+      'string.empty': 'Le numéro RCCM est requis'
+    }),
+    legalRepName: Joi.string().required().messages({
+      'string.empty': 'Le nom du représentant légal est requis'
+    }),
+    address: Joi.string().required().messages({
+      'string.empty': 'L\'adresse est requise'
+    }),
+    phone: Joi.string().required().pattern(/^\+?[0-9]{8,}$/).messages({
+      'string.empty': 'Le numéro de téléphone est requis',
+      'string.pattern.base': 'Format de numéro de téléphone invalide'
+    }),
+    email: Joi.string().email().required().messages({
+      'string.email': 'Format d\'email invalide',
+      'string.empty': 'L\'email est requis'
+    }),
+    taxNumber: Joi.string().required().length(13).pattern(/^\d+$/).messages({
+      'string.empty': 'Le numéro IFU est requis',
+      'string.length': 'Le numéro IFU doit contenir exactement 13 chiffres',
+      'string.pattern.base': 'Le numéro IFU doit contenir uniquement des chiffres'
+    })
+  })
+};
+
+const businessInfoSchema = Joi.object({
+  shopName: Joi.string().required().messages({
+    'string.empty': 'Le nom de la boutique est requis'
+  }),
+  category: Joi.string().required().valid('Électromenage', 'Mode', 'Beauté', 'Alimentation').messages({
+    'any.only': 'Catégorie invalide'
+  }),
+  description: Joi.string().required().min(50).max(1000).messages({
+    'string.empty': 'La description est requise',
+    'string.min': 'La description doit contenir au moins 50 caractères',
+    'string.max': 'La description ne doit pas dépasser 1000 caractères'
+  }),
+  paymentType: Joi.string().required().valid('Compte bancaire', 'Mobile Money').messages({
+    'any.only': 'Type de paiement invalide'
+  }),
+  paymentDetails: Joi.string().required().messages({
+    'string.empty': 'Les détails de paiement sont requis'
+  })
+});
+
+const complianceSchema = Joi.object({
+  termsAccepted: Joi.boolean().valid(true).required().messages({
+    'any.only': 'Vous devez accepter les conditions d\'utilisation'
+  }),
+  qualityStandardsAccepted: Joi.boolean().valid(true).required().messages({
+    'any.only': 'Vous devez accepter les normes de qualité'
+  }),
+  antiCounterfeitingAccepted: Joi.boolean().valid(true).required().messages({
+    'any.only': 'Vous devez accepter la politique anti-contrefaçon'
+  })
+});
+
 const sellerRegistrationSchema = Joi.object({
   data: Joi.object({
     type: Joi.string()
@@ -8,38 +97,13 @@ const sellerRegistrationSchema = Joi.object({
       .messages({
         'any.only': 'Le type doit être "individual" ou "company"'
       }),
-
-    personalInfo: Joi.object({
-      fullName: Joi.string().required(),
-      address: Joi.string().required(),
-      phone: Joi.string().required(),
-      idNumber: Joi.string().required(),
-      email: Joi.string().email().required(),
-      taxNumber: Joi.string().required()
-    }).required(),
-
-    businessInfo: Joi.object({
-      products: Joi.array().items(
-        Joi.object({
-          name: Joi.string().required(),
-          description: Joi.string().required(),
-          price: Joi.number().required(),
-          images: Joi.array()
-        })
-      ),
-      bankDetails: Joi.object({
-        accountNumber: Joi.string().required()
-      }).required(),
-      category: Joi.string().required(),
-      description: Joi.string().required(),
-      returnPolicy: Joi.string().required()
-    }).required(),
-
-    compliance: Joi.object({
-      termsAccepted: Joi.boolean().valid(true).required(),
-      qualityStandardsAccepted: Joi.boolean().valid(true).required(),
-      antiCounterfeitingAccepted: Joi.boolean().valid(true).required()
-    }).required()
+    personalInfo: Joi.alternatives().conditional('type', {
+      is: 'individual',
+      then: personalInfoSchema.individual,
+      otherwise: personalInfoSchema.company
+    }),
+    businessInfo: businessInfoSchema,
+    compliance: complianceSchema
   }).required()
 });
 
@@ -65,13 +129,38 @@ export const validateSellerRegistration = (req, res, next) => {
       });
     }
 
-    // Vérifier les fichiers requis
-    if (!req.files.idCard || !req.files.proofOfAddress || 
-        !req.files.taxCertificate || !req.files.photos) {
+    // Valider les données avec le schéma
+    const { error } = sellerRegistrationSchema.validate(
+      { data },
+      { abortEarly: false }
+    );
+
+    if (error) {
       return res.status(400).json({
         success: false,
         message: 'Erreur de validation',
-        errors: [{ field: 'files', message: 'Tous les documents sont requis' }]
+        errors: error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message
+        }))
+      });
+    }
+
+    // Vérifier les fichiers requis
+    const requiredFiles = data.type === 'individual'
+      ? ['idCard', 'proofOfAddress', 'taxCertificate', 'photos']
+      : ['idCard', 'rccm', 'companyStatutes', 'taxCertificate', 'proofOfAddress'];
+
+    const missingFiles = requiredFiles.filter(field => !req.files[field]);
+
+    if (missingFiles.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Documents manquants',
+        errors: missingFiles.map(field => ({
+          field,
+          message: `Le document ${field} est requis`
+        }))
       });
     }
 

@@ -6,7 +6,6 @@ import CategoryModel from './Category.js';
 import OrderModel from './Order.js';
 import CartModel from './Cart.js';
 import AddressModel from './Address.js';
-import SellerProfileModel from './SellerProfile.js';
 import PromotionModel from './Promotion.js';
 import CustomerFilterModel from './CustomerFilter.js';
 import PaymentModel from './Payment.js';
@@ -42,8 +41,9 @@ import EventBookingModel from './EventBooking.js';
 import ReservationModel from './Reservation.js';
 import RestaurantModel from './Restaurant.js';
 import TableModel from './Table.js';
-import subscriptionModel from './subscription.js';
-import subscriptionPlanModel from './subscriptionPlan.js';
+import SubscriptionModel from './Subscription.js';
+import PlanModel from './Plan.js';
+import SellerProfile from './SellerProfile.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -55,19 +55,23 @@ const defineModels = () => {
   db.Theme = ThemeModel(sequelize);
   db.SystemSetting = SystemSettingModel(sequelize);
   db.SystemLog = SystemLogModel(sequelize);
+  db.Plan = PlanModel(sequelize, Sequelize.DataTypes);
 
   // 2. Profil vendeur (dépendance critique)
-  db.SellerProfile = SellerProfileModel(sequelize);
+  db.SellerProfile = SellerProfile(sequelize);
 
   // 3. Modèles dépendant du profil vendeur
   db.SellerSetting = SellerSettingModel(sequelize);
   db.SellerStats = SellerStatsModel(sequelize);
   db.SellerRequest = SellerRequestModel(sequelize);
+  db.Subscription = SubscriptionModel(sequelize, Sequelize.DataTypes);
 
-  // 4. Autres modèles
+  // 4. Produits
+  db.Product = ProductModel(sequelize);
+
+  // 5. Autres modèles
   db.UserProfile = UserProfileModel(sequelize);
   db.UserActivity = UserActivityModel(sequelize);
-  db.Product = ProductModel(sequelize);
   db.Service = ServiceModel(sequelize);
   db.Event = EventModel(sequelize);
   db.EventBooking = EventBookingModel(sequelize);
@@ -98,8 +102,6 @@ const defineModels = () => {
   db.Restaurant = RestaurantModel(sequelize);
   db.Table = TableModel(sequelize);
   db.Reservation = ReservationModel(sequelize);
-  db.Subscription = subscriptionModel(sequelize, Sequelize.DataTypes);
-  db.SubscriptionPlan = subscriptionPlanModel(sequelize, Sequelize.DataTypes);
 
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {

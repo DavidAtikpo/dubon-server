@@ -45,11 +45,13 @@ import {
   updateUserStatus,
   getUserDetails
 } from '../Controllers/Admin.js';
-import { verifyToken, isAdmin } from '../middleware/auth.js';
+import { admin, protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
+// Protéger toutes les routes admin avec authentification et vérification admin
+router.use(protect, admin);
 
 // Routes du tableau de bord
 router.get('/dashboard', getDashboard);

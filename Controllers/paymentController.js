@@ -1,250 +1,156 @@
 import { models } from '../models/index.js';
-import Stripe from 'stripe';
-import { FedaPay, Transaction } from 'fedapay';
-import paypal from '@paypal/checkout-server-sdk';
+import { createFedaPayTransaction, verifyTransaction } from '../utils/fedaPayUtils.js';
+import { sendOrderConfirmationEmail } from '../utils/emailUtils.js';
 
-// Vérifier que la clé API Stripe existe
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.warn('⚠️ STRIPE_SECRET_KEY n\'est pas définie - Les paiements Stripe seront désactivés');
-}
-
-// Initialiser Stripe seulement si la clé est disponible
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
-
-// Configuration FedaPay
-let fedapay = null;
-if (!process.env.FEDAPAY_SECRET_KEY) {
-  console.warn('⚠️ FEDAPAY_SECRET_KEY n\'est pas définie - Les paiements FedaPay seront désactivés');
-} else {
+const createPayment = async (req, res) => {
   try {
-    FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY);
-    FedaPay.setEnvironment(process.env.NODE_ENV === 'production' ? 'live' : 'sandbox');
-    fedapay = Transaction;
-    console.log('✅ FedaPay initialisé avec succès');
-  } catch (error) {
-    console.warn('⚠️ Erreur d\'initialisation FedaPay:', error.message);
-  }
-}
+    const { orderId, amount } = req.body;
 
-// Configuration PayPal
-const paypalClient = new paypal.core.PayPalHttpClient(
-  process.env.NODE_ENV === 'production'
-    ? new paypal.core.LiveEnvironment(
-        process.env.PAYPAL_CLIENT_ID,
-        process.env.PAYPAL_CLIENT_SECRET
-      )
-    : new paypal.core.SandboxEnvironment(
-        process.env.PAYPAL_CLIENT_ID,
-        process.env.PAYPAL_CLIENT_SECRET
-      )
-);
-
-class PaymentController {
-  // Initialiser un paiement
-  async initializePayment(req, res) {
-    try {
-      const { amount, currency, paymentMethod, orderId } = req.body;
-
-      switch (paymentMethod) {
-        case 'stripe':
-          return await this.initStripePayment(amount, currency, orderId, res);
-        case 'fedapay':
-          return await this.initFedaPayPayment(amount, currency, orderId, res);
-        case 'paypal':
-          return await this.initPayPalPayment(amount, currency, orderId, res);
-        default:
-          return res.status(400).json({
-            success: false,
-            message: 'Méthode de paiement non supportée'
-          });
-      }
-    } catch (error) {
-      console.error('Erreur initialisation paiement:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erreur lors de l\'initialisation du paiement'
-      });
-    }
-  }
-
-  // Confirmer un paiement
-  async confirmPayment(req, res) {
-    try {
-      const { paymentId, paymentMethod } = req.body;
-
-      switch (paymentMethod) {
-        case 'stripe':
-          return await this.confirmStripePayment(paymentId, res);
-        case 'fedapay':
-          return await this.confirmFedaPayPayment(paymentId, res);
-        case 'paypal':
-          return await this.confirmPayPalPayment(paymentId, res);
-        default:
-          return res.status(400).json({
-            success: false,
-            message: 'Méthode de paiement non supportée'
-          });
-      }
-    } catch (error) {
-      console.error('Erreur confirmation paiement:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erreur lors de la confirmation du paiement'
-      });
-    }
-  }
-
-  // Méthodes privées pour Stripe
-  async initStripePayment(amount, currency, orderId, res) {
-    if (!stripe) {
-      return res.status(503).json({
-        success: false,
-        message: 'Le paiement par Stripe est temporairement indisponible'
-      });
-    }
-
-    try {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount,
-        currency,
-        metadata: { orderId }
-      });
-
-      res.json({
-        success: true,
-        clientSecret: paymentIntent.client_secret
-      });
-    } catch (error) {
-      console.error('Erreur Stripe:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erreur lors de l\'initialisation du paiement Stripe'
-      });
-    }
-  }
-
-  async confirmStripePayment(paymentId, res) {
-    const payment = await stripe.paymentIntents.retrieve(paymentId);
-    
-    if (payment.status === 'succeeded') {
-      await this.updateOrderPaymentStatus(payment.metadata.orderId, 'completed');
-      res.json({ success: true });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: 'Paiement non complété'
-      });
-    }
-  }
-
-  // Méthodes privées pour FedaPay
-  async initFedaPayPayment(amount, currency, orderId, res) {
-    if (!fedapay) {
-      return res.status(503).json({
-        success: false,
-        message: 'Le paiement par FedaPay est temporairement indisponible'
-      });
-    }
-
-    try {
-      const transaction = await fedapay.create({
-        amount,
-        currency,
-        description: `Commande #${orderId}`,
-        callback_url: `${process.env.FRONTEND_URL}/payment/callback`,
-        metadata: { orderId }
-      });
-
-      res.json({
-        success: true,
-        transactionId: transaction.id,
-        paymentUrl: transaction.payment_url
-      });
-    } catch (error) {
-      console.error('Erreur FedaPay:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erreur lors de l\'initialisation du paiement FedaPay'
-      });
-    }
-  }
-
-  async confirmFedaPayPayment(paymentId, res) {
-    if (!fedapay) {
-      return res.status(503).json({
-        success: false,
-        message: 'Le paiement par FedaPay est temporairement indisponible'
-      });
-    }
-
-    try {
-      const transaction = await fedapay.retrieve(paymentId);
-      
-      if (transaction.status === 'approved') {
-        await this.updateOrderPaymentStatus(transaction.metadata.orderId, 'completed');
-        res.json({ success: true });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: 'Paiement non complété'
-        });
-      }
-    } catch (error) {
-      console.error('Erreur confirmation FedaPay:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erreur lors de la confirmation du paiement'
-      });
-    }
-  }
-
-  // Méthodes privées pour PayPal
-  async initPayPalPayment(amount, currency, orderId, res) {
-    const request = new paypal.orders.OrdersCreateRequest();
-    request.prefer("return=representation");
-    request.requestBody({
-      intent: 'CAPTURE',
-      purchase_units: [{
-        amount: {
-          currency_code: currency,
-          value: amount
-        },
-        reference_id: orderId
+    // Vérifier que la commande existe
+    const order = await models.Order.findOne({
+      where: { 
+        id: orderId,
+        userId: req.user.id 
+      },
+      include: [{
+        model: models.User,
+        as: 'user',
+        attributes: ['email', 'name']
       }]
     });
 
-    const order = await paypalClient.execute(request);
-    res.json({
-      success: true,
-      orderId: order.result.id
-    });
-  }
-
-  async confirmPayPalPayment(paymentId, res) {
-    const request = new paypal.orders.OrdersCaptureRequest(paymentId);
-    const capture = await paypalClient.execute(request);
-    
-    if (capture.result.status === 'COMPLETED') {
-      await this.updateOrderPaymentStatus(
-        capture.result.purchase_units[0].reference_id,
-        'completed'
-      );
-      res.json({ success: true });
-    } else {
-      res.status(400).json({
+    if (!order) {
+      return res.status(404).json({
         success: false,
-        message: 'Paiement non complété'
+        message: "Commande non trouvée"
       });
     }
-  }
 
-  // Mettre à jour le statut de paiement d'une commande
-  async updateOrderPaymentStatus(orderId, status) {
-    await models.Order.update(
-      { paymentStatus: status },
-      { where: { id: orderId } }
-    );
-  }
-}
+    // Créer la transaction FedaPay
+    const fedaPayTransaction = await createFedaPayTransaction({
+      amount: amount,
+      description: `Commande #${orderId}`,
+      customerId: req.user.id,
+      callbackUrl: `${process.env.FRONTEND_URL}/checkout/success?orderId=${orderId}`,
+      customerEmail: order.user.email,
+      customerName: order.user.name
+    });
 
-export default new PaymentController();
+    // Mettre à jour la commande avec l'ID de transaction
+    await order.update({
+      transactionId: fedaPayTransaction.id,
+      paymentMethod: 'fedapay',
+      paymentStatus: 'processing'
+    });
+
+    res.status(200).json({
+      success: true,
+      paymentUrl: fedaPayTransaction.paymentUrl
+    });
+  } catch (error) {
+    console.error('Erreur création paiement:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'initialisation du paiement"
+    });
+  }
+};
+
+const handlePaymentCallback = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { transaction_id, status } = req.body;
+
+    const order = await models.Order.findOne({
+      where: { id: orderId },
+      include: [{
+        model: models.User,
+        as: 'user'
+      }]
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Commande non trouvée"
+      });
+    }
+
+    // Vérifier le statut de la transaction avec FedaPay
+    const transactionStatus = await verifyTransaction(transaction_id);
+
+    if (transactionStatus.status === 'approved') {
+      // Mettre à jour le statut de la commande
+      await order.update({
+        paymentStatus: 'completed',
+        status: 'preparing'
+      });
+
+      // Envoyer l'email de confirmation
+      try {
+        await sendOrderConfirmationEmail(order, order.user);
+      } catch (emailError) {
+        console.error('Erreur envoi email confirmation:', emailError);
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Paiement confirmé"
+      });
+    } else {
+      await order.update({
+        paymentStatus: 'failed'
+      });
+
+      res.status(400).json({
+        success: false,
+        message: "Paiement échoué"
+      });
+    }
+  } catch (error) {
+    console.error('Erreur callback paiement:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors du traitement du paiement"
+    });
+  }
+};
+
+const checkPaymentStatus = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+
+    const order = await models.Order.findOne({
+      where: { 
+        transactionId,
+        userId: req.user.id
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction non trouvée"
+      });
+    }
+
+    const transactionStatus = await verifyTransaction(transactionId);
+
+    res.status(200).json({
+      success: true,
+      status: transactionStatus.status
+    });
+  } catch (error) {
+    console.error('Erreur vérification statut:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la vérification du statut"
+    });
+  }
+};
+
+export default {
+  createPayment,
+  handlePaymentCallback,
+  checkPaymentStatus
+};

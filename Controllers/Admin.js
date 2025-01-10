@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import generateToken from '../utils/generateToken.js';
-import sendEmail from '../utils/emailSender.js';
+import { sendEmail } from '../utils/emailUtils.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -646,33 +646,129 @@ export const getSellerRequestById = async (req, res) => {
 };
 
 export const approveSellerRequest = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
-    const request = await models.SellerRequest.findByPk(req.params.id);
-    if (!request) {
-      return res.status(404).json({ success: false, message: 'Demande non trouvée' });
-    }
-
-    await sequelize.transaction(async (t) => {
-      // Mettre à jour la demande
-      await request.update({
-        status: 'approved',
-        reviewedBy: req.user.id,
-        reviewedAt: new Date()
-      }, { transaction: t });
-
-      // Mettre à jour le rôle de l'utilisateur
-      await models.User.update({
-        role: 'seller',
-        status: 'active'
-      }, {
-        where: { id: request.userId },
-        transaction: t
-      });
+    const { requestId } = req.params;
+    
+    // 1. Récupérer la demande avec les informations de l'utilisateur
+    const request = await models.SellerRequest.findByPk(requestId, {
+      include: [{
+        model: models.User,
+        as: 'user',
+        attributes: ['id', 'email', 'name']
+      }],
+      transaction
     });
 
-    res.json({ success: true, message: 'Demande approuvée avec succès' });
+    if (!request) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Demande non trouvée"
+      });
+    }
+
+    // 2. Créer le profil vendeur
+    const sellerProfile = await models.SellerProfile.create({
+      userId: request.userId,
+      businessInfo: {
+        name: request.type === 'individual' 
+          ? request.personalInfo.fullName 
+          : request.businessInfo.shopName,
+        email: request.personalInfo.email,
+        phone: request.personalInfo.phone,
+        address: request.personalInfo.address,
+        description: request.businessInfo.description,
+        category: request.businessInfo.category,
+        taxNumber: request.personalInfo.taxNumber,
+        shopImage: request.documents.shopImageUrl,
+      },
+      documents: {
+        idCard: request.documents.idCardUrl,
+        proofOfAddress: request.documents.proofOfAddressUrl,
+        taxCertificate: request.documents.taxCertificateUrl,
+        photos: request.documents.photoUrls || [],
+        ...(request.type === 'company' && {
+          rccm: request.documents.rccmUrl,
+          companyStatutes: request.documents.companyStatutesUrl
+        })
+      },
+      status: 'active',
+      verificationStatus: 'verified',
+      verifiedAt: new Date(),
+      settings: {
+        notifications: true,
+        autoAcceptOrders: false,
+        displayEmail: true,
+        displayPhone: true,
+        language: 'fr',
+        currency: 'XOF'
+      }
+    }, { transaction });
+
+    // 3. Mettre à jour le statut de la demande
+    await request.update({
+      status: 'approved',
+      verifiedAt: new Date(),
+      reviewedBy: req.user.id
+    }, { transaction });
+
+    // 4. Mettre à jour le rôle de l'utilisateur
+    await models.User.update({
+      role: 'seller',
+      status: 'active'
+    }, {
+      where: { id: request.userId },
+      transaction
+    });
+
+    // 5. Créer une notification pour le vendeur
+    await models.Notification.create({
+      userId: request.userId,
+      type: 'seller_approval',
+      title: 'Félicitations !',
+      message: 'Votre demande de vendeur a été approuvée. Vous pouvez maintenant commencer à vendre.',
+      data: {
+        sellerId: sellerProfile.id
+      }
+    }, { transaction });
+
+    await transaction.commit();
+
+    // 6. Envoyer un email de confirmation
+    try {
+      await sendEmail({
+        to: request.user.email,
+        subject: 'Votre demande vendeur a été approuvée',
+        template: 'seller-approved',
+        context: {
+          name: request.user.name,
+          storeName: request.businessInfo.shopName
+        }
+      });
+    } catch (emailError) {
+      console.error('Erreur envoi email:', emailError);
+      // Ne pas bloquer l'opération si l'envoi d'email échoue
+    }
+
+    res.json({
+      success: true,
+      message: 'Demande approuvée et profil vendeur créé avec succès',
+      data: {
+        sellerProfile,
+        request
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    await transaction.rollback();
+    console.error('Erreur approveSellerRequest:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'approbation de la demande",
+      error: error.message
+    });
   }
 };
 
@@ -2043,14 +2139,19 @@ export const handleSellerRequest = async (req, res) => {
       );
 
       // Envoyer un email de confirmation
-      await sendEmail({
-        to: request.user.email,
-        subject: 'Votre demande vendeur a été approuvée',
-        template: 'seller-approved',
-        context: {
-          name: request.user.name
-        }
-      });
+      try {
+        await sendEmail({
+          to: request.user.email,
+          subject: 'Votre demande vendeur a été approuvée',
+          template: 'seller-approved',
+          context: {
+            name: request.user.name
+          }
+        });
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email de confirmation:', emailError);
+        // Ne pas bloquer l'opération si l'envoi d'email échoue
+      }
     } else if (status === 'rejected') {
       await request.update({ 
         status: 'rejected',
@@ -2058,15 +2159,20 @@ export const handleSellerRequest = async (req, res) => {
       }, { transaction });
 
       // Envoyer un email de rejet
-      await sendEmail({
-        to: request.user.email,
-        subject: 'Votre demande vendeur a été rejetée',
-        template: 'seller-rejected',
-        context: {
-          name: request.user.name,
-          reason: rejectionReason
-        }
-      });
+      try {
+        await sendEmail({
+          to: request.user.email,
+          subject: 'Votre demande vendeur a été rejetée',
+          template: 'seller-rejected',
+          context: {
+            name: request.user.name,
+            reason: rejectionReason
+          }
+        });
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email de rejet:', emailError);
+        // Ne pas bloquer l'opération si l'envoi d'email échoue
+      }
     }
 
     await transaction.commit();
@@ -2265,12 +2371,24 @@ export const getUserDetails = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await models.User.findByPk(id, {
-      include: [
-        {
-          model: models.SellerProfile,
-          include: ['subscription']
-        },
-        'products'
+      include: [{
+        model: models.SellerProfile,
+        as: 'sellerProfile',
+        include: [{
+          model: models.Subscription,
+          as: 'subscription'
+        }]
+      }],
+      attributes: [
+        'id',
+        'name',
+        'email',
+        'phone',
+        'role',
+        'status',
+        'avatar',
+        'createdAt',
+        'lastLogin'
       ]
     });
 
@@ -2290,6 +2408,48 @@ export const getUserDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des détails de l\'utilisateur'
+    });
+  }
+};
+
+// Nouvelle fonction pour récupérer le statut de validation d'un vendeur
+export const getSellerValidationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Vérifier si l'utilisateur a un profil vendeur
+    const sellerProfile = await models.SellerProfile.findOne({
+      where: { userId },
+      attributes: ['verificationStatus', 'status']
+    });
+
+    // Vérifier s'il y a une demande en cours
+    const sellerRequest = await models.SellerRequest.findOne({
+      where: { 
+        userId,
+        status: 'pending'
+      },
+      attributes: ['status', 'createdAt']
+    });
+
+    res.json({
+      success: true,
+      data: {
+        hasProfile: !!sellerProfile,
+        profileStatus: sellerProfile?.verificationStatus || null,
+        accountStatus: sellerProfile?.status || null,
+        hasPendingRequest: !!sellerRequest,
+        requestStatus: sellerRequest?.status || null,
+        requestDate: sellerRequest?.createdAt || null
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur getSellerValidationStatus:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération du statut de validation",
+      error: error.message
     });
   }
 };
@@ -2341,5 +2501,6 @@ export default {
   updateUserStatus,
   getUserStats,
   getUserStatusHistory,
-  getUserDetails
+  getUserDetails,
+  getSellerValidationStatus
 };

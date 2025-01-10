@@ -22,10 +22,10 @@ import searchRouter from './Routers/searchRouter.js'
 import category from './Routers/category.js'
 import Seller from "./Routers/Seller.js"
 import Event from './Routers/Event.js'
-import paymentRoutes from './Routers/payementRoute.js';
-import { sequelize, models } from './models/index.js';
+import paymentRoutes from './Routers/paymentRoute.js';
+import { sequelize, syncModels } from './models/index.js';
 import pg from 'pg';
-import { initializeDatabase } from './config/dbConfig.js';
+// import { initializeDatabase } from './config/dbConfig.js';
 import Admin from './Routers/Admin.js';
 import { logError } from './utils/systemLogger.js';
 import systemRoutes from './Routers/system.js';
@@ -39,7 +39,8 @@ import eventRoutes from './Routers/Event.js';
 import notificationsRouter from './Routers/NotificationsRouter.js';
 // import dishesRoutes from './routes/seller/dishes';
 import shopRoutes from './Routers/Shop.js';
-import subscriptionRoutes from './Routers/seller/subscription.routes.js';
+
+import subscriptionRoutes from './Routers/subscription.js';
 
 
 // Charger les variables d'environnement
@@ -113,8 +114,8 @@ const defaultSystemSettings = {
       siteName: 'Dubon',
       siteDescription: 'Plateforme de commerce en ligne',
       contactEmail: 'contact@dubon.com',
-      phoneNumber: '',
-      address: ''
+      phoneNumber: '+228 97 22 22 22',
+      address: 'Cotonou, Benin'
     },
     features: {
       enableRegistration: true,
@@ -126,8 +127,8 @@ const defaultSystemSettings = {
       smtpHost: process.env.SMTP_HOST || '',
       smtpPort: parseInt(process.env.SMTP_PORT || '587'),
       smtpUser: process.env.SMTP_USER || '',
-      smtpPassword: process.env.SMTP_PASSWORD || '',
-      senderEmail: process.env.SENDER_EMAIL || 'noreply@dubon.com',
+      smtpPassword: process.env.SMTP_PASSWORD || 'dnpj hiab ddjv lqmi',
+      senderEmail: process.env.SENDER_EMAIL || 'davidatikpo@gmail.com',
       senderName: 'Dubon'
     },
     social: {
@@ -159,41 +160,6 @@ const checkDatabaseConnection = async (retries = 5) => {
   return false;
 };
 
-// Liste de toutes les tables à créer (sauf celles qui existent déjà)
-const tablesToCreate = [
-  'Product',
-  'Service', 
-  'Event',
-  'RestaurantItem',
-  'Restaurant',
-  'EventBooking',
-  'Reservation',
-  'Table',
-  'Training',
-  'Order',
-  'OrderItem',
-  'Cart',
-  'CartItem',
-  'Payment',
-  'Return',
-  'Refund',
-  'Address',
-  'Contract',
-  'Review',
-  'Rating',
-  'Message',
-  'Notification',
-  'Withdrawal',
-  'Favorite',
-  'Dispute',
-  'DisputeEvidence',
-  'Coupon',
-  'Promotion',
-  'PromotionProduct',
-  'CustomerFilter',
-  'UserActivity'
-];
-
 // Routes
 app.get("/", (req, res) => {
     res.json("Hello")
@@ -211,10 +177,13 @@ app.use("/api", Event);
 app.use("/api/", cartRoute);
 app.use('/api/wishlist', wishlistRoute);
 app.use('/api', searchRouter);
-app.use('/api/payments', paymentRoutes);
+app.use('/api/payment', paymentRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/shops', shopRoutes);
+
+// Subscription Routes
+app.use('/api/subscription', subscriptionRoutes);
 
 // Admin Routes
 app.use('/api/admin', Admin);
@@ -224,10 +193,9 @@ app.use('/api/admin/analytics', analyticsRouter);
 
 // Seller Routes
 app.use('/api/seller', Seller);
-app.use('/api/seller/subscription', subscriptionRoutes);
+
 
 // Other Routes
-app.use('/api/notifications', notificationsRouter);
 app.use('/api/disputes', disputeRoutes);
 
 // Error handling middlewares
@@ -277,37 +245,48 @@ const startServer = async () => {
       throw new Error('Impossible de se connecter à la base de données');
     }
 
-    // En production, on ne force pas la synchronisation
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-    } else {
-      // En production, on vérifie juste la connexion
-      await sequelize.authenticate();
-    }
+    // console.log('🔄 Suppression et recréation de toutes les tables...');
+    
+    // // Désactiver les contraintes de clé étrangère temporairement
+    // await sequelize.query('SET CONSTRAINTS ALL DEFERRED');
+    
+    // // Forcer la suppression et recréation de toutes les tables
+    // await sequelize.sync({ force: true });
+    
+    // // Réactiver les contraintes
+    // await sequelize.query('SET CONSTRAINTS ALL IMMEDIATE');
+    
+    // console.log('✅ Tables recréées avec succès');
 
     // Configurer les dossiers d'upload
     setupUploadDirectories();
 
     // Démarrer le serveur
     const PORT = process.env.PORT || 5000;
-    try {
-      server.listen(PORT, '0.0.0.0', () => {
-        console.log('=================================');
-        console.log(`✅ Serveur démarré avec succès`);
-        console.log(`📡 Port: ${PORT}`);
-        console.log(`🌍 Environnement: ${process.env.NODE_ENV}`);
-        console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configuré' : 'Non configuré'}`);
-        console.log(`🗄️ Base de données: ${process.env.DATABASE_URL ? 'Configurée' : 'Non configurée'}`);
-        console.log('=================================');
-      });
-    } catch (error) {
-      console.error('❌ Erreur lors du démarrage du serveur:', error);
-      process.exit(1);
-    }
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log('=================================');
+      console.log(`✅ Serveur démarré avec succès`);
+      console.log(`📡 Port: ${PORT}`);
+      console.log(`🌍 Environnement: ${process.env.NODE_ENV}`);
+      console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configuré' : 'Non configuré'}`);
+      console.log('=================================');
+    });
 
   } catch (error) {
-    console.error('Erreur au démarrage du serveur:', error);
+    console.error('❌ Erreur au démarrage du serveur:', error);
     process.exit(1);
+  }
+};
+
+// Fonction pour initialiser les données par défaut
+const initializeDefaultData = async () => {
+  try {
+    console.log('📝 Initialisation des données par défaut...');
+    // Ajoutez ici l'initialisation des données par défaut si nécessaire
+    console.log('✅ Données initialisées avec succès');
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation des données:', error);
+    throw error;
   }
 };
 

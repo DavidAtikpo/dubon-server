@@ -7,10 +7,9 @@ export default (sequelize) => {
         foreignKey: 'userId',
         as: 'user'
       });
-
-      Subscription.belongsTo(models.SellerProfile, {
-        foreignKey: 'sellerProfileId',
-        as: 'sellerProfile'
+      Subscription.belongsTo(models.Plan, {
+        foreignKey: 'planId',
+        as: 'plan'
       });
     }
   }
@@ -18,45 +17,60 @@ export default (sequelize) => {
   Subscription.init({
     id: {
       type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+      primaryKey: true,
+      allowNull: false,
+      defaultValue: sequelize.literal('uuid_generate_v4()')
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false
-    },
-    sellerProfileId: {
-      type: DataTypes.UUID,
-      allowNull: true
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
     },
     planId: {
-      type: DataTypes.STRING,
-      allowNull: false
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      references: {
+        model: 'Plans',
+        key: 'id'
+      }
     },
     billingCycle: {
-      type: DataTypes.ENUM('monthly', 'annual'),
-      allowNull: false
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      validate: {
+        isIn: [['monthly', 'annual']]
+      }
     },
     amount: {
       type: DataTypes.INTEGER,
       allowNull: false
     },
     status: {
-      type: DataTypes.ENUM('pending', 'active', 'cancelled', 'expired'),
-      defaultValue: 'pending'
+      type: DataTypes.STRING(20),
+      defaultValue: 'pending',
+      validate: {
+        isIn: [['pending', 'active', 'cancelled', 'failed']]
+      }
     },
     transactionId: {
-      type: DataTypes.STRING
+      type: DataTypes.STRING,
+      allowNull: true
     },
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false
+    },
+    cancelledAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
     modelName: 'Subscription',
-    tableName: 'Subscriptions',
-    timestamps: true
+    tableName: 'Subscriptions'
   });
 
   return Subscription;

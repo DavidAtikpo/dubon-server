@@ -1,35 +1,32 @@
 import { models } from '../models/index.js';
-const { Notification, SellerProfile } = models;
+const { Notification, User, SellerProfile } = models;
 
 export const getSellerNotifications = async (req, res) => {
-  console.log('🔔 Requête reçue pour getSellerNotifications');
-  console.log('User ID:', req.user?.id);
-  
   try {
-    // Récupérer le profil vendeur
+    // Vérifier si l'utilisateur est un vendeur
     const seller = await SellerProfile.findOne({
-      where: { userId: req.user.id }
+      where: { userId: req.user.id },
+      include: [{ model: User, as: 'user' }]
     });
-
-    console.log('Profil vendeur trouvé:', seller?.id || 'Non trouvé');
 
     if (!seller) {
       return res.status(403).json({
         success: false,
-        message: "Profil vendeur non trouvé"
+        message: "Accès non autorisé - Profil vendeur non trouvé"
       });
     }
 
-    // Récupérer les notifications du vendeur
-    const notifications = await Notification.findAll({
-      where: {
-        sellerId: seller.id,
-      },
-      order: [['createdAt', 'DESC']],
-      limit: 50 // Limiter aux 50 dernières notifications
-    });
+    // Récupérer les notifications avec pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
 
-    console.log('Nombre de notifications trouvées:', notifications.length);
+    const { count, rows: notifications } = await Notification.findAndCountAll({
+      where: { sellerId: seller.id },
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
 
     // Compter les notifications non lues
     const unreadCount = await Notification.count({
@@ -39,17 +36,64 @@ export const getSellerNotifications = async (req, res) => {
       }
     });
 
-    console.log('Nombre de notifications non lues:', unreadCount);
+    res.status(200).json({
+      success: true,
+      data: {
+        notifications,
+        unreadCount,
+        pagination: {
+          total: count,
+          page,
+          totalPages: Math.ceil(count / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erreur getSellerNotifications:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des notifications",
+      error: error.message
+    });
+  }
+};
+
+export const getUserNotifications = async (req, res) => {
+  try {
+    // Récupérer les notifications avec pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const { count, rows: notifications } = await Notification.findAndCountAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    // Compter les notifications non lues
+    const unreadCount = await Notification.count({
+      where: {
+        userId: req.user.id,
+        read: false
+      }
+    });
 
     res.status(200).json({
       success: true,
       data: {
         notifications,
-        unreadCount
+        unreadCount,
+        pagination: {
+          total: count,
+          page,
+          totalPages: Math.ceil(count / limit)
+        }
       }
     });
   } catch (error) {
-    console.error('❌ Erreur dans getSellerNotifications:', error);
+    console.error('Erreur getUserNotifications:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des notifications",
@@ -61,7 +105,26 @@ export const getSellerNotifications = async (req, res) => {
 export const markNotificationAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
-    const notification = await Notification.findByPk(notificationId);
+    
+    // Vérifier si l'utilisateur est un vendeur
+    const seller = await SellerProfile.findOne({
+      where: { userId: req.user.id }
+    });
+
+    if (!seller) {
+      return res.status(403).json({
+        success: false,
+        message: "Accès non autorisé - Profil vendeur non trouvé"
+      });
+    }
+
+    // Trouver et mettre à jour la notification
+    const notification = await Notification.findOne({
+      where: {
+        id: notificationId,
+        sellerId: seller.id
+      }
+    });
 
     if (!notification) {
       return res.status(404).json({
@@ -70,19 +133,6 @@ export const markNotificationAsRead = async (req, res) => {
       });
     }
 
-    // Vérifier que la notification appartient bien au vendeur
-    const seller = await SellerProfile.findOne({
-      where: { userId: req.user.id }
-    });
-
-    if (!seller || notification.sellerId !== seller.id) {
-      return res.status(403).json({
-        success: false,
-        message: "Accès non autorisé à cette notification"
-      });
-    }
-
-    // Marquer comme lue
     await notification.update({ read: true });
 
     res.status(200).json({
@@ -90,7 +140,7 @@ export const markNotificationAsRead = async (req, res) => {
       message: "Notification marquée comme lue"
     });
   } catch (error) {
-    console.error('Erreur mise à jour notification:', error);
+    console.error('Erreur markNotificationAsRead:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la mise à jour de la notification",
@@ -101,6 +151,7 @@ export const markNotificationAsRead = async (req, res) => {
 
 export const markAllNotificationsAsRead = async (req, res) => {
   try {
+    // Vérifier si l'utilisateur est un vendeur
     const seller = await SellerProfile.findOne({
       where: { userId: req.user.id }
     });
@@ -108,7 +159,7 @@ export const markAllNotificationsAsRead = async (req, res) => {
     if (!seller) {
       return res.status(403).json({
         success: false,
-        message: "Profil vendeur non trouvé"
+        message: "Accès non autorisé - Profil vendeur non trouvé"
       });
     }
 
@@ -128,7 +179,7 @@ export const markAllNotificationsAsRead = async (req, res) => {
       message: "Toutes les notifications ont été marquées comme lues"
     });
   } catch (error) {
-    console.error('Erreur mise à jour notifications:', error);
+    console.error('Erreur markAllNotificationsAsRead:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la mise à jour des notifications",
@@ -137,8 +188,27 @@ export const markAllNotificationsAsRead = async (req, res) => {
   }
 };
 
+// Fonction utilitaire pour créer une notification
+export const createNotification = async (userId, type, message, data = {}) => {
+  try {
+    const notification = await Notification.create({
+      userId,
+      type,
+      message,
+      data,
+      read: false
+    });
+    return notification;
+  } catch (error) {
+    console.error('Erreur création notification:', error);
+    throw error;
+  }
+};
+
 export default {
   getSellerNotifications,
+  getUserNotifications,
   markNotificationAsRead,
-  markAllNotificationsAsRead
+  markAllNotificationsAsRead,
+  createNotification
 }; 

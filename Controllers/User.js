@@ -11,121 +11,6 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Authentification
-export const register = async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    // Vérifier si l'email existe déjà
-    const existingUser = await models.User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Cet email est déjà utilisé"
-      });
-    }
-
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Créer le nouvel utilisateur
-    const user = await models.User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: 'user',
-      status: 'active'
-    });
-
-    // Retirer le mot de passe de la réponse
-    const { password: _, ...userWithoutPassword } = user.toJSON();
-
-    res.status(201).json({
-      success: true,
-      message: "Inscription réussie",
-      data: userWithoutPassword
-    });
-
-  } catch (error) {
-    console.error('Erreur inscription:', error);
-    
-    // Gérer spécifiquement l'erreur d'unicité
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: "Cet email est déjà utilisé"
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'inscription",
-      error: error.message
-    });
-  }
-};
-
-// export const login = async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     const user = await models.User.findOne({ 
-//       where: { email },
-//       attributes: ['id', 'email', 'password', 'name', 'profilePhotoUrl', 'role']
-//     });
-
-//     if (!user || !(await bcrypt.compare(password, user.password))) {
-//       return res.status(401).json({ 
-//         success: false, 
-//         message: 'Identifiants invalides' 
-//       });
-//     }
-
-//     // Générer access token et refresh token
-//     const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-//     const refreshToken = jwt.sign({ id: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-
-//     // Sauvegarder le refresh token dans la base de données
-//     await models.User.update(
-//       { refreshToken: refreshToken },
-//       { where: { id: user.id } }
-//     );
-
-//     // Envoyer les deux tokens
-//     res.json({ 
-//       success: true, 
-//       accessToken,
-//       refreshToken,
-//       user: {
-//         id: user.id,
-//         email: user.email,
-//         name: user.name,
-//         profilePhotoUrl: user.profilePhotoUrl,
-//         role: user.role
-//       }
-//     });
-//   } catch (error) {
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// };
-
-export const logout = async (req, res) => {
-  try {
-    // Récupérer l'ID de l'utilisateur depuis le token
-    const userId = req.user.id;
-
-    // Supprimer le refresh token de la base de données
-    await models.User.update(
-      { refreshToken: null },
-      { where: { id: userId } }
-    );
-
-    res.json({ success: true, message: 'Déconnexion réussie' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-// Gestion du profil
 export const getUserProfile = async (req, res) => {
   try {
     const user = await models.User.findByPk(req.user.id, {
@@ -274,16 +159,69 @@ export const getUserAddresses = async (req, res) => {
 };
 
 export const addUserAddress = async (req, res) => {
-  console.log(req.body);
   try {
-    const address = await models.Address.create({
-      ...req.body,
-      userId: req.user.id
+    const userId = req.user.id;
+    const { phone, email, coordinates, ...addressData } = req.body;
+
+    // Vérifier le nombre d'adresses
+    const addressCount = await models.Address.count({ where: { userId } });
+    if (addressCount >= 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Nombre maximum d'adresses atteint (5)"
+      });
+    }
+
+    // Vérifier si une adresse similaire existe déjà
+    const existingAddress = await models.Address.findOne({
+      where: {
+        userId,
+        address1: addressData.address1,
+        city: addressData.city,
+        postalCode: addressData.postalCode,
+        country: addressData.country
+      }
     });
-    console.log(address);
-    res.status(201).json({ success: true, data: address });
+
+    let address;
+    if (existingAddress) {
+      // Mettre à jour l'adresse existante
+      address = await existingAddress.update({
+        ...addressData,
+        phone,
+        email,
+        coordinates: coordinates || null
+      });
+    } else {
+      // Créer une nouvelle adresse
+      address = await models.Address.create({
+        ...addressData,
+        userId,
+        phone,
+        email,
+        coordinates: coordinates || null
+      });
+    }
+
+    // Mettre à jour le numéro de téléphone de l'utilisateur si non défini
+    const user = await models.User.findByPk(userId);
+    if (!user.phone) {
+      await user.update({ phone });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: existingAddress ? "Adresse mise à jour avec succès" : "Adresse ajoutée avec succès",
+      data: address
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur ajout adresse:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'ajout de l'adresse",
+      error: error.message
+    });
   }
 };
 
@@ -407,19 +345,49 @@ export const resendVerificationEmail = async (req, res) => {
 export const updateUserPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
-    const preferences = req.body;
+    const newPreferences = req.body;
 
-    await models.UserPreference.upsert({
-      userId,
-      ...preferences
+    // Get current user
+    const user = await models.User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur non trouvé"
+      });
+    }
+
+    // Get current preferences
+    const currentPreferences = {
+      language: 'fr',
+      currency: 'XOF',
+      theme: 'light',
+      notifications: {
+        email: true,
+        push: true,
+        sms: false
+      },
+      newsletter: true,
+      ...user.preferences
+    };
+
+    // Update preferences
+    const updatedPreferences = {
+      ...currentPreferences,
+      ...newPreferences
+    };
+
+    // Save to user model
+    await user.update({
+      preferences: updatedPreferences
     });
 
     res.json({
       success: true,
       message: "Préférences mises à jour avec succès",
-      data: preferences
+      data: updatedPreferences
     });
   } catch (error) {
+    console.error('Erreur updateUserPreferences:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la mise à jour des préférences"
@@ -428,7 +396,36 @@ export const updateUserPreferences = async (req, res) => {
 };
 
 export const getUserActivity = async (req, res) => {
-  // Implémentation
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const { count, rows: activities } = await models.UserActivity.findAndCountAll({
+      where: { userId: req.user.id },
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']]
+    });
+
+    const totalPages = Math.ceil(count / limit);
+
+    res.json({
+      success: true,
+      activities,
+      pagination: {
+        total: count,
+        page,
+        pages: totalPages
+      }
+    });
+  } catch (error) {
+    console.error('Erreur getUserActivity:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des activités"
+    });
+  }
 };
 
 export const getUserStats = async (req, res) => {
@@ -505,21 +502,16 @@ export const getDashboard = async (req, res) => {
     const userId = req.user.id;
 
     const [orders, favorites, addresses, notifications, recentActivity, reviews] = await Promise.all([
-      // Dernières commandes avec leurs items
+      // Dernières commandes
       models.Order.findAll({
         where: { userId },
         attributes: [
           'id',
           'status',
           'total',
-          'createdAt'
+          'createdAt',
+          'items'
         ],
-        include: [{
-          model: models.OrderItem,
-          as: 'orderItems',
-          attributes: ['id', 'quantity', 'price', 'name'],
-          required: false
-        }],
         order: [['createdAt', 'DESC']],
         limit: 5
       }),
@@ -540,9 +532,12 @@ export const getDashboard = async (req, res) => {
         where: { userId }
       }),
 
-      // Notifications non lues
+      // Notifications non lues (correction de isRead à read)
       models.Notification.findAll({
-        where: { userId, isRead: false },
+        where: { 
+          userId,
+          read: false  // Utilisation de 'read' au lieu de 'isRead'
+        },
         limit: 5,
         order: [['createdAt', 'DESC']]
       }),
@@ -562,7 +557,7 @@ export const getDashboard = async (req, res) => {
       })
     ]);
 
-    // Formater les données selon l'interface du frontend
+    // Formater les données
     const dashboard = {
       recentOrders: orders.map(order => ({
         id: order.id,
@@ -613,6 +608,47 @@ export const getDashboard = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des données du dashboard"
+    });
+  }
+};
+
+export const getUserReviews = async (req, res) => {
+  try {
+    const reviews = await models.Review.findAll({
+      where: { userId: req.user.id },
+      include: [{
+        model: models.Product,
+        attributes: ['name']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Vérifier si des avis existent
+    if (!reviews || reviews.length === 0) {
+      return res.json({
+        success: true,
+        reviews: []
+      });
+    }
+
+    const formattedReviews = reviews.map(review => ({
+      id: review.id,
+      productName: review.Product ? review.Product.name : 'Produit non disponible',
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt
+    }));
+
+    res.json({
+      success: true,
+      reviews: formattedReviews
+    });
+  } catch (error) {
+    console.error('Erreur getUserReviews:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des avis",
+      reviews: []
     });
   }
 };

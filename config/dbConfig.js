@@ -1,78 +1,41 @@
 import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
-import pg from 'pg';
 
 dotenv.config();
 
-const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) {
-  console.error('❌ DATABASE_URL n\'est pas définie');
-  process.exit(1);
-}
-
-// Configuration SSL pour pg
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-pg.defaults.ssl = true;
-
-// Configuration de base pour Sequelize
-const sequelizeConfig = {
+const dbConfig = {
   dialect: 'postgres',
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_DATABASE,
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
   dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
-    }
+    ssl: false // Désactiver SSL pour local
   },
-  logging: false,
   pool: {
     max: 5,
     min: 0,
     acquire: 30000,
     idle: 10000
-  }
+  },
+  logging: console.log // Pour voir les requêtes SQL pendant le développement
 };
 
-// Création de l'instance Sequelize
-export const sequelize = new Sequelize(dbUrl, sequelizeConfig);
+export const sequelize = new Sequelize(
+  dbConfig.database,
+  dbConfig.username,
+  dbConfig.password,
+  dbConfig
+);
 
-// Fonction d'initialisation de la base de données
-export const initializeDatabase = async () => {
+export const checkDatabaseConnection = async () => {
   try {
-    // Test de la connexion
     await sequelize.authenticate();
-    console.log('✅ Connexion à la base de données établie avec succès');
-
-    // Synchronisation des modèles avec la base de données
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('✅ Base de données synchronisée en mode development');
-    } else {
-      await sequelize.sync();
-      console.log('✅ Base de données synchronisée en mode production');
-    }
-
+    console.log('✅ Connexion à PostgreSQL local établie avec succès');
     return true;
   } catch (error) {
-    console.error('❌ Erreur de connexion à la base de données:', error);
-    throw error;
+    console.error('❌ Erreur de connexion:', error);
+    return false;
   }
 };
-
-// Fonction de fermeture de la connexion
-export const closeDatabase = async () => {
-  try {
-    await sequelize.close();
-    console.log('✅ Connexion à la base de données fermée');
-  } catch (error) {
-    console.error('❌ Erreur lors de la fermeture de la connexion:', error);
-    throw error;
-  }
-};
-
-export default {
-  sequelize,
-  initializeDatabase,
-  closeDatabase
-};
-
-

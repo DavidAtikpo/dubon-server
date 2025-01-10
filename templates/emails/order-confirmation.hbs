@@ -3,12 +3,99 @@
 <head>
     <meta charset="utf-8">
     <title>Confirmation de commande</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        .order-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .items {
+            margin-bottom: 20px;
+        }
+        .item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .shipping-address {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .total {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: right;
+            padding: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Merci pour votre commande !</h1>
+    <div class="header">
+        <h1>Merci pour votre commande !</h1>
+    </div>
+
     <p>Bonjour {{userName}},</p>
-    <p>Votre commande #{{orderNumber}} a été confirmée.</p>
-    <p>Date : {{formatDate orderDate}}</p>
-    <p>Total : {{formatPrice orderTotal}}</p>
+    
+    <p>Nous avons bien reçu votre commande et nous la préparons avec soin.</p>
+
+    <div class="order-info">
+        <h2>Détails de la commande</h2>
+        <p><strong>Numéro de commande :</strong> #{{orderNumber}}</p>
+        <p><strong>Date :</strong> {{formatDate orderDate}}</p>
+    </div>
+
+    <div class="items">
+        <h2>Articles commandés</h2>
+        {{#each items}}
+        <div class="item">
+            <p><strong>{{name}}</strong></p>
+            <p>Quantité : {{quantity}}</p>
+            <p>Prix : {{formatPrice finalPrice}}</p>
+        </div>
+        {{/each}}
+    </div>
+
+    <div class="shipping-address">
+        <h2>Adresse de livraison</h2>
+        <p>{{shippingAddress.firstName}} {{shippingAddress.lastName}}</p>
+        <p>{{shippingAddress.address}}</p>
+        <p>{{shippingAddress.city}}</p>
+        <p>{{shippingAddress.phone}}</p>
+        {{#if shippingAddress.notes}}
+        <p><strong>Instructions :</strong> {{shippingAddress.notes}}</p>
+        {{/if}}
+    </div>
+
+    <div class="total">
+        Total : {{formatPrice orderTotal}}
+    </div>
+
+    <div class="footer">
+        <p>Nous vous tiendrons informé de l'avancement de votre commande.</p>
+        <p>Pour toute question, n'hésitez pas à nous contacter.</p>
+        <p>Merci de votre confiance !</p>
+    </div>
 </body>
 </html> 

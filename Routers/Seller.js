@@ -9,7 +9,7 @@ import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
 const router = express.Router();
 
-// Créer les dossiers d'upload s'ils n'existent pas
+// Create upload directories if they don't exist
 const createUploadDirs = () => {
   const dirs = [
     'uploads/documents/id',
@@ -31,7 +31,7 @@ const createUploadDirs = () => {
 
 createUploadDirs();
 
-// Configuration de multer pour le stockage des fichiers
+// Multer storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -60,51 +60,51 @@ const uploadFields = upload.fields([
   { name: 'verificationVideo', maxCount: 1 }
 ]);
 
-// Routes publiques
+// Public routes
 router.get('/list', SellerController.getPublicSellers);
 router.get('/categories', SellerController.getSellerCategories);
 
-// Routes protégées (utilisateur authentifié)
+// Protected routes (authenticated user)
 router.use(protect);
 
-// Validation et inscription
+// Validation and registration
 router.get("/validation-status", SellerController.checkValidationStatus);
-router.post("/register", protect, uploadFields, validateSellerRegistration, SellerController.registerSeller);
+router.post("/register", uploadFields, validateSellerRegistration, SellerController.registerSeller);
 
-// Routes vendeur
+// Seller routes
 router.use(seller);
 
-// Profil et paramètres
+// Profile and settings
 router.get('/profile', SellerController.getProfile);
-// router.put('/profile', upload.single('logo'), SellerController.updateProfile);
+router.put('/profile', upload.single('logo'), SellerController.updateProfile);
 
-// Gestion des produits
+// Product management
 router.get('/products', SellerController.getSellerProducts);
 router.put('/products/:id', upload.array('images', 5), SellerController.updateProduct);
 router.delete('/products/:id', SellerController.deleteProduct);
 
-// Gestion des commandes
+// Order management
 router.get('/orders', SellerController.getSellerOrders);
 router.put('/orders/:id/status', SellerController.updateOrderStatus);
 
-// Statistiques et tableau de bord
+// Statistics and dashboard
 router.get('/dashboard', SellerController.getDashboard);
 router.get('/stats', SellerController.getStats);
 router.get('/analytics', SellerController.getAnalytics);
 
-// Gestion financière
+// Financial management
 router.get('/earnings', SellerController.getEarnings);
 router.post('/withdraw', SellerController.requestWithdrawal);
 router.get('/transactions', SellerController.getTransactions);
 
-// Gestion des promotions
+// Promotion management
 router.post('/promotions', SellerController.createPromotion);
 router.get('/promotions', SellerController.getSellerPromotions);
 router.put('/promotions/:id', SellerController.updatePromotion);
 router.delete('/promotions/:id', SellerController.deletePromotion);
 
-// Routes admin
-router.use('/admin', admin);
+// Admin routes
+router.use(admin);
 router.get('/admin/requests', SellerController.getAllSellerRequests);
 router.get('/admin/sellers', SellerController.getAllSellers);
 router.get('/admin/seller/:id', SellerController.getSellerById);
@@ -114,8 +114,7 @@ router.put('/admin/verify/:id', SellerController.verifySeller);
 router.put('/admin/status/:id', SellerController.updateSellerStatus);
 router.delete('/admin/seller/:id', SellerController.deleteSeller);
 
-// Gestion des erreurs
+// Error handling
 router.use(corsErrorHandler);
 
 export default router;
-
