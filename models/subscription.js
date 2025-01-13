@@ -21,9 +21,8 @@ export default (sequelize) => {
   Subscription.init({
     id: {
       type: DataTypes.UUID,
-      primaryKey: true,
-      allowNull: false,
-      defaultValue: sequelize.literal('uuid_generate_v4()')
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
     },
     userId: {
       type: DataTypes.UUID,
@@ -68,7 +67,7 @@ export default (sequelize) => {
       }
     },
     transactionId: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(255),
       allowNull: true
     },
     expiresAt: {
@@ -82,7 +81,8 @@ export default (sequelize) => {
   }, {
     sequelize,
     modelName: 'Subscription',
-    tableName: 'Subscriptions'
+    tableName: 'Subscriptions',
+    timestamps: true
   });
 
   return Subscription;

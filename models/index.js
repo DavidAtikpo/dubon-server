@@ -36,7 +36,6 @@ import CouponModel from './Coupon.js';
 import OrderItemModel from './OrderItem.js';
 import CartItemModel from './CartItem.js';
 import PromotionProductModel from './PromotionProduct.js';
-import SystemSettingsModel from './SystemSettings.js';
 import EventBookingModel from './EventBooking.js';
 import ReservationModel from './Reservation.js';
 import RestaurantModel from './Restaurant.js';
@@ -101,7 +100,6 @@ const defineModels = () => {
   db.DisputeEvidence = DisputeEvidenceModel(sequelize);
   db.Coupon = CouponModel(sequelize);
   db.PromotionProduct = PromotionProductModel(sequelize);
-  db.SystemSettings = SystemSettingsModel(sequelize);
   db.Restaurant = RestaurantModel(sequelize);
   db.Table = TableModel(sequelize);
   db.Reservation = ReservationModel(sequelize);
@@ -120,18 +118,44 @@ const models = defineModels();
 
 // Synchroniser les modèles avec la base de données
 const syncModels = async () => {
+  const force = process.env.FORCE_SYNC === 'true';
+  const alter = process.env.NODE_ENV !== 'production';
+
+  console.log('Options de synchronisation:', { force, alter });
+  
+  if (force) {
+    console.log('⚠️ ATTENTION: Toutes les tables vont être supprimées et recréées');
+  }
+
   try {
-    // Synchroniser tous les modèles sans forcer la recréation des tables
-    await sequelize.sync({ alter: true });
-    console.log('✅ Modèles synchronisés avec succès');
+    // Synchroniser d'abord les modèles de base
+    console.log('🔄 Synchronisation des modèles de base...');
+    await models.Plan.sync({ force, alter });
+    await models.User.sync({ force, alter });
+    await models.Category.sync({ force, alter });
+    await models.SystemSetting.sync({ force, alter });
+    await models.SystemLog.sync({ force, alter });
+    
+    // Ensuite synchroniser les modèles dépendants
+    console.log('🔄 Synchronisation des modèles dépendants...');
+    await models.SellerProfile.sync({ force, alter });
+    await models.Shop.sync({ force, alter });
+    await models.Product.sync({ force, alter });
+    await models.Subscription.sync({ force, alter });
+    
+    // Enfin synchroniser les autres modèles
+    console.log('🔄 Synchronisation des autres modèles...');
+    for (const modelName in models) {
+      if (!['Plan', 'User', 'Category', 'SystemSetting', 'SystemLog', 'SellerProfile', 'Shop', 'Product', 'Subscription'].includes(modelName)) {
+        await models[modelName].sync({ force, alter });
+      }
+    }
+    
+    console.log('✅ Tous les modèles ont été synchronisés avec succès');
   } catch (error) {
     console.error('❌ Erreur lors de la synchronisation des modèles:', error);
     throw error;
   }
 };
 
-export {
-  sequelize,
-  models,
-  syncModels
-}; 
+export { models, sequelize, syncModels }; 

@@ -10,7 +10,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import FedaPayService from '../services/FedaPayService.js';
 
-const { User, Seller, Product, Order, Review, SystemLog, SystemSettings, SellerProfile, Theme, Formation, Inscription } = models;
+const { User, Seller, Product, Order, Review, SystemLog, SystemSetting, SellerProfile, Theme, Formation, Inscription } = models;
 
 // Fonctions utilitaires
 async function calculateTotalRevenue() {
@@ -515,23 +515,24 @@ export const getSystemSettings = async (req, res) => {
     };
 
     // Récupérer les paramètres de la base de données
-    const settings = await models.SystemSettings.findOne({
+    const settings = await models.SystemSetting.findOne({
       where: { key: 'general_settings' },
       include: [{
         model: models.User,
-        as: 'lastUpdatedBy',
+        as: 'modifier',
         attributes: ['id', 'name']
       }]
     });
 
     // Si aucun paramètre n'existe, créer les paramètres par défaut
     if (!settings) {
-      await models.SystemSettings.create({
+      await models.SystemSetting.create({
         key: 'general_settings',
         value: defaultSettings,
         category: 'general',
         description: 'Paramètres généraux du système',
-        updated_by: req.user?.id
+        dataType: 'json',
+        lastModifiedBy: req.user?.id
       });
     }
 
@@ -577,7 +578,7 @@ export const updateSystemSettings = async (req, res) => {
     }
 
     // Mettre à jour ou créer les paramètres
-    await SystemSettings.upsert({
+    await SystemSetting.upsert({
       id: 1, // ID par défaut pour les paramètres système
       value: JSON.stringify(req.body),
       updatedBy: req.user.id
@@ -1154,7 +1155,7 @@ export const startMaintenance = async (req, res) => {
     const { reason, estimatedDuration } = req.body;
 
     // Récupérer les paramètres actuels
-    let settings = await SystemSettings.findOne({ where: { id: 1 } });
+    let settings = await SystemSetting.findOne({ where: { id: 1 } });
     let currentSettings = settings ? JSON.parse(settings.value) : {};
 
     // Mettre à jour uniquement la partie maintenance
@@ -1170,7 +1171,7 @@ export const startMaintenance = async (req, res) => {
     };
 
     // Sauvegarder les paramètres mis à jour
-    await SystemSettings.upsert({
+    await SystemSetting.upsert({
       id: 1,
       value: JSON.stringify(updatedSettings),
       updatedBy: req.user.id
@@ -1206,7 +1207,7 @@ export const endMaintenance = async (req, res) => {
     console.log('=== Début endMaintenance ===');
 
     // Récupérer les paramètres actuels
-    let settings = await SystemSettings.findOne({ where: { id: 1 } });
+    let settings = await SystemSetting.findOne({ where: { id: 1 } });
     let currentSettings = settings ? JSON.parse(settings.value) : {};
 
     // Mettre à jour uniquement la partie maintenance
@@ -1220,7 +1221,7 @@ export const endMaintenance = async (req, res) => {
     };
 
     // Sauvegarder les paramètres mis à jour
-    await SystemSettings.upsert({
+    await SystemSetting.upsert({
       id: 1,
       value: JSON.stringify(updatedSettings),
       updatedBy: req.user.id
@@ -1255,7 +1256,7 @@ export const getMaintenanceStatus = async (req, res) => {
   try {
     console.log('=== Début getMaintenanceStatus ===');
 
-    const settings = await SystemSettings.findOne({ where: { id: 1 } });
+    const settings = await SystemSetting.findOne({ where: { id: 1 } });
     const currentSettings = settings ? JSON.parse(settings.value) : {};
 
     res.json({

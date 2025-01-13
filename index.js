@@ -107,6 +107,10 @@ app.use(session({
   }
 }));
 
+// Désactiver le timeout du serveur pour les uploads longs
+server.timeout = 300000; // 5 minutes
+
+// Définir les paramètres système par défaut
 const defaultSystemSettings = {
   key: 'general_settings',
   value: {
@@ -114,8 +118,8 @@ const defaultSystemSettings = {
       siteName: 'Dubon',
       siteDescription: 'Plateforme de commerce en ligne',
       contactEmail: 'contact@dubon.com',
-      phoneNumber: '+228 97 22 22 22',
-      address: 'Cotonou, Benin'
+      phoneNumber: '',
+      address: ''
     },
     features: {
       enableRegistration: true,
@@ -127,21 +131,21 @@ const defaultSystemSettings = {
       smtpHost: process.env.SMTP_HOST || '',
       smtpPort: parseInt(process.env.SMTP_PORT || '587'),
       smtpUser: process.env.SMTP_USER || '',
-      smtpPassword: process.env.SMTP_PASSWORD || 'dnpj hiab ddjv lqmi',
-      senderEmail: process.env.SENDER_EMAIL || 'davidatikpo@gmail.com',
+      smtpPassword: process.env.SMTP_PASSWORD || '',
+      senderEmail: process.env.SENDER_EMAIL || 'noreply@dubon.com',
       senderName: 'Dubon'
     },
     social: {
-      facebook: 'https://www.facebook.com/profile.php?id=61551357505057',
-      // twitter: '',
-      instagram: 'https://www.instagram.com/dubonservicesevent',
-      linkedin: 'https://www.linkedin.com/company/dubonservicesevent',
-      youtube: 'https://www.youtube.com/@dubonservicesevent',
-      tiktok: 'https://www.tiktok.com/@dubonservicesevent'
+      facebook: '',
+      twitter: '',
+      instagram: '',
+      linkedin: ''
     }
   },
   category: 'general',
-  description: 'Paramètres généraux du système'
+  description: 'Paramètres généraux du système',
+  dataType: 'json',
+  isPublic: false
 };
 
 // Fonction pour vérifier et rétablir la connexion
@@ -235,9 +239,6 @@ const setupUploadDirectories = () => {
   });
 };
 
-// Désactiver le timeout du serveur pour les uploads longs
-server.timeout = 300000; // 5 minutes
-
 const startServer = async () => {
   try {
     // Vérifier la connexion
@@ -248,11 +249,11 @@ const startServer = async () => {
 
     // Synchroniser les modèles avec la base de données
     console.log('🔄 Synchronisation des modèles...');
-    // await syncModels();
+    await syncModels();
     console.log('✅ Modèles synchronisés avec succès');
 
     // Initialiser les données par défaut
-    // await initializeDefaultData();
+    await initializeDefaultData();
 
     // Configurer les dossiers d'upload
     setupUploadDirectories();
@@ -279,35 +280,8 @@ const initializeDefaultData = async () => {
   try {
     console.log('📝 Initialisation des données par défaut...');
     
-    // Vérifier si les paramètres système existent déjà
-    const existingSettings = await models.SystemSettings.findOne({
-      where: { key: 'general_settings' }
-    });
-
-    if (!existingSettings) {
-      console.log('⚙️ Configuration des paramètres système par défaut...');
-      await models.SystemSettings.create(defaultSystemSettings);
-      console.log('✅ Paramètres système initialisés avec succès');
-    } else {
-      console.log('ℹ️ Les paramètres système existent déjà');
-    }
-
-    // Vérifier si les catégories par défaut existent
-    const categoriesCount = await models.Category.count();
-    if (categoriesCount === 0) {
-      console.log('📁 Création des catégories par défaut...');
-      const defaultCategories = [
-        { name: 'Électronique', description: 'Produits électroniques et gadgets' },
-        { name: 'Mode', description: 'Vêtements et accessoires' },
-        { name: 'Maison', description: 'Articles pour la maison' },
-        { name: 'Alimentation', description: 'Produits alimentaires' },
-        { name: 'Santé & Beauté', description: 'Produits de santé et beauté' }
-      ];
-      await models.Category.bulkCreate(defaultCategories);
-      console.log('✅ Catégories par défaut créées avec succès');
-    }
-
-    // Vérifier si les plans d'abonnement par défaut existent
+    // Créer d'abord les plans d'abonnement
+    console.log('💎 Vérification des plans d\'abonnement...');
     const plansCount = await models.Plan.count();
     if (plansCount === 0) {
       console.log('💎 Création des plans d\'abonnement par défaut...');
@@ -368,7 +342,7 @@ const initializeDefaultData = async () => {
           currency: 'XOF',
           description: 'Solution complète pour les entreprises établies',
           features: {
-            productsLimit: -1, // illimité
+            productsLimit: -1,
             storageLimit: 10000,
             supportLevel: 'premium',
             benefits: [
@@ -384,6 +358,32 @@ const initializeDefaultData = async () => {
       ];
       await models.Plan.bulkCreate(defaultPlans);
       console.log('✅ Plans d\'abonnement créés avec succès');
+    }
+
+    // Ensuite créer les paramètres système
+    const existingSettings = await models.SystemSetting.findOne({
+      where: { key: 'general_settings' }
+    });
+
+    if (!existingSettings) {
+      console.log('⚙️ Configuration des paramètres système par défaut...');
+      await models.SystemSetting.create(defaultSystemSettings);
+      console.log('✅ Paramètres système initialisés avec succès');
+    }
+
+    // Enfin créer les catégories
+    const categoriesCount = await models.Category.count();
+    if (categoriesCount === 0) {
+      console.log('📁 Création des catégories par défaut...');
+      const defaultCategories = [
+        { name: 'Électronique', description: 'Produits électroniques et gadgets' },
+        { name: 'Mode', description: 'Vêtements et accessoires' },
+        { name: 'Maison', description: 'Articles pour la maison' },
+        { name: 'Alimentation', description: 'Produits alimentaires' },
+        { name: 'Santé & Beauté', description: 'Produits de santé et beauté' }
+      ];
+      await models.Category.bulkCreate(defaultCategories);
+      console.log('✅ Catégories par défaut créées avec succès');
     }
 
     console.log('✅ Initialisation des données terminée avec succès');

@@ -1,41 +1,70 @@
 import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
+import pg from 'pg';
 
 dotenv.config();
 
-const dbConfig = {
+// Configure pg to handle big integers as numbers instead of strings
+pg.defaults.parseInt8 = true;
+
+const config = {
   dialect: 'postgres',
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_DATABASE,
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
+  dialectModule: pg,
   dialectOptions: {
-    ssl: false // Désactiver SSL pour local
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    },
+    connectTimeout: 60000
   },
   pool: {
-    max: 5,
+    max: 2,
     min: 0,
-    acquire: 30000,
-    idle: 10000
+    acquire: 60000,
+    idle: 30000
   },
-  logging: console.log // Pour voir les requêtes SQL pendant le développement
+  logging: process.env.NODE_ENV === 'development' ? console.log : false
 };
 
-export const sequelize = new Sequelize(
-  dbConfig.database,
-  dbConfig.username,
-  dbConfig.password,
-  dbConfig
-);
+export const sequelize = new Sequelize(process.env.DATABASE_URL, config);
+
+const createUuidExtension = async () => {
+  try {
+    await sequelize.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    console.log('✓ UUID extension enabled');
+  } catch (error) {
+    console.error('Failed to create UUID extension:', error.message);
+    throw error;
+  }
+};
 
 export const checkDatabaseConnection = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✅ Connexion à PostgreSQL local établie avec succès');
-    return true;
-  } catch (error) {
-    console.error('❌ Erreur de connexion:', error);
-    return false;
+  console.log('Attempting database connection...');
+  console.log('Environment:', process.env.NODE_ENV);
+  
+  let attempts = 0;
+  const maxAttempts = 3;
+  
+  while (attempts < maxAttempts) {
+    attempts++;
+    try {
+      await sequelize.authenticate();
+      console.log('✓ Database connection successful');
+      await createUuidExtension();
+      return true;
+    } catch (error) {
+      console.error(`Connection attempt ${attempts}/${maxAttempts} failed:`, {
+        message: error.message,
+        code: error.original?.code,
+        errno: error.original?.errno
+      });
+
+      if (attempts < maxAttempts) {
+        console.log(`Waiting 5 seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
   }
+  
+  return false;
 };
