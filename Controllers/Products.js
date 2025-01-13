@@ -191,89 +191,68 @@ export const getProductById = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   try {
-    console.log('=== Début création produit ===');
-    console.log('User ID:', req.user.id);
-    console.log('Body reçu:', req.body);
-    console.log('Fichiers reçus:', req.files);
+    console.log("=== Début création produit ===");
+    console.log("User ID:", req.user.id);
+    console.log("Body reçu:", req.body);
+    console.log("Fichiers reçus:", req.files);
 
-    // Vérifier ou créer le profil vendeur
-    let seller = await SellerProfile.findOne({
-      where: { userId: req.user.id }
+    // Recherche du profil vendeur avec sa boutique
+    const seller = await models.SellerProfile.findOne({
+      where: { userId: req.user.id },
+      include: [{
+        model: models.Shop,
+        as: 'shop'
+      }]
     });
 
     if (!seller) {
-      console.log('Création d\'un nouveau profil vendeur');
-      seller = await SellerProfile.create({
-        userId: req.user.id,
-        status: 'pending',
-        verificationStatus: 'pending'
+      return res.status(404).json({
+        success: false,
+        message: "Profil vendeur non trouvé"
       });
     }
 
-    // Validation des champs requis
-    const requiredFields = ['name', 'price', 'description'];
-    const missingFields = requiredFields.filter(field => !req.body[field]);
-    
-    if (missingFields.length > 0) {
-      return res.status(400).json({
+    if (!seller.shop) {
+      return res.status(404).json({
         success: false,
-        message: `Champs requis manquants: ${missingFields.join(', ')}`
+        message: "Boutique non trouvée pour ce vendeur"
       });
     }
+
+    console.log("Profil vendeur trouvé:", seller.id);
+    console.log("Boutique trouvée:", seller.shop.id);
 
     // Traitement des images
-    const images = req.files?.images?.map(file => file.path.replace(/\\/g, '/')) || [];
+    let images = [];
+    if (req.files && req.files.images) {
+      images = req.files.images.map(file => file.path);
+    }
 
-    // Parse des données JSON
-    let nutritionalInfo = {
-      calories: null,
-      proteins: null,
-      carbohydrates: null,
-      fats: null,
-      fiber: null,
-      sodium: null,
-      allergens: [],
-      servingSize: null
-    };
-    if (req.body.nutritionalInfo && typeof req.body.nutritionalInfo === 'string') {
+    // Traitement des données JSON
+    let nutritionalInfo = null;
+    if (req.body.nutritionalInfo) {
       try {
-        const parsed = JSON.parse(req.body.nutritionalInfo);
-        if (Array.isArray(parsed)) {
-          nutritionalInfo = JSON.parse(parsed[1]); // Use the second element which contains the actual data
+        if (Array.isArray(req.body.nutritionalInfo)) {
+          // Prendre le dernier élément s'il y en a plusieurs
+          nutritionalInfo = JSON.parse(req.body.nutritionalInfo[req.body.nutritionalInfo.length - 1]);
         } else {
-          nutritionalInfo = parsed;
+          nutritionalInfo = JSON.parse(req.body.nutritionalInfo);
         }
       } catch (e) {
         console.error('Erreur parsing nutritionalInfo:', e);
       }
     }
 
-    let temperature = {
-      min: 0,
-      max: 25,
-      unit: '°C'
-    };
+    let temperature = null;
     if (req.body.temperature && typeof req.body.temperature === 'string') {
       try {
         temperature = JSON.parse(req.body.temperature);
-        if (!['°C', '°F'].includes(temperature.unit)) {
-          temperature.unit = '°C';
-        }
       } catch (e) {
         console.error('Erreur parsing temperature:', e);
       }
     }
 
-    let packaging = {
-      type: 'standard',
-      material: 'carton',
-      dimensions: {
-        length: 0,
-        width: 0,
-        height: 0,
-        unit: 'cm'
-      }
-    };
+    let packaging = null;
     if (req.body.packaging && typeof req.body.packaging === 'string') {
       try {
         packaging = JSON.parse(req.body.packaging);
@@ -282,14 +261,34 @@ export const createProduct = async (req, res) => {
       }
     }
 
+    // Vérification de la catégorie si fournie
+    let categoryId = null;
+    if (req.body.categoryId) {
+      console.log("Vérification de la catégorie:", req.body.categoryId);
+      const category = await models.Category.findByPk(req.body.categoryId);
+      if (!category) {
+        return res.status(400).json({
+          success: false,
+          message: "La catégorie spécifiée n'existe pas"
+        });
+      }
+      console.log("Catégorie trouvée:", category.name);
+      categoryId = category.id;
+    } else {
+      console.log("Aucune catégorie spécifiée");
+    }
+
     // Création du produit avec les données validées
     const productData = {
       sellerId: seller.id,
+      shopId: seller.shop.id,
       name: req.body.name,
       slug: `${slugify(req.body.name, { lower: true })}-${Date.now()}`,
       description: req.body.description,
       shortDescription: req.body.shortDescription || '',
-      sku: req.body.sku || `SKU-${Date.now()}`,
+      sku: req.body.sku 
+        ? `${req.body.sku}-${Date.now().toString().slice(-6)}` 
+        : `SKU-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       price: parseFloat(req.body.price),
       compareAtPrice: req.body.compareAtPrice ? parseFloat(req.body.compareAtPrice) : null,
       quantity: parseInt(req.body.quantity) || 0,
@@ -305,14 +304,16 @@ export const createProduct = async (req, res) => {
       shelfLife: req.body.shelfLife || null,
       origin: req.body.origin || '',
       featured: req.body.featured === 'true',
-      categoryId: req.body.categoryId || null
+      categoryId: categoryId
     };
 
     console.log('Données du produit à créer:', productData);
+    console.log('CategoryId dans les données:', productData.categoryId);
 
-    const product = await Product.create(productData);
+    const product = await models.Product.create(productData);
 
     console.log('Produit créé avec succès:', product.id);
+    console.log('CategoryId du produit créé:', product.categoryId);
 
     res.status(201).json({
       success: true,
@@ -787,51 +788,98 @@ const getProductsByCategory = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
+    console.log("Début de la mise à jour du produit");
+    console.log("Données reçues:", req.body);
     const { productId } = req.params;
     
     // Vérifier si le produit existe
     const product = await Product.findByPk(productId);
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Produit non trouvé"
-      });
+      return res.status(404).json({ success: false, message: "Produit non trouvé" });
     }
 
     // Vérifier que le vendeur est propriétaire du produit
-    const seller = await SellerProfile.findOne({
-      where: { userId: req.user.id }
-    });
-
+    const seller = await SellerProfile.findOne({ where: { userId: req.user.id } });
     if (!seller || product.sellerId !== seller.id) {
-      return res.status(403).json({
-        success: false,
-        message: "Non autorisé à modifier ce produit"
-      });
+      return res.status(403).json({ success: false, message: "Non autorisé à modifier ce produit" });
     }
 
-    // Mise à jour des données du produit
-    const updatedData = {
-      ...req.body,
-      slug: req.body.name ? 
-        `${slugify(req.body.name, { lower: true })}-${Date.now()}` : 
-        product.slug
-    };
+    // Préparer les données à mettre à jour
+    let updatedData = {};
 
-    // Si de nouvelles images sont fournies
+    // Copier les champs simples avec validation
+    const simpleFields = ['name', 'description', 'status', 'productType', 'storageConditions'];
+    simpleFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updatedData[field] = req.body[field];
+      }
+    });
+
+    // Gérer séparément les champs numériques
+    if (req.body.price !== undefined) {
+      updatedData.price = parseFloat(req.body.price) || 0;
+    }
+
+    if (req.body.quantity !== undefined) {
+      updatedData.quantity = parseInt(req.body.quantity) || 0;
+    }
+
+    if (req.body.compareAtPrice !== undefined) {
+      updatedData.compareAtPrice = parseFloat(req.body.compareAtPrice) || null;
+    }
+
+    // Valider les données nutritionnelles
+    if (req.body.nutritionalInfo) {
+      try {
+        let nutritionalInfo = typeof req.body.nutritionalInfo === 'string' 
+          ? JSON.parse(req.body.nutritionalInfo)
+          : req.body.nutritionalInfo;
+
+        // S'assurer que allergens est un tableau
+        if (nutritionalInfo.allergens) {
+          nutritionalInfo.allergens = Array.isArray(nutritionalInfo.allergens)
+            ? nutritionalInfo.allergens
+            : typeof nutritionalInfo.allergens === 'string'
+              ? nutritionalInfo.allergens.split(',').map(a => a.trim()).filter(Boolean)
+              : [];
+        }
+
+        updatedData.nutritionalInfo = nutritionalInfo;
+      } catch (error) {
+        console.error('Erreur parsing nutritionalInfo:', error);
+      }
+    }
+
+    // Valider la température
+    if (req.body.temperature) {
+      try {
+        let temperature = typeof req.body.temperature === 'string'
+          ? JSON.parse(req.body.temperature)
+          : req.body.temperature;
+        temperature.unit = '°C';
+        updatedData.temperature = temperature;
+      } catch (error) {
+        console.error('Erreur parsing temperature:', error);
+      }
+    }
+
+    // Gérer les nouvelles images
     if (req.files?.images) {
       const newImages = req.files.images.map(file => file.path.replace(/\\/g, '/'));
-      updatedData.images = [...(product.images || []), ...newImages];
+      const currentImages = Array.isArray(product.images) ? product.images : [];
+      updatedData.images = [...currentImages, ...newImages];
       updatedData.mainImage = updatedData.images[0];
     }
 
+    console.log("Données à mettre à jour:", updatedData);
+
     // Mise à jour du produit
-    await product.update(updatedData);
+    const updatedProduct = await product.update(updatedData);
 
     res.status(200).json({
       success: true,
       message: "Produit mis à jour avec succès",
-      data: product
+      data: updatedProduct
     });
 
   } catch (error) {
@@ -897,6 +945,105 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
+export const getShopProducts = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    const { page = 1, limit = 12, sort = 'newest', category, minPrice, maxPrice } = req.query;
+
+    // Construire les conditions de recherche
+    const where = {
+      shopId,
+      status: 'active'
+    };
+
+    // Filtrer par catégorie si spécifié
+    if (category) {
+      where.categoryId = category;
+    }
+
+    // Filtrer par prix si spécifié
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
+      if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
+    }
+
+    // Définir l'ordre de tri
+    let order;
+    switch (sort) {
+      case 'price-asc':
+        order = [['price', 'ASC']];
+        break;
+      case 'price-desc':
+        order = [['price', 'DESC']];
+        break;
+      case 'popular':
+        order = [['salesCount', 'DESC']];
+        break;
+      case 'rating':
+        order = [['ratings.average', 'DESC']];
+        break;
+      case 'oldest':
+        order = [['createdAt', 'ASC']];
+        break;
+      case 'newest':
+      default:
+        order = [['createdAt', 'DESC']];
+    }
+
+    // Calculer l'offset pour la pagination
+    const offset = (page - 1) * limit;
+
+    // Récupérer les produits avec pagination
+    const { count, rows: products } = await models.Product.findAndCountAll({
+      where,
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        },
+        {
+          model: models.Shop,
+          as: 'shop',
+          attributes: ['id', 'name', 'logo']
+        },
+        {
+          model: models.Rating,
+          as: 'productRatings',
+          attributes: ['rating'],
+          required: false
+        }
+      ],
+      order,
+      limit: parseInt(limit),
+      offset: offset,
+      distinct: true
+    });
+
+    // Calculer le nombre total de pages
+    const totalPages = Math.ceil(count / limit);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        products,
+        currentPage: parseInt(page),
+        totalPages,
+        totalItems: count,
+        itemsPerPage: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la récupération des produits de la boutique:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits de la boutique"
+    });
+  }
+};
+
 // Mettre à jour l'objet productsController
 const productsController = {
   addProduct,
@@ -913,7 +1060,8 @@ const productsController = {
   updateProduct,
   deleteProduct,
   getSellerProducts,
-  getAllPublicProducts
+  getAllPublicProducts,
+  getShopProducts
 };
 
 export default productsController;

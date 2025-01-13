@@ -43,7 +43,13 @@ import {
   handleSellerRequest,
   updateSellerStatus,
   updateUserStatus,
-  getUserDetails
+  getUserDetails,
+  getWithdrawals,
+  getWithdrawalDetails,
+  updateWithdrawalStatus,
+  getPayments,
+  getPaymentDetails,
+  updatePaymentStatus
 } from '../Controllers/Admin.js';
 import { admin, protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/upload.js';
@@ -122,5 +128,15 @@ router.get('/system-logs', getLogs);
 // Gestion des demandes vendeurs
 router.get('/seller-requests', getPendingSellerRequests);
 router.put('/seller-requests/:requestId', handleSellerRequest);
+
+// Routes pour la gestion des retraits
+router.get('/withdrawals', getWithdrawals);
+router.get('/withdrawals/:id', getWithdrawalDetails);
+router.put('/withdrawals/:id/status', updateWithdrawalStatus);
+
+// Gestion des paiements
+router.get('/payments', getPayments);
+router.get('/payments/:id', getPaymentDetails);
+router.put('/payments/:id/status', updatePaymentStatus);
 
 export default router;

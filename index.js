@@ -23,7 +23,7 @@ import category from './Routers/category.js'
 import Seller from "./Routers/Seller.js"
 import Event from './Routers/Event.js'
 import paymentRoutes from './Routers/paymentRoute.js';
-import { sequelize, syncModels } from './models/index.js';
+import { sequelize, models, syncModels } from './models/index.js';
 import pg from 'pg';
 // import { initializeDatabase } from './config/dbConfig.js';
 import Admin from './Routers/Admin.js';
@@ -132,10 +132,12 @@ const defaultSystemSettings = {
       senderName: 'Dubon'
     },
     social: {
-      facebook: '',
-      twitter: '',
-      instagram: '',
-      linkedin: ''
+      facebook: 'https://www.facebook.com/profile.php?id=61551357505057',
+      // twitter: '',
+      instagram: 'https://www.instagram.com/dubonservicesevent',
+      linkedin: 'https://www.linkedin.com/company/dubonservicesevent',
+      youtube: 'https://www.youtube.com/@dubonservicesevent',
+      tiktok: 'https://www.tiktok.com/@dubonservicesevent'
     }
   },
   category: 'general',
@@ -160,43 +162,42 @@ const checkDatabaseConnection = async (retries = 5) => {
   return false;
 };
 
-// Routes
+// Routes publiques
 app.get("/", (req, res) => {
     res.json("Hello")
 });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// API Routes
-app.use("/api/user", User);
-app.use("/api/products", Products);
-app.use("/api", Training);
+// Routes publiques de l'API
+app.use('/api/shops', shopRoutes);
+app.use('/api/search', searchRouter);
 app.use('/api/category', category);
+app.use('/api/products', Products);
+app.use('/api/user', User);
+
+// Routes protégées (déjà authentifiées dans leurs fichiers respectifs)
 app.use('/api/orders', Order);
+app.use("/api", Training);
 app.use("/api", Event);
 app.use("/api/", cartRoute);
 app.use('/api/wishlist', wishlistRoute);
-app.use('/api', searchRouter);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/events', eventRoutes);
-app.use('/api/shops', shopRoutes);
 
-// Subscription Routes
-app.use('/api/subscription', subscriptionRoutes);
-
-// Admin Routes
+// Routes admin
 app.use('/api/admin', Admin);
 app.use('/api/admin/themes', themeRoutes);
 app.use('/api/admin/system', systemRoutes);
 app.use('/api/admin/analytics', analyticsRouter);
 
-// Seller Routes
+// Routes vendeur
 app.use('/api/seller', Seller);
 
-
-// Other Routes
+// Autres routes protégées
 app.use('/api/disputes', disputeRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 
 // Error handling middlewares
 app.use(errorHandler.notFound);
@@ -245,18 +246,13 @@ const startServer = async () => {
       throw new Error('Impossible de se connecter à la base de données');
     }
 
-    // console.log('🔄 Suppression et recréation de toutes les tables...');
-    
-    // // Désactiver les contraintes de clé étrangère temporairement
-    // await sequelize.query('SET CONSTRAINTS ALL DEFERRED');
-    
-    // // Forcer la suppression et recréation de toutes les tables
-    // await sequelize.sync({ force: true });
-    
-    // // Réactiver les contraintes
-    // await sequelize.query('SET CONSTRAINTS ALL IMMEDIATE');
-    
-    // console.log('✅ Tables recréées avec succès');
+    // Synchroniser les modèles avec la base de données
+    console.log('🔄 Synchronisation des modèles...');
+    // await syncModels();
+    console.log('✅ Modèles synchronisés avec succès');
+
+    // Initialiser les données par défaut
+    // await initializeDefaultData();
 
     // Configurer les dossiers d'upload
     setupUploadDirectories();
@@ -282,8 +278,115 @@ const startServer = async () => {
 const initializeDefaultData = async () => {
   try {
     console.log('📝 Initialisation des données par défaut...');
-    // Ajoutez ici l'initialisation des données par défaut si nécessaire
-    console.log('✅ Données initialisées avec succès');
+    
+    // Vérifier si les paramètres système existent déjà
+    const existingSettings = await models.SystemSettings.findOne({
+      where: { key: 'general_settings' }
+    });
+
+    if (!existingSettings) {
+      console.log('⚙️ Configuration des paramètres système par défaut...');
+      await models.SystemSettings.create(defaultSystemSettings);
+      console.log('✅ Paramètres système initialisés avec succès');
+    } else {
+      console.log('ℹ️ Les paramètres système existent déjà');
+    }
+
+    // Vérifier si les catégories par défaut existent
+    const categoriesCount = await models.Category.count();
+    if (categoriesCount === 0) {
+      console.log('📁 Création des catégories par défaut...');
+      const defaultCategories = [
+        { name: 'Électronique', description: 'Produits électroniques et gadgets' },
+        { name: 'Mode', description: 'Vêtements et accessoires' },
+        { name: 'Maison', description: 'Articles pour la maison' },
+        { name: 'Alimentation', description: 'Produits alimentaires' },
+        { name: 'Santé & Beauté', description: 'Produits de santé et beauté' }
+      ];
+      await models.Category.bulkCreate(defaultCategories);
+      console.log('✅ Catégories par défaut créées avec succès');
+    }
+
+    // Vérifier si les plans d'abonnement par défaut existent
+    const plansCount = await models.Plan.count();
+    if (plansCount === 0) {
+      console.log('💎 Création des plans d\'abonnement par défaut...');
+      const defaultPlans = [
+        {
+          id: 'b0c3f5d7-eb4c-4c1f-9137-c8f5d1e9a1a1',
+          name: 'Basic',
+          price: 5000,
+          monthlyPrice: 5000,
+          yearlyPrice: 54000,
+          duration: 30,
+          status: 'active',
+          currency: 'XOF',
+          description: 'Plan de base pour démarrer votre activité',
+          features: {
+            productsLimit: 50,
+            storageLimit: 500,
+            supportLevel: 'basic',
+            benefits: [
+              'Jusqu\'à 50 produits',
+              'Support par email',
+              'Statistiques de base',
+              'Paiements sécurisés'
+            ]
+          }
+        },
+        {
+          id: 'c1d4e6f8-fc5d-4e2f-a248-d9f6e2b3c4a2',
+          name: 'Standard',
+          price: 15000,
+          monthlyPrice: 15000,
+          yearlyPrice: 162000,
+          duration: 30,
+          status: 'active',
+          currency: 'XOF',
+          description: 'Plan idéal pour les entreprises en croissance',
+          features: {
+            productsLimit: 200,
+            storageLimit: 2000,
+            supportLevel: 'priority',
+            benefits: [
+              'Jusqu\'à 200 produits',
+              'Support prioritaire',
+              'Statistiques avancées',
+              'Outils marketing de base',
+              'Gestion des promotions'
+            ]
+          }
+        },
+        {
+          id: 'd2e5f7g9-gd6e-5f3g-b359-e0g7f3c4b5a3',
+          name: 'Premium',
+          price: 30000,
+          monthlyPrice: 30000,
+          yearlyPrice: 324000,
+          duration: 30,
+          status: 'active',
+          currency: 'XOF',
+          description: 'Solution complète pour les entreprises établies',
+          features: {
+            productsLimit: -1, // illimité
+            storageLimit: 10000,
+            supportLevel: 'premium',
+            benefits: [
+              'Produits illimités',
+              'Support premium 24/7',
+              'Statistiques en temps réel',
+              'Outils marketing avancés',
+              'API personnalisée',
+              'Dashboard personnalisé'
+            ]
+          }
+        }
+      ];
+      await models.Plan.bulkCreate(defaultPlans);
+      console.log('✅ Plans d\'abonnement créés avec succès');
+    }
+
+    console.log('✅ Initialisation des données terminée avec succès');
   } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation des données:', error);
     throw error;

@@ -4,10 +4,10 @@ import { sendOrderConfirmationEmail } from '../utils/emailUtils.js';
 
 const createOrder = async (req, res) => {
   try {
-    const { items, total, shippingAddress } = req.body;
-    const userId = req.user.id; // from auth middleware
+    const { items, shippingAddress } = req.body;
+    const userId = req.user.id;
 
-    if (!items || !total || !shippingAddress) {
+    if (!items || !shippingAddress) {
       return res.status(400).json({
         success: false,
         message: "Tous les champs sont requis"
@@ -23,44 +23,60 @@ const createOrder = async (req, res) => {
       });
     }
 
-    // Créer la commande
-    const order = await models.Order.create({
-      userId,
-      total,
-      items,
-      shippingAddress,
-      status: 'pending',
-      paymentStatus: 'pending'
-    });
+    // Grouper les items par vendeur et calculer le total
+    const itemsBySeller = items.reduce((acc, item) => {
+      const sellerId = item.sellerId;
+      if (!acc[sellerId]) {
+        acc[sellerId] = {
+          items: [],
+          total: 0
+        };
+      }
+      acc[sellerId].items.push(item);
+      acc[sellerId].total += item.finalPrice * item.quantity;
+      return acc;
+    }, {});
 
-    // Initialiser la transaction FedaPay
-    const fedaPayTransaction = await createFedaPayTransaction({
-      amount: total,
-      description: `Commande #${order.id}`,
-      customerId: userId,
-      callbackUrl: `${process.env.BASE_URL}/api/payment/callback/${order.id}`,
-      customerEmail: shippingAddress.email,
-      customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`
-    });
+    // Créer une commande pour chaque vendeur
+    const orders = [];
+    for (const sellerId in itemsBySeller) {
+      const sellerItems = itemsBySeller[sellerId];
+      
+      const order = await models.Order.create({
+        userId,
+        sellerId,
+        total: sellerItems.total,
+        items: sellerItems.items,
+        shippingAddress,
+        status: 'pending',
+        paymentStatus: 'pending'
+      });
 
-    // Mettre à jour la commande avec l'ID de transaction
-    await order.update({
-      transactionId: fedaPayTransaction.id,
-      paymentMethod: 'fedapay'
-    });
+      // Initialiser la transaction FedaPay pour cette commande
+      const fedaPayTransaction = await createFedaPayTransaction({
+        amount: sellerItems.total,
+        description: `Commande #${order.id}`,
+        customerId: userId,
+        callbackUrl: `${process.env.BASE_URL}/api/payment/callback/${order.id}`,
+        customerEmail: shippingAddress.email,
+        customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`
+      });
 
-    // Envoyer l'email de confirmation
-    try {
-      await sendOrderConfirmationEmail(order, user);
-    } catch (emailError) {
-      console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
-      // On continue même si l'envoi de l'email échoue
+      // Mettre à jour la commande avec l'ID de transaction
+      await order.update({
+        transactionId: fedaPayTransaction.id,
+        paymentMethod: 'fedapay'
+      });
+
+      orders.push({
+        orderId: order.id,
+        paymentUrl: fedaPayTransaction.paymentUrl
+      });
     }
 
     res.status(201).json({
       success: true,
-      orderId: order.id,
-      paymentUrl: fedaPayTransaction.paymentUrl
+      orders
     });
   } catch (error) {
     console.error('Erreur création commande:', error);

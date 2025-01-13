@@ -44,6 +44,8 @@ import TableModel from './Table.js';
 import SubscriptionModel from './Subscription.js';
 import PlanModel from './Plan.js';
 import SellerProfile from './SellerProfile.js';
+import ShopModel from './Shop.js';
+import SellerHistoryModel from './SellerHistory.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -60,13 +62,14 @@ const defineModels = () => {
   // 2. Profil vendeur (dépendance critique)
   db.SellerProfile = SellerProfile(sequelize);
 
-  // 3. Modèles dépendant du profil vendeur
+  // 3. Shop (dépend de SellerProfile)
+  db.Shop = ShopModel(sequelize);
+
+  // 4. Modèles dépendant du profil vendeur et de la boutique
   db.SellerSetting = SellerSettingModel(sequelize);
   db.SellerStats = SellerStatsModel(sequelize);
   db.SellerRequest = SellerRequestModel(sequelize);
   db.Subscription = SubscriptionModel(sequelize, Sequelize.DataTypes);
-
-  // 4. Produits
   db.Product = ProductModel(sequelize);
 
   // 5. Autres modèles
@@ -102,7 +105,7 @@ const defineModels = () => {
   db.Restaurant = RestaurantModel(sequelize);
   db.Table = TableModel(sequelize);
   db.Reservation = ReservationModel(sequelize);
-
+  db.SellerHistory = SellerHistoryModel(sequelize);
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {
     if (db[modelName].associate) {
@@ -118,15 +121,8 @@ const models = defineModels();
 // Synchroniser les modèles avec la base de données
 const syncModels = async () => {
   try {
-    // Désactiver les contraintes de clé étrangère temporairement
-    await sequelize.query('SET CONSTRAINTS ALL DEFERRED');
-    
-    // Synchroniser tous les modèles
-    await sequelize.sync({ force: true });
-    
-    // Réactiver les contraintes
-    await sequelize.query('SET CONSTRAINTS ALL IMMEDIATE');
-    
+    // Synchroniser tous les modèles sans forcer la recréation des tables
+    await sequelize.sync({ alter: true });
     console.log('✅ Modèles synchronisés avec succès');
   } catch (error) {
     console.error('❌ Erreur lors de la synchronisation des modèles:', error);

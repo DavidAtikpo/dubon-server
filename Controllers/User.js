@@ -485,7 +485,7 @@ export const refreshToken = async (req, res) => {
       }
 
       // Générer un nouveau access token
-      const newAccessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const newAccessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
       res.json({
         success: true,
@@ -500,6 +500,7 @@ export const refreshToken = async (req, res) => {
 export const getDashboard = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('Récupération du dashboard pour userId:', userId);
 
     const [orders, favorites, addresses, notifications, recentActivity, reviews] = await Promise.all([
       // Dernières commandes
@@ -532,11 +533,11 @@ export const getDashboard = async (req, res) => {
         where: { userId }
       }),
 
-      // Notifications non lues (correction de isRead à read)
+      // Notifications non lues
       models.Notification.findAll({
         where: { 
           userId,
-          read: false  // Utilisation de 'read' au lieu de 'isRead'
+          read: false
         },
         limit: 5,
         order: [['createdAt', 'DESC']]
@@ -557,16 +558,27 @@ export const getDashboard = async (req, res) => {
       })
     ]);
 
-    // Formater les données
+    console.log('Données récupérées avec succès');
+
+    // Formater les données avec gestion d'erreur pour le parsing JSON
     const dashboard = {
-      recentOrders: orders.map(order => ({
-        id: order.id,
-        orderNumber: order.id.slice(-8),
-        total: order.total,
-        status: order.status,
-        createdAt: order.createdAt,
-        items: order.items ? JSON.parse(order.items) : []
-      })),
+      recentOrders: orders.map(order => {
+        let parsedItems = [];
+        try {
+          parsedItems = order.items ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) : [];
+        } catch (error) {
+          console.error('Erreur parsing items pour order:', order.id, error);
+        }
+
+        return {
+          id: order.id,
+          orderNumber: order.id.slice(-8),
+          total: order.total,
+          status: order.status,
+          createdAt: order.createdAt,
+          items: parsedItems
+        };
+      }),
 
       recentReviews: reviews.map(review => ({
         id: review.id,
@@ -584,19 +596,32 @@ export const getDashboard = async (req, res) => {
       })),
 
       favoriteProducts: favorites.map(fav => ({
-        id: fav.product.id,
-        name: fav.product.name,
-        price: fav.product.price,
-        imageUrl: fav.product.images ? fav.product.images[0] : null
+        id: fav.product?.id,
+        name: fav.product?.name,
+        price: fav.product?.price,
+        imageUrl: fav.product?.images ? 
+          (Array.isArray(fav.product.images) ? fav.product.images[0] : fav.product.images) 
+          : null
+      })).filter(product => product.id), // Filtrer les produits null
+
+      notifications: notifications.map(notif => ({
+        id: notif.id,
+        type: notif.type,
+        title: notif.title,
+        message: notif.message,
+        createdAt: notif.createdAt
       })),
 
       stats: {
         totalOrders: orders.length,
         favoriteCount: favorites.length,
         addressCount: addresses.length,
-        reviewCount: reviews.length
+        reviewCount: reviews.length,
+        unreadNotifications: notifications.length
       }
     };
+
+    console.log('Dashboard formaté avec succès');
 
     res.json({
       success: true,
@@ -607,7 +632,8 @@ export const getDashboard = async (req, res) => {
     console.error('Erreur getDashboard:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des données du dashboard"
+      message: "Erreur lors de la récupération des données du dashboard",
+      error: error.message
     });
   }
 };

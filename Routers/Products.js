@@ -87,4 +87,8 @@ router.put('/update-product/:productId', upload.fields([
 ]), productsController.updateProduct);
 router.delete('/delete-product/:productId', productsController.deleteProduct);
 
+router.get('/shop/:shopId', productsController.getShopProducts);
+
+
+
 export default router

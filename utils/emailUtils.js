@@ -317,33 +317,28 @@ Handlebars.registerHelper('formatPrice', function(price) {
 
 export const sendOrderConfirmationEmail = async (order, user) => {
   try {
-    // Lire le template
-    const templatePath = path.join(__dirname, '../templates/emails/order-confirmation.hbs');
-    const source = fs.readFileSync(templatePath, 'utf-8');
-    const template = Handlebars.compile(source);
-
-    // Préparer les données pour le template
-    const data = {
-      userName: `${user.firstName} ${user.lastName}`,
+    const templatePath = path.join(process.cwd(), 'templates', 'emails', 'order-confirmation.hbs');
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+    
+    // Formater les données de la commande
+    const orderData = {
       orderNumber: order.id,
-      orderDate: order.createdAt,
-      orderTotal: order.total,
+      orderDate: new Date(order.createdAt).toLocaleDateString(),
+      customerName: user.name,
+      customerEmail: user.email,
       items: order.items,
+      total: order.total,
+      status: order.status,
+      paymentMethod: order.paymentMethod,
       shippingAddress: order.shippingAddress
     };
 
-    // Générer le HTML
-    const html = template(data);
-
-    // Envoyer l'email
-    await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
+    return sendEmail({
       to: user.email,
       subject: `Confirmation de votre commande #${order.id}`,
-      html: html
+      template: 'order-confirmation',
+      context: orderData
     });
-
-    console.log(`✓ Email de confirmation envoyé pour la commande ${order.id}`);
   } catch (error) {
     console.error('Erreur lors de l\'envoi de l\'email de confirmation:', error);
     throw error;

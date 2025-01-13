@@ -11,6 +11,10 @@ export default (sequelize) => {
         foreignKey: 'planId',
         as: 'plan'
       });
+      Subscription.belongsTo(models.SellerProfile, {
+        foreignKey: 'sellerId',
+        as: 'seller'
+      });
     }
   }
 
@@ -26,6 +30,14 @@ export default (sequelize) => {
       allowNull: false,
       references: {
         model: 'Users',
+        key: 'id'
+      }
+    },
+    sellerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'SellerProfiles',
         key: 'id'
       }
     },

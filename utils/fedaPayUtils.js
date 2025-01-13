@@ -2,23 +2,31 @@ import { FedaPay, Transaction } from 'fedapay';
 
 // Configuration initiale de FedaPay
 const initializeFedaPay = () => {
-  const environment = process.env.NODE_ENV === 'production' ? 'live' : 'sandbox';
-  const apiKey = process.env.NODE_ENV === 'production' 
-    ? process.env.FEDAPAY_LIVE_SECRET_KEY 
-    : process.env.FEDAPAY_TEST_SECRET_KEY;
+  const environment = process.env.FEDAPAY_ENVIRONMENT || 'sandbox';
+  const apiKey = process.env.FEDAPAY_API_KEY;
 
   if (!apiKey) {
     throw new Error(`Clé API FedaPay ${environment} non définie`);
   }
 
   try {
+    // Configuration de base
     FedaPay.setApiKey(apiKey);
     FedaPay.setEnvironment(environment);
+
+    // Configuration spécifique pour le sandbox
+    if (environment === 'sandbox') {
+      FedaPay.setApiBase('https://sandbox-api.fedapay.com');
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+
     console.log('🔧 Configuration FedaPay:', { 
       environment, 
       apiVersion: 'v1',
-      keyLength: apiKey.length 
+      keyLength: apiKey.length,
+      baseUrl: FedaPay.getApiBase()
     });
+
     console.log('✓ FedaPay initialisé avec succès');
     return Transaction;
   } catch (error) {
@@ -64,11 +72,12 @@ export const createFedaPayTransaction = async ({
     });
 
     // Générer le token de paiement
-    const token = await transaction.generateToken();
-    console.log('✓ Token généré:', token.substring(0, 10) + '...');
+    const tokenResponse = await transaction.generateToken();
+    const token = tokenResponse.token || tokenResponse;
+    console.log('✓ Token généré:', typeof token === 'string' ? token.substring(0, 10) + '...' : 'Token non-string généré');
 
     // Construire l'URL de paiement
-    const baseUrl = process.env.NODE_ENV === 'production'
+    const baseUrl = process.env.FEDAPAY_ENVIRONMENT === 'live'
       ? 'https://checkout.fedapay.com'
       : 'https://sandbox-checkout.fedapay.com';
     

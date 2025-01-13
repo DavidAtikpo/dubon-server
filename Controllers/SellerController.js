@@ -2,53 +2,91 @@ import { models } from '../models/index.js';
 
 export const getSellerProfile = async (req, res) => {
   try {
-    console.log('Récupération du profil vendeur pour:', req.user.id);
-
-    // Vérifier si le profil vendeur existe
-    let sellerProfile = await models.SellerProfile.findOne({
-      where: { userId: req.user.id }
-    });
-
-    // Si le profil n'existe pas, le créer
-    if (!sellerProfile) {
-      console.log('Création d\'un nouveau profil vendeur');
-      sellerProfile = await models.SellerProfile.create({
-        userId: req.user.id,
-        status: 'pending',
-        verificationStatus: 'pending'
-      });
-    }
-
-    // Récupérer le profil avec toutes les relations
-    sellerProfile = await models.SellerProfile.findOne({
-      where: { id: sellerProfile.id },
+    const sellerId = req.user.id;
+    const sellerProfile = await models.SellerProfile.findOne({
+      where: { userId: sellerId },
       include: [
         {
           model: models.User,
-          attributes: ['id', 'name', 'email', 'avatar']
+          as: 'user',
+          attributes: ['id', 'name', 'email', 'avatar'],
+          include: [{
+            model: models.UserProfile,
+            as: 'profile',
+            attributes: ['firstName', 'lastName']
+          }]
         },
         {
-          model: models.Subscription,
-          where: { status: 'active' },
-          required: false,
-          attributes: [
-            'id', 'planId', 'billingCycle', 'amount', 
-            'status', 'expiresAt', 'createdAt'
-          ]
+          model: models.Shop,
+          as: 'shop',
+          attributes: ['id', 'name', 'description', 'logo', 'coverImage', 'rating', 'status', 'location']
         }
       ]
     });
 
-    console.log('✅ Profil vendeur trouvé/créé');
+    if (!sellerProfile) {
+      return res.status(404).json({
+        success: false,
+        message: "Seller profile not found"
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: sellerProfile
     });
   } catch (error) {
-    console.error('Erreur récupération profil vendeur:', error);
+    console.error('Error in getSellerProfile:', error);
     return res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération du profil vendeur"
+      message: "Error retrieving seller profile",
+      error: error.message
+    });
+  }
+};
+
+export const getSellerHistory = async (req, res) => {
+  try {
+    const { type, startDate, endDate } = req.query;
+    const sellerId = req.seller.id;
+
+    // Construire la requête de base
+    const whereClause = {
+      sellerId,
+    };
+
+    // Ajouter le filtre par type si spécifié
+    if (type && type !== 'all') {
+      whereClause.type = type;
+    }
+
+    // Ajouter le filtre par date si spécifié
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) {
+        whereClause.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        whereClause.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Récupérer l'historique
+    const history = await SellerHistory.findAll({
+      where: whereClause,
+      order: [['createdAt', 'DESC']],
+      limit: 100 // Limiter à 100 entrées par défaut
+    });
+
+    res.status(200).json({
+      success: true,
+      data: history
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération de l\'historique:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération de l\'historique'
     });
   }
 }; 

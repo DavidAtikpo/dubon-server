@@ -4,13 +4,40 @@ import { sendOrderConfirmationEmail } from '../utils/emailUtils.js';
 
 const createPayment = async (req, res) => {
   try {
-    const { orderId, amount } = req.body;
+    console.log('Body reçu:', req.body);
+    const { amount, paymentMethod, currency, orderId } = req.body;
+    
+    // Validation des données
+    if (!orderId) {
+      console.log('OrderId manquant dans la requête');
+      return res.status(400).json({
+        success: false,
+        message: "L'ID de la commande est requis"
+      });
+    }
+
+    if (!amount) {
+      console.log('Amount manquant dans la requête');
+      return res.status(400).json({
+        success: false,
+        message: "Le montant est requis"
+      });
+    }
+
+    if (paymentMethod !== 'fedapay') {
+      return res.status(400).json({
+        success: false,
+        message: "Méthode de paiement non supportée"
+      });
+    }
+
+    console.log('Données reçues:', { orderId, amount, paymentMethod, currency, userId: req.user.id });
 
     // Vérifier que la commande existe
     const order = await models.Order.findOne({
       where: { 
         id: orderId,
-        userId: req.user.id 
+        userId: req.user.id // S'assurer que la commande appartient à l'utilisateur
       },
       include: [{
         model: models.User,
@@ -20,18 +47,25 @@ const createPayment = async (req, res) => {
     });
 
     if (!order) {
+      console.log('Commande non trouvée:', orderId);
       return res.status(404).json({
         success: false,
-        message: "Commande non trouvée"
+        message: "Commande non trouvée ou n'appartient pas à l'utilisateur"
       });
     }
 
+    console.log('Commande trouvée:', { 
+      orderId: order.id, 
+      userId: order.userId,
+      userEmail: order.user?.email 
+    });
+
     // Créer la transaction FedaPay
     const fedaPayTransaction = await createFedaPayTransaction({
-      amount: amount,
+      amount: parseFloat(amount),
       description: `Commande #${orderId}`,
       customerId: req.user.id,
-      callbackUrl: `${process.env.FRONTEND_URL}/checkout/success?orderId=${orderId}`,
+      callbackUrl: `${process.env.BASE_URL}/api/payment/callback/${orderId}`,
       customerEmail: order.user.email,
       customerName: order.user.name
     });
@@ -51,7 +85,7 @@ const createPayment = async (req, res) => {
     console.error('Erreur création paiement:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de l'initialisation du paiement"
+      message: error.message || "Erreur lors de l'initialisation du paiement"
     });
   }
 };

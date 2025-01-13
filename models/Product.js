@@ -55,6 +55,11 @@ export default (sequelize) => {
         foreignKey: 'productId',
         as: 'promotions'
       });
+
+      Product.belongsTo(models.Shop, {
+        foreignKey: 'shopId',
+        as: 'shop'
+      });
     }
   }
 
@@ -63,6 +68,14 @@ export default (sequelize) => {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
+    },
+    shopId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Shops',
+        key: 'id'
+      }
     },
     sellerId: {
       type: DataTypes.UUID,

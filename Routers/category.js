@@ -1,18 +1,15 @@
-import express from 'express'
-import Product from '../models/Product.js';
+import express from 'express';
+import * as categoryController from '../Controllers/CategoryController.js';
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/get-by-category", async (req, res) => {
-    const { category } = req.query;
-    try {
-      const products = await Product.find({ category });
-      res.status(200).json(products);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Erreur lors de la récupération des produits" });
-    }
-  });
-  
+// Route publique pour récupérer toutes les catégories
+router.get('/all', categoryController.getAllCategories);
 
-  export default router
+// Route pour récupérer une catégorie par ID
+router.get('/:id', categoryController.getCategoryById);
+
+// Route pour récupérer les produits d'une catégorie
+router.get('/:id/products', categoryController.getProductsByCategory);
+
+export default router;

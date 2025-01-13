@@ -147,13 +147,13 @@ export const login = async (req, res) => {
     const accessToken = jwt.sign(
       { id: user.id },  // Inclure seulement l'ID dans le token
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
 
     const refreshToken = jwt.sign(
       { id: user.id },
       process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     // Mettre à jour la dernière connexion et le refresh token

@@ -78,6 +78,11 @@ const SellerProfile = (sequelize) => {
   });
 
   SellerProfile.associate = (models) => {
+    SellerProfile.hasOne(models.Shop, {
+      foreignKey: 'sellerId',
+      as: 'shop'
+    });
+
     SellerProfile.belongsTo(models.User, {
       foreignKey: 'userId',
       as: 'user'
@@ -96,6 +101,16 @@ const SellerProfile = (sequelize) => {
     SellerProfile.hasMany(models.Promotion, {
       foreignKey: 'sellerId',
       as: 'promotions'
+    });
+
+    SellerProfile.hasMany(models.Withdrawal, {
+      foreignKey: 'sellerId',
+      as: 'withdrawals'
+    });
+
+    SellerProfile.hasOne(models.Subscription, {
+      foreignKey: 'sellerId',
+      as: 'subscription'
     });
   };
 

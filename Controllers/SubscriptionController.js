@@ -1,4 +1,5 @@
 import { models, sequelize } from '../models/index.js';
+import { Op } from 'sequelize';
 import { createFedaPayTransaction, verifyTransaction } from '../utils/fedaPayUtils.js';
 import { sendEmail } from '../utils/emailUtils.js';
 
@@ -13,7 +14,7 @@ export const checkSubscriptionStatus = async (req, res) => {
         userId,
         status: 'active',
         expiresAt: {
-          [sequelize.Op.gt]: new Date()
+          [Op.gt]: new Date()
         }
       }
     });
@@ -65,7 +66,7 @@ export const initiateSubscription = async (req, res) => {
         userId,
         status: 'active',
         expiresAt: {
-          [sequelize.Op.gt]: new Date()
+          [Op.gt]: new Date()
         }
       }
     });

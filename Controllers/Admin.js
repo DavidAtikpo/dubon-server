@@ -1,12 +1,14 @@
 import { models, sequelize } from '../models/index.js';
+import { Op } from 'sequelize';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { Op } from 'sequelize';
 import generateToken from '../utils/generateToken.js';
 import { sendEmail } from '../utils/emailUtils.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import FedaPayService from '../services/FedaPayService.js';
 
 const { User, Seller, Product, Order, Review, SystemLog, SystemSettings, SellerProfile, Theme, Formation, Inscription } = models;
 
@@ -600,13 +602,80 @@ export const updateSystemSettings = async (req, res) => {
 // Logs système
 export const getSystemLogs = async (req, res) => {
   try {
-    const logs = await SystemLog.findAll({
+    const { type, startDate, endDate } = req.query;
+    const whereClause = {};
+
+    // Ajouter le filtre par type si spécifié
+    if (type && type !== 'all') {
+      whereClause.type = type;
+    }
+
+    // Ajouter le filtre par date si spécifié
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) {
+        whereClause.createdAt[Op.gte] = new Date(startDate);
+      }
+      if (endDate) {
+        whereClause.createdAt[Op.lte] = new Date(endDate);
+      }
+    }
+
+    const logs = await models.SystemLog.findAll({
+      where: whereClause,
+      include: [{
+        model: models.User,
+        as: 'user',
+        attributes: ['id', 'name']
+      }],
       order: [['createdAt', 'DESC']],
       limit: 100
     });
-    res.json({ success: true, data: logs });
+
+    // Formater les données selon la structure attendue par le frontend
+    const formattedLogs = logs.map(log => ({
+      id: log.id,
+      type: log.type || 'info',
+      action: log.action,
+      description: log.message,
+      severity: log.level || 'info',
+      userId: log.userId,
+      metadata: {
+        ip: log.ipAddress,
+        userAgent: log.userAgent,
+        path: log.requestUrl,
+        method: log.requestMethod,
+        params: log.requestParams
+      },
+      ipAddress: log.ipAddress || 'N/A',
+      userAgent: log.userAgent || 'N/A',
+      createdAt: log.createdAt.toISOString(),
+      user: log.user ? {
+        name: log.user.name
+      } : null
+    }));
+
+    res.json({ 
+      success: true, 
+      data: {
+        logs: formattedLogs
+      },
+      meta: {
+        total: formattedLogs.length,
+        filters: {
+          type: type || 'all',
+          startDate: startDate ? new Date(startDate).toISOString() : null,
+          endDate: endDate ? new Date(endDate).toISOString() : null
+        }
+      }
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Erreur getSystemLogs:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur lors de la récupération des logs',
+      error: error.message 
+    });
   }
 };
 
@@ -650,6 +719,7 @@ export const approveSellerRequest = async (req, res) => {
   
   try {
     const { requestId } = req.params;
+    console.log('🔄 Début approbation vendeur:', { requestId });
     
     // 1. Récupérer la demande avec les informations de l'utilisateur
     const request = await models.SellerRequest.findByPk(requestId, {
@@ -662,6 +732,7 @@ export const approveSellerRequest = async (req, res) => {
     });
 
     if (!request) {
+      console.log('❌ Demande non trouvée:', requestId);
       await transaction.rollback();
       return res.status(404).json({
         success: false,
@@ -669,105 +740,151 @@ export const approveSellerRequest = async (req, res) => {
       });
     }
 
-    // 2. Créer le profil vendeur
-    const sellerProfile = await models.SellerProfile.create({
+    console.log('✅ Demande trouvée:', {
+      requestId: request.id,
       userId: request.userId,
-      businessInfo: {
-        name: request.type === 'individual' 
-          ? request.personalInfo.fullName 
-          : request.businessInfo.shopName,
-        email: request.personalInfo.email,
-        phone: request.personalInfo.phone,
-        address: request.personalInfo.address,
-        description: request.businessInfo.description,
-        category: request.businessInfo.category,
-        taxNumber: request.personalInfo.taxNumber,
-        shopImage: request.documents.shopImageUrl,
-      },
-      documents: {
-        idCard: request.documents.idCardUrl,
-        proofOfAddress: request.documents.proofOfAddressUrl,
-        taxCertificate: request.documents.taxCertificateUrl,
-        photos: request.documents.photoUrls || [],
-        ...(request.type === 'company' && {
-          rccm: request.documents.rccmUrl,
-          companyStatutes: request.documents.companyStatutesUrl
-        })
-      },
-      status: 'active',
-      verificationStatus: 'verified',
-      verifiedAt: new Date(),
-      settings: {
-        notifications: true,
-        autoAcceptOrders: false,
-        displayEmail: true,
-        displayPhone: true,
-        language: 'fr',
-        currency: 'XOF'
-      }
-    }, { transaction });
-
-    // 3. Mettre à jour le statut de la demande
-    await request.update({
-      status: 'approved',
-      verifiedAt: new Date(),
-      reviewedBy: req.user.id
-    }, { transaction });
-
-    // 4. Mettre à jour le rôle de l'utilisateur
-    await models.User.update({
-      role: 'seller',
-      status: 'active'
-    }, {
-      where: { id: request.userId },
-      transaction
+      businessInfo: request.businessInfo,
+      documents: request.documents
     });
 
-    // 5. Créer une notification pour le vendeur
-    await models.Notification.create({
-      userId: request.userId,
-      type: 'seller_approval',
-      title: 'Félicitations !',
-      message: 'Votre demande de vendeur a été approuvée. Vous pouvez maintenant commencer à vendre.',
-      data: {
-        sellerId: sellerProfile.id
-      }
-    }, { transaction });
-
-    await transaction.commit();
-
-    // 6. Envoyer un email de confirmation
+    // 2. Créer le profil vendeur
     try {
-      await sendEmail({
-        to: request.user.email,
-        subject: 'Votre demande vendeur a été approuvée',
-        template: 'seller-approved',
-        context: {
-          name: request.user.name,
-          storeName: request.businessInfo.shopName
+      const sellerProfile = await models.SellerProfile.create({
+        userId: request.userId,
+        businessInfo: {
+          ...request.businessInfo,
+          storeName: request.businessInfo.shopName || 'Boutique par défaut',
+          description: request.businessInfo.description || '',
+          address: request.businessInfo.address || '',
+          phone: request.businessInfo.phone || '',
+          email: request.businessInfo.email || request.user.email
+        },
+        documents: request.documents || {},
+        status: 'active',
+        verificationStatus: 'verified',
+        verifiedAt: new Date()
+      }, { transaction });
+
+      console.log('✅ Profil vendeur créé:', {
+        sellerId: sellerProfile.id,
+        userId: sellerProfile.userId
+      });
+
+      // 3. Créer la boutique avec toutes les informations fournies
+      const shop = await models.Shop.create({
+        sellerId: sellerProfile.id,
+        name: request.businessInfo.shopName || 'Boutique par défaut',
+        description: request.businessInfo.description || '',
+        logo: request.documents?.logo || null,
+        coverImage: request.documents?.shopImage || null,
+        status: 'active',
+        location: request.businessInfo.address || '',
+        contactInfo: {
+          email: request.businessInfo.email || request.user.email,
+          phone: request.businessInfo.phone || '',
+          address: request.businessInfo.address || ''
+        },
+        openingHours: request.businessInfo.openingHours || {},
+        categories: request.businessInfo.categories || []
+      }, { transaction });
+
+      console.log('✅ Boutique créée:', {
+        shopId: shop.id,
+        sellerId: shop.sellerId
+      });
+
+      // 4. Mettre à jour le statut de la demande
+      await request.update({
+        status: 'approved',
+        verifiedAt: new Date(),
+        reviewedBy: req.user.id
+      }, { transaction });
+
+      console.log('✅ Statut de la demande mis à jour');
+
+      // 5. Mettre à jour le rôle de l'utilisateur
+      await models.User.update({
+        role: 'seller',
+        status: 'active'
+      }, {
+        where: { id: request.userId },
+        transaction
+      });
+
+      console.log('✅ Rôle utilisateur mis à jour');
+
+      // 6. Créer une notification pour le vendeur
+      const notification = await models.Notification.create({
+        userId: request.userId,
+        sellerId: sellerProfile.id,
+        type: 'seller_approval',
+        title: 'Compte vendeur approuvé',
+        message: 'Votre compte vendeur a été approuvé. Vous pouvez maintenant commencer à vendre.',
+        status: 'unread'
+      }, { transaction });
+
+      console.log('✅ Notification créée:', {
+        notificationId: notification.id,
+        userId: notification.userId
+      });
+
+      await transaction.commit();
+      console.log('✅ Transaction validée avec succès');
+
+      // 7. Envoyer un email de confirmation
+      try {
+        await sendEmail({
+          to: request.user.email,
+          subject: 'Votre demande vendeur a été approuvée',
+          template: 'seller-approved',
+          context: {
+            name: request.user.name,
+            storeName: shop.name,
+            loginUrl: `${process.env.FRONTEND_URL}/login`,
+            dashboardUrl: `${process.env.FRONTEND_URL}/seller/dashboard`
+          }
+        });
+        console.log('✅ Email de confirmation envoyé');
+      } catch (emailError) {
+        console.error('⚠️ Erreur envoi email:', emailError);
+      }
+
+      // Créer un log système
+      await createSystemLog({
+        type: 'seller',
+        action: 'SELLER_APPROVED',
+        description: `Demande vendeur approuvée pour ${request.user.name}`,
+        userId: req.user.id,
+        metadata: {
+          sellerId: sellerProfile.id,
+          shopId: shop.id,
+          requestId: request.id
         }
       });
-    } catch (emailError) {
-      console.error('Erreur envoi email:', emailError);
-      // Ne pas bloquer l'opération si l'envoi d'email échoue
+
+      res.json({
+        success: true,
+        message: "Demande vendeur approuvée avec succès",
+        data: {
+          sellerId: sellerProfile.id,
+          shopId: shop.id,
+          userId: request.userId
+        }
+      });
+
+    } catch (innerError) {
+      console.error('❌ Erreur détaillée:', innerError);
+      throw innerError;
     }
 
-    res.json({
-      success: true,
-      message: 'Demande approuvée et profil vendeur créé avec succès',
-      data: {
-        sellerProfile,
-        request
-      }
-    });
-
   } catch (error) {
+    console.error('❌ Erreur approbation vendeur:', error);
     await transaction.rollback();
-    console.error('Erreur approveSellerRequest:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'approbation de la demande",
-      error: error.message
+      error: error.message,
+      details: error.stack
     });
   }
 };
@@ -2125,6 +2242,21 @@ export const handleSellerRequest = async (req, res) => {
     }
 
     if (status === 'approved') {
+      // Créer le profil vendeur
+      const sellerProfile = await models.SellerProfile.create({
+        userId: request.userId,
+        status: 'active',
+        verificationStatus: 'verified',
+        verifiedAt: new Date()
+      }, { transaction });
+
+      // Créer le Shop avec l'information minimale
+      await models.Shop.create({
+        sellerId: sellerProfile.id,
+        name: request.businessInfo?.shopName || 'Ma boutique',
+        status: 'active'
+      }, { transaction });
+
       await request.update({ 
         status: 'approved',
         verifiedAt: new Date()
@@ -2138,6 +2270,30 @@ export const handleSellerRequest = async (req, res) => {
         }
       );
 
+      // Créer une notification
+      await models.Notification.create({
+        userId: request.userId,
+        sellerId: sellerProfile.id,
+        type: 'seller_approval',
+        title: 'Compte vendeur approuvé',
+        message: 'Votre compte vendeur a été approuvé. Vous pouvez maintenant commencer à vendre.',
+        status: 'unread'
+      }, { transaction });
+
+      // Ajouter aux logs système
+      await models.SystemLog.create({
+        type: 'seller',
+        action: 'SELLER_APPROVED',
+        description: `Approbation du compte vendeur pour ${request.user.name}`,
+        userId: req.user.id,
+        category: 'seller_management',
+        message: `Demande vendeur approuvée pour ${request.user.name}`,
+        metadata: {
+          sellerId: sellerProfile.id,
+          requestId: request.id
+        }
+      }, { transaction });
+
       // Envoyer un email de confirmation
       try {
         await sendEmail({
@@ -2150,12 +2306,36 @@ export const handleSellerRequest = async (req, res) => {
         });
       } catch (emailError) {
         console.error('❌ Erreur envoi email de confirmation:', emailError);
-        // Ne pas bloquer l'opération si l'envoi d'email échoue
       }
     } else if (status === 'rejected') {
-      await request.update({ 
+      // Créer une notification de rejet
+      await models.Notification.create({
+        userId: request.userId,
+        type: 'seller_rejection',
+        title: 'Compte vendeur rejeté',
+        message: `Votre demande de compte vendeur a été rejetée. Raison: ${rejectionReason}`,
+        status: 'unread',
+        data: { reason: rejectionReason }
+      }, { transaction });
+
+      // Mettre à jour le statut de la demande
+      await request.update({
         status: 'rejected',
         rejectionReason
+      }, { transaction });
+
+      // Ajouter aux logs système
+      await models.SystemLog.create({
+        type: 'seller',
+        action: 'SELLER_REJECTED',
+        description: `Rejet du compte vendeur pour ${request.user.name}`,
+        userId: req.user.id,
+        category: 'seller_management',
+        message: `Demande vendeur rejetée pour ${request.user.name} - Raison: ${rejectionReason}`,
+        metadata: {
+          requestId: request.id,
+          reason: rejectionReason
+        }
       }, { transaction });
 
       // Envoyer un email de rejet
@@ -2171,7 +2351,6 @@ export const handleSellerRequest = async (req, res) => {
         });
       } catch (emailError) {
         console.error('❌ Erreur envoi email de rejet:', emailError);
-        // Ne pas bloquer l'opération si l'envoi d'email échoue
       }
     }
 
@@ -2454,6 +2633,352 @@ export const getSellerValidationStatus = async (req, res) => {
   }
 };
 
+// Récupérer toutes les demandes de retrait
+export const getWithdrawals = async (req, res) => {
+  try {
+    console.log('📊 Fetching withdrawals...');
+    const withdrawals = await models.Withdrawal.findAll({
+      include: [{
+        model: models.SellerProfile,
+        as: 'seller',
+        include: [{
+          model: models.User,
+          as: 'user',
+          attributes: ['name', 'email']
+        }]
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    console.log(`✅ Found ${withdrawals.length} withdrawals`);
+
+    const transformedWithdrawals = withdrawals.map(withdrawal => ({
+      id: withdrawal.id,
+      sellerId: withdrawal.sellerId,
+      amount: withdrawal.amount,
+      status: withdrawal.status,
+      createdAt: withdrawal.createdAt,
+      seller: {
+        businessName: withdrawal.seller?.businessInfo?.businessName || 'N/A',
+        user: {
+          name: withdrawal.seller?.user?.name || 'N/A',
+          email: withdrawal.seller?.user?.email
+        }
+      },
+      bankInfo: withdrawal.bankInfo || {}
+    }));
+
+    res.json({
+      success: true,
+      data: transformedWithdrawals
+    });
+  } catch (error) {
+    console.error('❌ Error fetching withdrawals:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des retraits'
+    });
+  }
+};
+
+export const getWithdrawalDetails = async (req, res) => {
+  try {
+    console.log('📊 Fetching withdrawal details...');
+    const withdrawal = await models.Withdrawal.findByPk(req.params.id, {
+      include: [{
+        model: models.SellerProfile,
+        as: 'seller',
+        include: [{
+          model: models.User,
+          as: 'user',
+          attributes: ['name', 'email', 'phone']
+        }]
+      }]
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Demande de retrait non trouvée'
+      });
+    }
+
+    console.log('✅ Withdrawal details found:', withdrawal.id);
+    res.json({
+      success: true,
+      data: withdrawal
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des détails du retrait:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des détails du retrait'
+    });
+  }
+};
+
+export const updateWithdrawalStatus = async (req, res) => {
+  const { status } = req.body;
+  const validStatuses = ['processing', 'completed', 'failed', 'cancelled'];
+
+  try {
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Statut invalide'
+      });
+    }
+
+    const withdrawal = await models.Withdrawal.findByPk(req.params.id, {
+      include: [{
+        model: models.SellerProfile,
+        as: 'seller',
+        include: [{
+          model: models.User,
+          as: 'user',
+          attributes: ['email']
+        }]
+      }]
+    });
+
+    if (!withdrawal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Demande de retrait non trouvée'
+      });
+    }
+
+    // Vérifier les transitions de statut valides
+    if (withdrawal.status === 'completed' || withdrawal.status === 'failed' || withdrawal.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de modifier le statut d\'une demande finalisée'
+      });
+    }
+
+    // Si le statut passe à "processing", initier le transfert FedaPay
+    if (status === 'processing') {
+      try {
+        console.log('🚀 Initiating FedaPay transfer...');
+        const fedaPayTransfer = await FedaPayService.createTransfer({
+          amount: withdrawal.amount,
+          bankInfo: withdrawal.bankInfo,
+          description: `Retrait #${withdrawal.id} - ${withdrawal.seller.user.email}`,
+          currency: 'XOF'
+        });
+
+        // Sauvegarder l'ID de transaction FedaPay
+        withdrawal.fedaPayTransferId = fedaPayTransfer.id;
+        console.log('✅ FedaPay transfer initiated:', fedaPayTransfer.id);
+      } catch (error) {
+        console.error('❌ FedaPay transfer failed:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Erreur lors de l\'initiation du transfert FedaPay'
+        });
+      }
+    }
+
+    // Mettre à jour le statut
+    withdrawal.status = status;
+    if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+      withdrawal.processedAt = new Date();
+    }
+    await withdrawal.save();
+
+    // Envoyer une notification au vendeur
+    const notificationTitle = {
+      processing: 'Demande de retrait approuvée',
+      completed: 'Retrait effectué avec succès',
+      failed: 'Échec du retrait',
+      cancelled: 'Demande de retrait rejetée'
+    }[status];
+
+    const notificationMessage = {
+      processing: `Votre demande de retrait de ${withdrawal.amount.toLocaleString('fr-FR')} XOF a été approuvée et est en cours de traitement.`,
+      completed: `Votre retrait de ${withdrawal.amount.toLocaleString('fr-FR')} XOF a été effectué avec succès.`,
+      failed: `Une erreur est survenue lors du traitement de votre retrait de ${withdrawal.amount.toLocaleString('fr-FR')} XOF.`,
+      cancelled: `Votre demande de retrait de ${withdrawal.amount.toLocaleString('fr-FR')} XOF a été rejetée.`
+    }[status];
+
+    await models.Notification.create({
+      userId: withdrawal.seller.user.id,
+      title: notificationTitle,
+      message: notificationMessage,
+      type: 'withdrawal',
+      data: {
+        withdrawalId: withdrawal.id,
+        status
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Statut mis à jour avec succès',
+      data: withdrawal
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour du statut'
+    });
+  }
+};
+
+// Gestion des paiements
+export const getPayments = async (req, res) => {
+  try {
+    console.log('📊 Fetching payments...');
+    const payments = await models.Order.findAll({
+      attributes: ['id', 'total', 'paymentStatus', 'createdAt'],
+      include: [
+        {
+          model: models.User,
+          as: 'user',
+          attributes: ['id', 'name', 'email']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          include: [{
+            model: models.Shop,
+            as: 'shop',
+            attributes: ['id', 'name'],
+            required: false
+          }]
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    console.log(`✅ Found ${payments.length} payments`);
+    
+    // Transformer les données pour le frontend
+    const transformedPayments = payments.map(payment => ({
+      id: payment.id,
+      transactionId: payment.id.slice(0, 8).toUpperCase(),
+      amount: payment.total,
+      currency: 'XOF',
+      status: payment.paymentStatus,
+      createdAt: payment.createdAt,
+      order: {
+        orderNumber: `ORD-${payment.id.slice(0, 6).toUpperCase()}`,
+        user: {
+          name: payment.user?.name || 'N/A',
+        email: payment.user?.email
+        }
+      },
+      seller: {
+        id: payment.seller?.id,
+        shopName: payment.seller?.shop?.name || 'N/A'
+      }
+    }));
+
+    res.json({
+      success: true,
+      data: transformedPayments
+    });
+  } catch (error) {
+    console.error('❌ Error fetching payments:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching payments' 
+    });
+  }
+};
+
+export const getPaymentDetails = async (req, res) => {
+  try {
+    const payment = await models.Order.findByPk(req.params.id, {
+      include: [
+        {
+          model: models.User,
+          as: 'user',
+          attributes: ['id', 'firstName', 'lastName', 'email']
+        },
+        {
+          model: models.Seller,
+          as: 'seller',
+          attributes: ['id', 'shopName'],
+          include: [{
+            model: models.User,
+            as: 'user',
+            attributes: ['firstName', 'lastName', 'email']
+          }]
+        },
+        {
+          model: models.OrderItem,
+          as: 'orderItems',
+          include: [{
+            model: models.Product,
+            as: 'product',
+            attributes: ['id', 'name', 'price']
+          }]
+        }
+      ]
+    });
+
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    res.json(payment);
+  } catch (error) {
+    console.error('❌ Error fetching payment details:', error);
+    res.status(500).json({ message: 'Error fetching payment details' });
+  }
+};
+
+export const updatePaymentStatus = async (req, res) => {
+  const { status } = req.body;
+  const validStatuses = ['pending', 'completed', 'failed', 'refunded'];
+
+  try {
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const payment = await models.Order.findByPk(req.params.id);
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    // Vérifier si le statut peut être modifié
+    if (payment.paymentStatus === 'completed' || payment.paymentStatus === 'refunded') {
+      return res.status(400).json({ message: 'Cannot update status of completed or refunded payment' });
+    }
+
+    // Mettre à jour le statut
+    await payment.update({ 
+      paymentStatus: status
+    });
+
+    // Envoyer une notification au vendeur
+    const notificationMessage = {
+      completed: 'Votre paiement a été validé avec succès',
+      failed: 'Votre paiement a échoué',
+      refunded: 'Le paiement a été remboursé',
+      pending: 'Le paiement est en attente de traitement'
+    }[status];
+
+    await models.Notification.create({
+      userId: payment.sellerId,
+      type: 'payment_status',
+      message: notificationMessage,
+      data: {
+        orderId: payment.id,
+        status: status
+      }
+    });
+
+    res.json(payment);
+  } catch (error) {
+    console.error('❌ Error updating payment status:', error);
+    res.status(500).json({ message: 'Error updating payment status' });
+  }
+};
+
 export default {
   adminlogin,
   getDashboard,
@@ -2502,5 +3027,11 @@ export default {
   getUserStats,
   getUserStatusHistory,
   getUserDetails,
-  getSellerValidationStatus
+  getSellerValidationStatus,
+  getWithdrawals,
+  getWithdrawalDetails,
+  updateWithdrawalStatus,
+  getPayments,
+  getPaymentDetails,
+  updatePaymentStatus
 };

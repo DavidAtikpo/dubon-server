@@ -12,6 +12,11 @@ export default (sequelize) => {
         foreignKey: 'OrderId',
         as: 'orderItems'
       });
+
+      Order.belongsTo(models.SellerProfile, {
+        foreignKey: 'sellerId',
+        as: 'seller'
+      });
     }
   }
 
@@ -26,6 +31,14 @@ export default (sequelize) => {
       allowNull: false,
       references: {
         model: 'Users',
+        key: 'id'
+      }
+    },
+    sellerId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'SellerProfiles',
         key: 'id'
       }
     },
