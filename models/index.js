@@ -40,7 +40,7 @@ import EventBookingModel from './EventBooking.js';
 import ReservationModel from './Reservation.js';
 import RestaurantModel from './Restaurant.js';
 import TableModel from './Table.js';
-import SubscriptionModel from './Subscription.js';
+import SubscriptionModel from './subscription.js';
 import PlanModel from './Plan.js';
 import SellerProfile from './SellerProfile.js';
 import ShopModel from './Shop.js';
