@@ -17,15 +17,9 @@ export const logSystemEvent = async ({
       description,
       userId,
       metadata,
-      level: severity,
-      category: type || 'system',
-      message: description,
+      severity,
       ipAddress: req?.ip,
-      userAgent: req?.headers['user-agent'],
-      requestMethod: req?.method,
-      requestUrl: req?.originalUrl,
-      requestParams: req?.params || {},
-      environment: process.env.NODE_ENV || 'production'
+      userAgent: req?.headers['user-agent']
     });
   } catch (error) {
     console.error('Erreur lors de la journalisation:', error);
@@ -38,20 +32,14 @@ export const logError = async (error, req = null) => {
       type: 'error',
       action: 'system_error',
       description: error.message,
-      message: error.message,
-      category: 'error',
-      level: 'error',
       metadata: {
         stack: error.stack,
         path: req?.path,
         method: req?.method
       },
+      severity: 'error',
       ipAddress: req?.ip,
-      userAgent: req?.headers['user-agent'],
-      requestMethod: req?.method,
-      requestUrl: req?.originalUrl,
-      requestParams: req?.params || {},
-      environment: process.env.NODE_ENV || 'production'
+      userAgent: req?.headers['user-agent']
     });
   } catch (err) {
     console.error('Erreur lors de la journalisation:', err);
