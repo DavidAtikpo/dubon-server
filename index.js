@@ -90,7 +90,7 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(cors({
-  origin: ['https://dubonservice.com', 'http://localhost:3000', 'https://dubon-service.onrender.com'],
+  origin: ['https://dubonservice.com', 'http://localhost:3000', 'https://dubon-service.onrender.com', 'https://dubon-service.vercel.app'],
   credentials: true
 }));
 
