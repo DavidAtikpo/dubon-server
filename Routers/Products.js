@@ -80,7 +80,7 @@ router.post('/create', upload.fields([
   { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }
 ]), createProduct);
-router.put('/update-product/:productId', upload.fields([
+router.put('/update-product/:id', upload.fields([
   { name: 'images', maxCount: 5 },
   { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }

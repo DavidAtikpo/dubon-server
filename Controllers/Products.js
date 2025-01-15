@@ -834,10 +834,9 @@ export const updateProduct = async (req, res) => {
   try {
     console.log("Début de la mise à jour du produit");
     console.log("Données reçues:", req.body);
-    const { productId } = req.params;
-    
+    const { id } = req.params;
     // Vérifier si le produit existe
-    const product = await Product.findByPk(productId);
+    const product = await Product.findByPk(id);
     if (!product) {
       return res.status(404).json({ success: false, message: "Produit non trouvé" });
     }
