@@ -65,7 +65,7 @@ const createPayment = async (req, res) => {
       amount: parseFloat(amount),
       description: `Commande #${orderId}`,
       customerId: req.user.id,
-      callbackUrl: `${process.env.BASE_URL}/api/payment/callback/${orderId}`,
+      callbackUrl: `${process.env.SERVER_URL}/api/payment/callback/${orderId}`,
       customerEmail: order.user.email,
       customerName: order.user.name
     });

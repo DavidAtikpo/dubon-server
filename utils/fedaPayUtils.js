@@ -2,8 +2,8 @@ import { FedaPay, Transaction } from 'fedapay';
 
 // Configuration initiale de FedaPay
 const initializeFedaPay = () => {
-  const environment = process.env.FEDAPAY_ENVIRONMENT || 'sandbox';
-  const apiKey = process.env.FEDAPAY_API_KEY;
+  const environment = 'live'; // Forcer l'environnement en production
+  const apiKey = process.env.FEDAPAY_SECRET_KEY;
 
   if (!apiKey) {
     throw new Error(`Clé API FedaPay ${environment} non définie`);
@@ -13,12 +13,7 @@ const initializeFedaPay = () => {
     // Configuration de base
     FedaPay.setApiKey(apiKey);
     FedaPay.setEnvironment(environment);
-
-    // Configuration spécifique pour le sandbox
-    if (environment === 'sandbox') {
-      FedaPay.setApiBase('https://sandbox-api.fedapay.com');
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    }
+    FedaPay.setApiBase('https://api.fedapay.com'); // URL de production
 
     console.log('🔧 Configuration FedaPay:', { 
       environment, 
