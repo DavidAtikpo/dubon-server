@@ -211,7 +211,7 @@ app.use((error, req, res, next) => {
   res.status(500).json({
     success: false,
     message: "Une erreur est survenue",
-    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    error: process.env.NODE_ENV === 'production' ? error.message : undefined
   });
 });
 
