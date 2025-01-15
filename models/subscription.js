@@ -21,9 +21,8 @@ export default (sequelize) => {
   Subscription.init({
     id: {
       type: DataTypes.UUID,
-      primaryKey: true,
-      allowNull: false,
-      defaultValue: sequelize.literal('uuid_generate_v4()')
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
     },
     userId: {
       type: DataTypes.UUID,
@@ -51,10 +50,7 @@ export default (sequelize) => {
     },
     billingCycle: {
       type: DataTypes.STRING(10),
-      allowNull: false,
-      validate: {
-        isIn: [['monthly', 'annual']]
-      }
+      allowNull: false
     },
     amount: {
       type: DataTypes.INTEGER,
@@ -62,22 +58,17 @@ export default (sequelize) => {
     },
     status: {
       type: DataTypes.STRING(20),
-      defaultValue: 'pending',
-      validate: {
-        isIn: [['pending', 'active', 'cancelled', 'failed']]
-      }
+      defaultValue: 'pending'
     },
     transactionId: {
-      type: DataTypes.STRING,
-      allowNull: true
+      type: DataTypes.STRING
     },
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false
     },
     cancelledAt: {
-      type: DataTypes.DATE,
-      allowNull: true
+      type: DataTypes.DATE
     }
   }, {
     sequelize,

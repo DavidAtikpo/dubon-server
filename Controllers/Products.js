@@ -238,9 +238,32 @@ export const createProduct = async (req, res) => {
         } else {
           nutritionalInfo = JSON.parse(req.body.nutritionalInfo);
         }
+        // S'assurer que allergens est toujours un tableau
+        nutritionalInfo.allergens = nutritionalInfo.allergens || [];
       } catch (e) {
         console.error('Erreur parsing nutritionalInfo:', e);
+        nutritionalInfo = {
+          calories: null,
+          proteins: null,
+          carbohydrates: null,
+          fats: null,
+          fiber: null,
+          sodium: null,
+          servingSize: null,
+          allergens: []
+        };
       }
+    } else {
+      nutritionalInfo = {
+        calories: null,
+        proteins: null,
+        carbohydrates: null,
+        fats: null,
+        fiber: null,
+        sodium: null,
+        servingSize: null,
+        allergens: []
+      };
     }
 
     let temperature = null;
@@ -263,6 +286,7 @@ export const createProduct = async (req, res) => {
 
     // Vérification de la catégorie si fournie
     let categoryId = null;
+    let subcategoryId = null;
     if (req.body.categoryId) {
       console.log("Vérification de la catégorie:", req.body.categoryId);
       const category = await models.Category.findByPk(req.body.categoryId);
@@ -274,6 +298,25 @@ export const createProduct = async (req, res) => {
       }
       console.log("Catégorie trouvée:", category.name);
       categoryId = category.id;
+
+      // Vérification de la sous-catégorie si fournie
+      if (req.body.subcategoryId) {
+        console.log("Vérification de la sous-catégorie:", req.body.subcategoryId);
+        const subcategory = await models.Subcategory.findOne({
+          where: {
+            id: req.body.subcategoryId,
+            categoryId: categoryId
+          }
+        });
+        if (!subcategory) {
+          return res.status(400).json({
+            success: false,
+            message: "La sous-catégorie spécifiée n'existe pas ou n'appartient pas à la catégorie sélectionnée"
+          });
+        }
+        console.log("Sous-catégorie trouvée:", subcategory.name);
+        subcategoryId = subcategory.id;
+      }
     } else {
       console.log("Aucune catégorie spécifiée");
     }
@@ -304,7 +347,8 @@ export const createProduct = async (req, res) => {
       shelfLife: req.body.shelfLife || null,
       origin: req.body.origin || '',
       featured: req.body.featured === 'true',
-      categoryId: categoryId
+      categoryId: categoryId,
+      subcategoryId: subcategoryId
     };
 
     console.log('Données du produit à créer:', productData);

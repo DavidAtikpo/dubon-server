@@ -15,7 +15,7 @@ export default (sequelize) => {
 
       Category.belongsTo(models.Category, {
         foreignKey: {
-          name: 'parentId',
+          name: 'parent_id',
           allowNull: true,
           onDelete: 'SET NULL',
           onUpdate: 'CASCADE'
@@ -24,7 +24,7 @@ export default (sequelize) => {
       });
 
       Category.hasMany(models.Category, {
-        foreignKey: 'parentId',
+        foreignKey: 'parent_id',
         as: 'subcategories'
       });
     }
@@ -47,7 +47,7 @@ export default (sequelize) => {
     description: {
       type: DataTypes.TEXT
     },
-    parentId: {
+    parent_id: {
       type: DataTypes.UUID,
       allowNull: true
     },
@@ -98,24 +98,23 @@ export default (sequelize) => {
       type: DataTypes.TEXT
     },
     seoKeywords: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      defaultValue: []
-    },
-    metadata: {
-      type: DataTypes.JSONB,
-      defaultValue: {}
+      type: DataTypes.STRING
     }
   }, {
     sequelize,
     modelName: 'Category',
-    timestamps: true,
+    tableName: 'Categories',
+    paranoid: true,
     indexes: [
-      { fields: ['slug'], unique: true },
-      { fields: ['parentId'] },
-      { fields: ['status'] },
-      { fields: ['displayOrder'] },
-      { fields: ['level'] },
-      { fields: ['path'] }
+      {
+        name: 'categories_parent_id',
+        fields: ['parent_id']
+      },
+      {
+        name: 'categories_slug',
+        unique: true,
+        fields: ['slug']
+      }
     ]
   });
 

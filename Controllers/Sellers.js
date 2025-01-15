@@ -1760,3 +1760,65 @@ export const getSellerHistory = async (req, res) => {
   }
 };
 
+export const getSellerSubCategories = async (req, res) => {
+  try {
+    console.log('Fetching subcategories for category:', req.params.categoryId);
+    
+    const { categoryId } = req.params;
+    
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "L'ID de la catégorie est requis"
+      });
+    }
+
+    // Vérifier si la catégorie existe
+    const category = await models.Category.findByPk(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Catégorie non trouvée"
+      });
+    }
+
+    console.log('Category found:', {
+      id: category.id,
+      name: category.name
+    });
+
+    // Récupérer les sous-catégories
+    const subcategories = await models.Subcategory.findAll({
+      where: { categoryId: category.id },
+      attributes: ['id', 'name', 'categoryId'],
+      order: [['name', 'ASC']]
+    });
+
+    // Formater les données pour la réponse
+    const formattedSubcategories = subcategories.map(sub => ({
+      id: sub.id,
+      name: sub.name,
+      categoryId: sub.categoryId
+    }));
+
+    console.log('Found subcategories:', formattedSubcategories);
+
+    res.status(200).json({
+      success: true,
+      data: formattedSubcategories
+    });
+  } catch (error) {
+    console.error('Erreur getSellerSubCategories:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des sous-catégories",
+      error: error.message
+    });
+  }
+};
+

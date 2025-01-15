@@ -13,6 +13,16 @@ export default (sequelize) => {
         as: 'category'
       });
 
+      Product.belongsTo(models.Subcategory, {
+        foreignKey: {
+          name: 'subcategoryId',
+          allowNull: true,
+          onDelete: 'SET NULL',
+          onUpdate: 'CASCADE'
+        },
+        as: 'subcategory'
+      });
+
       Product.belongsTo(models.SellerProfile, {
         foreignKey: {
           name: 'sellerId',
@@ -90,6 +100,14 @@ export default (sequelize) => {
       allowNull: true,
       references: {
         model: 'Categories',
+        key: 'id'
+      }
+    },
+    subcategoryId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'Subcategories',
         key: 'id'
       }
     },
@@ -305,6 +323,7 @@ export default (sequelize) => {
     },
     nutritionalInfo: {
       type: DataTypes.JSONB,
+      allowNull: true,
       defaultValue: {
         calories: null,
         proteins: null,
@@ -312,19 +331,23 @@ export default (sequelize) => {
         fats: null,
         fiber: null,
         sodium: null,
-        allergens: [],
-        servingSize: null
+        servingSize: null,
+        allergens: []
       },
       validate: {
         isValidNutritionalInfo(value) {
-          const numericFields = ['calories', 'proteins', 'carbohydrates', 'fats', 'fiber', 'sodium'];
-          numericFields.forEach(field => {
-            if (value[field] && typeof value[field] !== 'number') {
-              throw new Error(`${field} doit être un nombre`);
+          if (value === null) return;
+          
+          // S'assurer que allergens est un tableau
+          if (value && !Array.isArray(value.allergens)) {
+            value.allergens = [];
+          }
+
+          const requiredFields = ['calories', 'proteins', 'carbohydrates', 'fats', 'fiber', 'sodium', 'servingSize', 'allergens'];
+          for (const field of requiredFields) {
+            if (!Object.prototype.hasOwnProperty.call(value, field)) {
+              value[field] = field === 'allergens' ? [] : null;
             }
-          });
-          if (!Array.isArray(value.allergens)) {
-            throw new Error('Les allergènes doivent être une liste');
           }
         }
       }

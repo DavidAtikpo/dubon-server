@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import * as SellerController from "../Controllers/Sellers.js";
-import { protect, admin, seller } from "../middleware/authMiddleware.js";
+import { protect, seller } from "../middleware/authMiddleware.js";
 import { validateSellerRegistration } from "../middleware/sellerValidator.js";
 import { corsErrorHandler } from '../middleware/errorHandlers.js';
 
@@ -87,6 +87,7 @@ router.put('/profile', upload.single('logo'), SellerController.updateProfile);
 
 // Categories
 router.get('/categories', SellerController.getSellerCategories);
+router.get('/subcategories/:categoryId', SellerController.getSellerSubCategories);
 
 // Product management
 router.get('/products', SellerController.getSellerProducts);
@@ -116,7 +117,7 @@ router.put('/promotions/:id', SellerController.updatePromotion);
 router.delete('/promotions/:id', SellerController.deletePromotion);
 
 // Admin routes
-router.use(admin);
+// router.use(admin);
 router.get('/admin/requests', SellerController.getAllSellerRequests);
 router.get('/admin/sellers', SellerController.getAllSellers);
 router.get('/admin/seller/:id', SellerController.getSellerById);

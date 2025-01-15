@@ -247,40 +247,36 @@ const startServer = async () => {
       throw new Error('Impossible de se connecter à la base de données');
     }
 
-    // Synchroniser les modèles avec la base de données
-    console.log('🔄 Synchronisation des modèles...');
-    await syncModels();
-    console.log('✅ Modèles synchronisés avec succès');
+    // Activer l'extension UUID
+    await sequelize.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    console.log('✅ Extension UUID activée avec succès');
 
-    // Initialiser les données par défaut
+    // Synchroniser les modèles avec la base de données
+    // await syncModels();
+
+    // Vérifier les données par défaut
     await initializeDefaultData();
 
-    // Configurer les dossiers d'upload
+    // Créer les dossiers d'upload
     setupUploadDirectories();
 
     // Démarrer le serveur
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log('=================================');
-      console.log(`✅ Serveur démarré avec succès`);
-      console.log(`📡 Port: ${PORT}`);
-      console.log(`🌍 Environnement: ${process.env.NODE_ENV}`);
-      console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configuré' : 'Non configuré'}`);
-      console.log('=================================');
+    server.listen(PORT, () => {
+      console.log(`✓ Serveur démarré sur le port ${PORT}`);
     });
-
   } catch (error) {
     console.error('❌ Erreur au démarrage du serveur:', error);
-    process.exit(1);
+    throw error;
   }
 };
 
 // Fonction pour initialiser les données par défaut
 const initializeDefaultData = async () => {
   try {
-    console.log('📝 Initialisation des données par défaut...');
+    console.log('📝 Vérification des données par défaut...');
     
-    // Créer d'abord les plans d'abonnement
+    // Vérifier les plans d'abonnement
     console.log('💎 Vérification des plans d\'abonnement...');
     const plansCount = await models.Plan.count();
     if (plansCount === 0) {
@@ -358,9 +354,11 @@ const initializeDefaultData = async () => {
       ];
       await models.Plan.bulkCreate(defaultPlans);
       console.log('✅ Plans d\'abonnement créés avec succès');
+    } else {
+      console.log('✅ Plans d\'abonnement existants');
     }
 
-    // Ensuite créer les paramètres système
+    // Vérifier les paramètres système
     const existingSettings = await models.SystemSetting.findOne({
       where: { key: 'general_settings' }
     });
@@ -368,28 +366,99 @@ const initializeDefaultData = async () => {
     if (!existingSettings) {
       console.log('⚙️ Configuration des paramètres système par défaut...');
       await models.SystemSetting.create(defaultSystemSettings);
-      console.log('✅ Paramètres système initialisés avec succès');
+      console.log('✅ Paramètres système initialisés');
+    } else {
+      console.log('✅ Paramètres système existants');
     }
 
-    // Enfin créer les catégories
+    // Vérifier les catégories
     const categoriesCount = await models.Category.count();
     if (categoriesCount === 0) {
       console.log('📁 Création des catégories par défaut...');
       const defaultCategories = [
-        { name: 'Électronique', description: 'Produits électroniques et gadgets' },
-        { name: 'Mode', description: 'Vêtements et accessoires' },
-        { name: 'Maison', description: 'Articles pour la maison' },
-        { name: 'Alimentation', description: 'Produits alimentaires' },
-        { name: 'Santé & Beauté', description: 'Produits de santé et beauté' }
+        {
+          name: 'Alimentation',
+          description: 'Produits alimentaires',
+          subcategories: [
+            { name: 'Produits frais', description: 'Fruits, légumes, viandes, poissons' },
+            { name: 'Produits congelés', description: 'Aliments surgelés et glaces' },
+            { name: 'Produits vivriers', description: 'Riz, maïs, manioc, igname' },
+            { name: 'Épicerie', description: 'Conserves, huiles, condiments' },
+            { name: 'Boissons', description: 'Eau, jus, sodas, alcools' }
+          ]
+        },
+        {
+          name: 'Mode & Accessoires',
+          description: 'Vêtements et accessoires de mode',
+          subcategories: [
+            { name: 'Vêtements homme', description: 'Chemises, pantalons, costumes' },
+            { name: 'Vêtements femme', description: 'Robes, jupes, ensembles' },
+            { name: 'Chaussures', description: 'Chaussures pour hommes et femmes' },
+            { name: 'Bijoux', description: 'Colliers, bagues, bracelets' },
+            { name: 'Sacs & Maroquinerie', description: 'Sacs à main, portefeuilles' }
+          ]
+        },
+        {
+          name: 'Maison & Jardin',
+          description: 'Équipements et décoration pour la maison',
+          subcategories: [
+            { name: 'Mobilier', description: 'Tables, chaises, armoires' },
+            { name: 'Décoration', description: 'Tableaux, vases, tapis' },
+            { name: 'Électroménager', description: 'Réfrigérateurs, cuisinières' },
+            { name: 'Jardin', description: 'Outils et mobilier de jardin' },
+            { name: 'Linge de maison', description: 'Draps, serviettes, rideaux' }
+          ]
+        },
+        {
+          name: 'Électronique',
+          description: 'Produits électroniques et gadgets',
+          subcategories: [
+            { name: 'Smartphones', description: 'Téléphones mobiles et accessoires' },
+            { name: 'Ordinateurs', description: 'PC portables et de bureau' },
+            { name: 'TV & Audio', description: 'Télévisions et systèmes audio' },
+            { name: 'Accessoires', description: 'Câbles, chargeurs, housses' },
+            { name: 'Gaming', description: 'Consoles et jeux vidéo' }
+          ]
+        },
+        {
+          name: 'Santé & Beauté',
+          description: 'Produits de santé et beauté',
+          subcategories: [
+            { name: 'Soins du visage', description: 'Crèmes, lotions, masques' },
+            { name: 'Soins du corps', description: 'Gels douche, crèmes hydratantes' },
+            { name: 'Maquillage', description: 'Rouge à lèvres, mascara, fond de teint' },
+            { name: 'Parfums', description: 'Parfums homme et femme' },
+            { name: 'Hygiène', description: 'Savons, déodorants, brosses à dents' }
+          ]
+        }
       ];
-      await models.Category.bulkCreate(defaultCategories);
-      console.log('✅ Catégories par défaut créées avec succès');
+
+      // Créer les catégories et leurs sous-catégories
+      for (const categoryData of defaultCategories) {
+        const { subcategories, ...categoryFields } = categoryData;
+        const category = await models.Category.create(categoryFields);
+        
+        if (subcategories && subcategories.length > 0) {
+          for (const subcategoryData of subcategories) {
+            await models.Category.create({
+              ...subcategoryData,
+              parent_id: category.id,
+              level: 1
+            });
+          }
+        }
+      }
+      
+      console.log('✅ Catégories et sous-catégories créées avec succès');
+    } else {
+      console.log('✅ Catégories existantes');
     }
 
-    console.log('✅ Initialisation des données terminée avec succès');
+    console.log('✅ Vérification des données terminée');
   } catch (error) {
-    console.error('❌ Erreur lors de l\'initialisation des données:', error);
-    throw error;
+    console.error('❌ Erreur lors de la vérification des données:', error);
+    // En production, on ne veut pas que l'erreur arrête le serveur
+    console.error(error);
   }
 };
 
