@@ -1,5 +1,5 @@
 import { models } from '../models/index.js';
-const { Category, Product } = models;
+const { Category, Subcategory, Product } = models;
 
 export const createCategory = async (req, res) => {
   try {
@@ -19,25 +19,69 @@ export const createCategory = async (req, res) => {
 
 export const getAllCategories = async (req, res) => {
   try {
+    // 1. Récupérer toutes les catégories principales
     const categories = await Category.findAll({
-      include: [
-        {
-          model: Category,
-          as: 'subcategories',
-          include: ['products']
-        },
-        'products'
-      ],
-      where: {
-        parentId: null // Seulement les catégories principales
-      }
+      attributes: ['id', 'name', 'description'],
+      order: [['name', 'ASC']]
     });
+
+    // 2. Pour chaque catégorie, récupérer ses sous-catégories
+    const transformedCategories = await Promise.all(categories.map(async (category) => {
+      const plainCategory = category.get({ plain: true });
+      
+      // Récupérer les sous-catégories pour cette catégorie
+      const subcategories = await Subcategory.findAll({
+        where: { categoryId: category.id },
+        attributes: ['id', 'name', 'description'],
+        order: [['name', 'ASC']]
+      });
+
+      // Pour chaque sous-catégorie, récupérer ses produits
+      const subcategoriesWithProducts = await Promise.all(subcategories.map(async (subcategory) => {
+        const plainSubcategory = subcategory.get({ plain: true });
+        
+        // Récupérer les produits pour cette sous-catégorie
+        const products = await Product.findAll({
+          where: { 
+            subcategoryId: subcategory.id,
+            status: 'active'
+          },
+          attributes: ['id', 'name', 'price', 'images', 'mainImage', 'description', 'shortDescription'],
+          order: [['name', 'ASC']]
+        });
+
+        return {
+          id: plainSubcategory.id,
+          name: plainSubcategory.name,
+          description: plainSubcategory.description,
+          products: products.map(product => {
+            const plainProduct = product.get({ plain: true });
+            return {
+              id: plainProduct.id,
+              name: plainProduct.name,
+              price: plainProduct.price,
+              description: plainProduct.description,
+              shortDescription: plainProduct.shortDescription,
+              image: plainProduct.mainImage || (Array.isArray(plainProduct.images) && plainProduct.images[0]) || null
+            };
+          })
+        };
+      }));
+
+      return {
+        id: plainCategory.id,
+        name: plainCategory.name,
+        description: plainCategory.description,
+        subcategories: subcategoriesWithProducts
+      };
+    }));
 
     res.status(200).json({
       success: true,
-      data: categories
+      data: transformedCategories
     });
   } catch (error) {
+    console.error('Erreur getAllCategories:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des catégories",
