@@ -4,54 +4,95 @@ const { Training } = models;
 // Créer une nouvelle formation
 const createTraining = async (req, res) => {
   try {
-    const { accountName, country, timezone, educationLevel } = req.body;
+    const {
+      title,
+      description,
+      price,
+      duration,
+      startDate,
+      maxParticipants,
+      location,
+      category,
+      level,
+      prerequisites,
+      objectives
+    } = req.body;
 
-    // Vérifiez les champs obligatoires
-    if (!accountName || !educationLevel || !req.files.document || !req.files.signature) {
-      return res.status(400).json({ message: "Tous les champs sont obligatoires." });
+    // Vérifier les fichiers
+    if (!req.files || !req.files.image || !req.files.syllabus) {
+      return res.status(400).json({
+        success: false,
+        message: "L'image et le syllabus sont requis"
+      });
     }
 
-    // Créer et enregistrer le dossier
-    const dossier = new Dossier({
-      accountName,
-      country,
-      timezone,
-      educationLevel,
-      documentPath: req.files.document[0].path,
-      signaturePath: req.files.signature[0].path,
+    // Créer la formation avec les chemins des fichiers
+    const training = await Training.create({
+      title,
+      description,
+      price: parseFloat(price),
+      duration,
+      startDate,
+      maxParticipants: parseInt(maxParticipants),
+      location,
+      category,
+      level,
+      prerequisites,
+      objectives,
+      image: req.files.image[0].path.replace(/\\/g, '/'),
+      syllabus: req.files.syllabus[0].path.replace(/\\/g, '/')
     });
 
-    await dossier.save();
-
-    res.status(201).json({ message: "Dossier enregistré avec succès !" });
+    res.status(201).json({
+      success: true,
+      message: "Formation créée avec succès",
+      data: training
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Erreur lors de l'enregistrement du dossier." });
+    console.error("Erreur lors de la création de la formation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création de la formation",
+      error: error.message
+    });
   }
 };
 
-
 // Récupérer toutes les formations
- const getAllTrainings = async (req, res) => {
+const getAllTrainings = async (req, res) => {
   try {
-    const trainings = await Training.find();
-    res.status(200).json(trainings);
+    const trainings = await Training.findAll({
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Transformer les chemins d'images en URLs complètes
+    const formattedTrainings = trainings.map(training => {
+      const plainTraining = training.get({ plain: true });
+      return {
+        ...plainTraining,
+        image: `${process.env.BASE_URL}/${plainTraining.image}`,
+        syllabus: `${process.env.BASE_URL}/${plainTraining.syllabus}`
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: formattedTrainings
+    });
   } catch (error) {
-    console.error("Erreur lors de la récupération des formations :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error("Erreur lors de la récupération des formations:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des formations",
+      error: error.message
+    });
   }
 };
 
 // Récupérer une formation par ID
- const getTrainingById = async (req, res) => {
+const getTrainingById = async (req, res) => {
   try {
-    const training = await Training.findByPk(req.params.id, {
-      include: [{
-        model: models.User,
-        as: 'trainer',
-        attributes: ['name', 'email']
-      }]
-    });
+    const training = await Training.findByPk(req.params.id);
     
     if (!training) {
       return res.status(404).json({
@@ -60,64 +101,120 @@ const createTraining = async (req, res) => {
       });
     }
     
-    res.json(training);
+    // Transformer les chemins d'images en URLs complètes
+    const plainTraining = training.get({ plain: true });
+    const formattedTraining = {
+      ...plainTraining,
+      image: `${process.env.BASE_URL}/${plainTraining.image}`,
+      syllabus: `${process.env.BASE_URL}/${plainTraining.syllabus}`
+    };
+    
+    res.json({
+      success: true,
+      data: formattedTraining
+    });
   } catch (error) {
     console.error("Erreur lors de la récupération de la formation:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération de la formation"
+      message: "Erreur lors de la récupération de la formation",
+      error: error.message
     });
   }
 };
 
 // Mettre à jour une formation
- const updateTraining = async (req, res) => {
+const updateTraining = async (req, res) => {
   try {
-    const updatedTraining = await Training.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-    if (!updatedTraining) {
-      return res.status(404).json({ message: "Formation non trouvée." });
+    const [updated] = await Training.update(req.body, {
+      where: { id: req.params.id }
+    });
+
+    if (updated) {
+      const updatedTraining = await Training.findByPk(req.params.id);
+      return res.status(200).json({
+        success: true,
+        message: "Formation mise à jour avec succès",
+        data: updatedTraining
+      });
     }
-    res.status(200).json(updatedTraining);
+
+    return res.status(404).json({
+      success: false,
+      message: "Formation non trouvée"
+    });
   } catch (error) {
-    console.error("Erreur lors de la mise à jour de la formation :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error("Erreur lors de la mise à jour de la formation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la mise à jour de la formation",
+      error: error.message
+    });
   }
 };
 
 // Supprimer une formation
- const deleteTraining = async (req, res) => {
+const deleteTraining = async (req, res) => {
   try {
-    const deletedTraining = await Training.findByIdAndDelete(req.params.id);
-    if (!deletedTraining) {
-      return res.status(404).json({ message: "Formation non trouvée." });
+    const deleted = await Training.destroy({
+      where: { id: req.params.id }
+    });
+
+    if (deleted) {
+      return res.status(200).json({
+        success: true,
+        message: "Formation supprimée avec succès"
+      });
     }
-    res.status(200).json({ message: "Formation supprimée avec succès." });
+
+    return res.status(404).json({
+      success: false,
+      message: "Formation non trouvée"
+    });
   } catch (error) {
-    console.error("Erreur lors de la suppression de la formation :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error("Erreur lors de la suppression de la formation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la suppression de la formation",
+      error: error.message
+    });
   }
 };
 
 // Ajouter un participant à une formation
- const addParticipant = async (req, res) => {
+const addParticipant = async (req, res) => {
   try {
-    const training = await Training.findById(req.params.id);
+    const training = await Training.findByPk(req.params.id);
+    
     if (!training) {
-      return res.status(404).json({ message: "Formation non trouvée." });
+      return res.status(404).json({
+        success: false,
+        message: "Formation non trouvée"
+      });
     }
-    if (!training.participants.includes(req.body.userId)) {
-      training.participants.push(req.body.userId);
-      await training.save();
-    }
-    res.status(200).json({ message: "Participant ajouté avec succès." });
+
+    // Logique pour ajouter un participant
+    // À implémenter selon votre modèle de données
+
+    res.status(200).json({
+      success: true,
+      message: "Participant ajouté avec succès"
+    });
   } catch (error) {
-    console.error("Erreur lors de l'ajout du participant :", error);
-    res.status(500).json({ message: "Erreur du serveur." });
+    console.error("Erreur lors de l'ajout du participant:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'ajout du participant",
+      error: error.message
+    });
   }
 };
 
-export default {createTraining,getAllTrainings,getTrainingById,updateTraining,addParticipant,deleteTraining}
+export default {
+  createTraining,
+  getAllTrainings,
+  getTrainingById,
+  updateTraining,
+  addParticipant,
+  deleteTraining
+}

@@ -830,6 +830,41 @@ const getProductsByCategory = async (req, res) => {
   }
 };
 
+export const getProductsByCategoryId = async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const products = await Product.findAll({
+      where: { 
+        categoryId,
+        status: 'active'
+      },
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        }
+      ],
+      attributes: [
+        'id', 'name', 'price', 'images', 'mainImage', 
+        'description', 'shortDescription', 'slug'
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    console.error('Erreur getProductsByCategoryId:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits de la catégorie",
+      error: error.message
+    });
+  }
+};
+
 export const updateProduct = async (req, res) => {
   try {
     console.log("Début de la mise à jour du produit");
@@ -1146,7 +1181,8 @@ const productsController = {
   getSellerProducts,
   getAllPublicProducts,
   getShopProducts,
-  getSimilarProducts
+  getSimilarProducts,
+  getProductsByCategoryId
 };
 
 export default productsController;

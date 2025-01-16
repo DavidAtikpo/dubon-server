@@ -182,7 +182,7 @@ app.use('/api/user', User);
 
 // Routes protégées (déjà authentifiées dans leurs fichiers respectifs)
 app.use('/api/orders', Order);
-app.use("/api", Training);
+app.use("/api/training", Training);
 app.use("/api", Event);
 app.use("/api/", cartRoute);
 app.use('/api/wishlist', wishlistRoute);

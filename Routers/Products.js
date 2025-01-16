@@ -70,7 +70,9 @@ router.get('/new-arrival', productsController.getNewArrivals);
 router.get('/promotion', productsController.Promotion);
 router.get('/new-product', productsController.getNewProduct);
 router.get('/product-detail/:productId', productsController.getProductById);
+// router.get('/category/name/:categoryName', productsController.getProductsByCategoryName);
 router.get('/category/:category', productsController.getProductsByCategory);
+router.get('/category/id/:categoryId', productsController.getProductsByCategoryId);
 
 // Routes protégées
 router.use(protect);
