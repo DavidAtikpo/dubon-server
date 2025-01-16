@@ -64,7 +64,7 @@ const upload = multer({
   }
 });
 
-const { Product, SellerProfile } = models;
+const { Product, SellerProfile, Category, Subcategory } = models;
 
 // Méthodes du contrôleur
 export const addProduct = async (req, res) => {
@@ -1087,6 +1087,47 @@ export const getShopProducts = async (req, res) => {
   }
 };
 
+// Récupérer les produits similaires
+export const getSimilarProducts = async (req, res) => {
+  try {
+    const { categoryId, productId } = req.params;
+
+    // Récupérer les produits de la même catégorie (excluant le produit actuel)
+    const similarProducts = await Product.findAll({
+      where: {
+        categoryId,
+        id: { [Op.ne]: productId },
+        status: 'active'
+      },
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        }
+      ],
+      attributes: [
+        'id', 'name', 'price', 'images', 'mainImage', 
+        'description', 'shortDescription', 'slug'
+      ],
+      limit: 8,
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: similarProducts
+    });
+  } catch (error) {
+    console.error('Erreur getSimilarProducts:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits similaires",
+      error: error.message
+    });
+  }
+};
+
 // Mettre à jour l'objet productsController
 const productsController = {
   addProduct,
@@ -1104,7 +1145,8 @@ const productsController = {
   deleteProduct,
   getSellerProducts,
   getAllPublicProducts,
-  getShopProducts
+  getShopProducts,
+  getSimilarProducts
 };
 
 export default productsController;
