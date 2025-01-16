@@ -65,14 +65,15 @@ const getAllTrainings = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    // Transformer les chemins d'images en URLs complètes
     const formattedTrainings = trainings.map(training => {
-      const plainTraining = training.get({ plain: true });
-      return {
-        ...plainTraining,
-        image: `${process.env.BASE_URL}/${plainTraining.image}`,
-        syllabus: `${process.env.BASE_URL}/${plainTraining.syllabus}`
-      };
+      const data = training.get({ plain: true });
+      if (data.image) {
+        data.image = `${process.env.BASE_URL}/${data.image}`;
+      }
+      if (data.syllabus) {
+        data.syllabus = `${process.env.BASE_URL}/${data.syllabus}`;
+      }
+      return data;
     });
 
     res.status(200).json({
