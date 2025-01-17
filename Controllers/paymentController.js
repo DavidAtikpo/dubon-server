@@ -1,5 +1,5 @@
 import { models } from '../models/index.js';
-import FedaPayService from '../services/FedaPayService.js';
+import { createFedaPayTransaction } from '../utils/fedaPayUtils.js';
 import { sendOrderConfirmationEmail } from '../utils/emailUtils.js';
 
 const createPayment = async (req, res) => {
@@ -44,17 +44,20 @@ const createPayment = async (req, res) => {
       userEmail: order.user?.email 
     });
 
-    // Construire l'URL de callback complète
-    const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
-    const fullCallbackUrl = `${baseUrl}/api/payment/callback/${orderId}`;
+    console.log('📝 Creating FedaPay transaction with:', {
+      amount: amount,
+      description: `Commande #${orderId}`,
+      customerEmail: order.user.email,
+      customerName: order.user.name
+    });
 
     // Créer la transaction FedaPay
-    const fedaPayTransaction = await FedaPayService.createTransaction({
+    const fedaPayTransaction = await createFedaPayTransaction({
       amount: parseFloat(amount),
       description: `Commande #${orderId}`,
       customerEmail: order.user.email,
       customerName: order.user.name,
-      callbackUrl: fullCallbackUrl
+      callbackUrl: `api/payment/callback/${orderId}`
     });
 
     return res.json(fedaPayTransaction);
