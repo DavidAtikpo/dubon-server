@@ -47,13 +47,19 @@ export const createFedaPayTransaction = async ({
   });
 
   try {
+    // Construire l'URL de callback complète
+    const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
+    const fullCallbackUrl = new URL(callbackUrl, baseUrl).toString();
+
+    console.log('URL de callback:', fullCallbackUrl);
+
     const transaction = await initializeFedaPay().create({
       amount: amount,
       currency: {
         iso: 'XOF'
       },
       description: description,
-      callback_url: callbackUrl,
+      callback_url: fullCallbackUrl,
       customer: {
         email: customerEmail,
         firstname: customerName
