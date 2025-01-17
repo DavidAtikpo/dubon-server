@@ -47,11 +47,7 @@ class FedaPayService {
       const token = tokenResponse.token || tokenResponse;
 
       // Construire l'URL de paiement
-      const checkoutBaseUrl = environment === 'live'
-        ? 'https://checkout.fedapay.com'
-        : 'https://sandbox-checkout.fedapay.com';
-      
-      const paymentUrl = `${checkoutBaseUrl}/checkout/${token}`;
+      const paymentUrl = `https://fedapay.com/pay/${token}`;
 
       console.log('✅ FedaPay transaction created:', {
         id: transaction.id,
