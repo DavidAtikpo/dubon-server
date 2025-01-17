@@ -1,5 +1,5 @@
 import { models } from '../models/index.js';
-import { createFedaPayTransaction, verifyTransaction } from '../utils/fedaPayUtils.js';
+import FedaPayService from '../services/FedaPayService.js';
 import { sendOrderConfirmationEmail } from '../utils/emailUtils.js';
 
 const createPayment = async (req, res) => {
@@ -8,26 +8,10 @@ const createPayment = async (req, res) => {
     const { amount, paymentMethod, currency, orderId } = req.body;
     
     // Validation des données
-    if (!orderId) {
-      console.log('OrderId manquant dans la requête');
+    if (!orderId || !amount || paymentMethod !== 'fedapay') {
       return res.status(400).json({
         success: false,
-        message: "L'ID de la commande est requis"
-      });
-    }
-
-    if (!amount) {
-      console.log('Amount manquant dans la requête');
-      return res.status(400).json({
-        success: false,
-        message: "Le montant est requis"
-      });
-    }
-
-    if (paymentMethod !== 'fedapay') {
-      return res.status(400).json({
-        success: false,
-        message: "Méthode de paiement non supportée"
+        message: "Données de paiement invalides"
       });
     }
 
@@ -37,7 +21,7 @@ const createPayment = async (req, res) => {
     const order = await models.Order.findOne({
       where: { 
         id: orderId,
-        userId: req.user.id // S'assurer que la commande appartient à l'utilisateur
+        userId: req.user.id
       },
       include: [{
         model: models.User,
@@ -50,7 +34,7 @@ const createPayment = async (req, res) => {
       console.log('Commande non trouvée:', orderId);
       return res.status(404).json({
         success: false,
-        message: "Commande non trouvée ou n'appartient pas à l'utilisateur"
+        message: "Commande non trouvée"
       });
     }
 
@@ -61,13 +45,12 @@ const createPayment = async (req, res) => {
     });
 
     // Créer la transaction FedaPay
-    const fedaPayTransaction = await createFedaPayTransaction({
+    const fedaPayTransaction = await FedaPayService.createTransaction({
       amount: parseFloat(amount),
       description: `Commande #${orderId}`,
-      customerId: req.user.id,
-      callbackUrl: `${process.env.SERVER_URL}/api/payment/callback/${orderId}`,
       customerEmail: order.user.email,
-      customerName: order.user.name
+      customerName: order.user.name,
+      callbackUrl: `/api/payment/callback/${orderId}`
     });
 
     // Mettre à jour la commande avec l'ID de transaction
@@ -111,9 +94,9 @@ const handlePaymentCallback = async (req, res) => {
     }
 
     // Vérifier le statut de la transaction avec FedaPay
-    const transactionStatus = await verifyTransaction(transaction_id);
+    const transactionStatus = await FedaPayService.getTransactionStatus(transaction_id);
 
-    if (transactionStatus.status === 'approved') {
+    if (transactionStatus === 'approved') {
       // Mettre à jour le statut de la commande
       await order.update({
         paymentStatus: 'completed',

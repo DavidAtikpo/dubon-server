@@ -1,53 +1,81 @@
 import { FedaPay, Transaction } from 'fedapay';
 
 // Configurer FedaPay avec les clés d'API
-const apiKey = process.env.FEDAPAY_API_KEY;
-const environment = 'live';
+const apiKey = process.env.FEDAPAY_SECRET_KEY;
+const environment = process.env.FEDAPAY_ENVIRONMENT || 'live';
 
 // Configuration de base
 FedaPay.setApiKey(apiKey);
 FedaPay.setEnvironment(environment);
-FedaPay.setApiBase('https://api.fedapay.com');
+FedaPay.setApiBase(process.env.FEDAPAY_API_URL || 'https://api.fedapay.com');
 
 class FedaPayService {
-  static async createTransfer({ amount, bankInfo, description, currency = 'XOF' }) {
+  static async createTransaction({ amount, description, customerEmail, customerName, callbackUrl }) {
     try {
-      console.log('📝 Creating FedaPay transfer with:', { amount, bankInfo, description });
+      console.log('📝 Creating FedaPay transaction with:', { 
+        amount, 
+        description, 
+        customerEmail,
+        customerName 
+      });
+
       console.log('🔑 Using API configuration:', { 
         environment,
         apiKeyLength: apiKey?.length,
         baseUrl: FedaPay.getApiBase()
       });
       
-      // Créer le transfert via l'API FedaPay
-      const transfer = await Transaction.create({
+      const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
+      const fullCallbackUrl = `${baseUrl}${callbackUrl}`;
+
+      // Créer la transaction via l'API FedaPay
+      const transaction = await Transaction.create({
         amount: amount,
-        currency: currency,
-        description: description,
-        bank_account: {
-          holder_name: bankInfo.accountName,
-          bank_name: bankInfo.bankName,
-          account_number: bankInfo.accountNumber,
-          swift_code: bankInfo.swiftCode || null,
-          country: 'BJ' // Code pays pour le Bénin
+        currency: {
+          iso: 'XOF'
         },
-        mode: 'bank_transfer'
+        description: description,
+        callback_url: fullCallbackUrl,
+        customer: {
+          email: customerEmail,
+          firstname: customerName
+        }
       });
 
-      console.log('✅ FedaPay transfer created:', transfer.id);
-      return transfer;
+      // Générer le token de paiement
+      const tokenResponse = await transaction.generateToken();
+      const token = tokenResponse.token || tokenResponse;
+
+      // Construire l'URL de paiement
+      const checkoutBaseUrl = environment === 'live'
+        ? 'https://checkout.fedapay.com'
+        : 'https://sandbox-checkout.fedapay.com';
+      
+      const paymentUrl = `${checkoutBaseUrl}/checkout/${token}`;
+
+      console.log('✅ FedaPay transaction created:', {
+        id: transaction.id,
+        status: transaction.status,
+        callback_url: fullCallbackUrl,
+        paymentUrl
+      });
+
+      return {
+        id: transaction.id,
+        paymentUrl
+      };
     } catch (error) {
-      console.error('❌ FedaPay transfer creation failed:', error);
+      console.error('❌ FedaPay transaction creation failed:', error);
       throw error;
     }
   }
 
-  static async getTransferStatus(transferId) {
+  static async getTransactionStatus(transactionId) {
     try {
-      const transfer = await Transaction.retrieve(transferId);
-      return transfer.status;
+      const transaction = await Transaction.retrieve(transactionId);
+      return transaction.status;
     } catch (error) {
-      console.error('❌ Error getting transfer status:', error);
+      console.error('❌ Error getting transaction status:', error);
       throw error;
     }
   }

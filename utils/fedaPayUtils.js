@@ -47,6 +47,9 @@ export const createFedaPayTransaction = async ({
     customerName
   });
 
+  const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
+  const fullCallbackUrl = `${baseUrl}${callbackUrl}`;
+
   try {
     const transaction = await initializeFedaPay().create({
       amount: amount,
@@ -54,7 +57,7 @@ export const createFedaPayTransaction = async ({
         iso: 'XOF'
       },
       description: description,
-      callback_url: callbackUrl,
+      callback_url: fullCallbackUrl,
       customer: {
         email: customerEmail,
         firstname: customerName
@@ -63,7 +66,8 @@ export const createFedaPayTransaction = async ({
 
     console.log('✓ Transaction créée:', { 
       id: transaction.id, 
-      status: transaction.status 
+      status: transaction.status,
+      callback_url: fullCallbackUrl
     });
 
     // Générer le token de paiement
@@ -72,13 +76,13 @@ export const createFedaPayTransaction = async ({
     console.log('✓ Token généré:', typeof token === 'string' ? token.substring(0, 10) + '...' : 'Token non-string généré');
 
     // Construire l'URL de paiement
-    const baseUrl = process.env.FEDAPAY_ENVIRONMENT === 'live'
+    const checkoutBaseUrl = process.env.FEDAPAY_ENVIRONMENT === 'live'
       ? 'https://checkout.fedapay.com'
       : 'https://sandbox-checkout.fedapay.com';
     
-    console.log('🌐 URL de base FedaPay:', baseUrl);
+    console.log('🌐 URL de base FedaPay:', checkoutBaseUrl);
     
-    const paymentUrl = `${baseUrl}/checkout/${token}`;
+    const paymentUrl = `${checkoutBaseUrl}/checkout/${token}`;
     console.log('✓ URL de paiement générée:', paymentUrl);
 
     return {
