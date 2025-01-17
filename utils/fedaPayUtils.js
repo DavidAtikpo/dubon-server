@@ -49,7 +49,10 @@ export const createFedaPayTransaction = async ({
   try {
     // Construire l'URL de callback complète
     const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
-    const fullCallbackUrl = new URL(callbackUrl, baseUrl).toString();
+    // Supprimer les slashes en trop
+    const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
+    const cleanCallbackUrl = callbackUrl.replace(/^\/+/, '');
+    const fullCallbackUrl = `${cleanBaseUrl}/${cleanCallbackUrl}`;
 
     console.log('URL de callback:', fullCallbackUrl);
 
