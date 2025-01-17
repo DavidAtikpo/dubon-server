@@ -45,6 +45,23 @@ const createPayment = async (req, res) => {
     });
 
     // Créer la transaction FedaPay
-    const fedaPayTransaction = await createFedaPayTransaction({
+    const fedaPayTransaction = await FedaPayService.createTransaction({
       amount: parseFloat(amount),
-      description: `
+      description: `Commande #${orderId}`,
+      customerEmail: order.user.email,
+      customerName: order.user.name,
+      callbackUrl: `api/payment/callback/${orderId}`
+    });
+
+    return res.json(fedaPayTransaction);
+
+  } catch (error) {
+    console.error('Erreur lors de la création du paiement:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création du paiement"
+    });
+  }
+};
+
+export default { createPayment };

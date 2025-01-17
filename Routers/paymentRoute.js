@@ -11,9 +11,9 @@ router.use(protect);
 router.post('/create', PaymentController.createPayment);
 
 // Route pour le callback de FedaPay
-router.post('/callback/:orderId', PaymentController.handlePaymentCallback);
+// router.post('/callback/:orderId', PaymentController.handlePaymentCallback);
 
 // Route pour vérifier le statut d'un paiement
-router.get('/status/:transactionId', PaymentController.checkPaymentStatus);
+// router.get('/status/:transactionId', PaymentController.checkPaymentStatus);
 
 export default router; 
