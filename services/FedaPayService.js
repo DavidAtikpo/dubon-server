@@ -2,6 +2,7 @@ import { FedaPay, Transaction } from 'fedapay';
 
 // Configurer FedaPay avec les clés d'API
 const apiKey = process.env.FEDAPAY_SECRET_KEY;
+const publicKey = process.env.FEDAPAY_PUBLIC_KEY;
 const environment = process.env.FEDAPAY_ENVIRONMENT || 'live';
 
 // Configuration de base
@@ -46,19 +47,13 @@ class FedaPayService {
       const tokenResponse = await transaction.generateToken();
       const token = tokenResponse.token || tokenResponse;
 
-      // Construire l'URL de paiement
-      const paymentUrl = `https://fedapay.com/pay/${token}`;
-
-      console.log('✅ FedaPay transaction created:', {
-        id: transaction.id,
-        status: transaction.status,
-        callback_url: fullCallbackUrl,
-        paymentUrl
-      });
-
       return {
         id: transaction.id,
-        paymentUrl
+        token: token,
+        publicKey: publicKey,
+        amount: amount,
+        description: description,
+        currency: 'XOF'
       };
     } catch (error) {
       console.error('❌ FedaPay transaction creation failed:', error);
