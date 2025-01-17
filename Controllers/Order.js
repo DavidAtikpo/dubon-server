@@ -56,10 +56,9 @@ const createOrder = async (req, res) => {
       const fedaPayTransaction = await createFedaPayTransaction({
         amount: sellerItems.total,
         description: `Commande #${order.id}`,
-        customerId: userId,
-        callbackUrl: `${process.env.BASE_URL}/api/payment/callback/${order.id}`,
         customerEmail: shippingAddress.email,
-        customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`
+        customerName: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+        callbackUrl: `api/payment/callback/${order.id}`
       });
 
       // Mettre à jour la commande avec l'ID de transaction
