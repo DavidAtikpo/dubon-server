@@ -44,13 +44,17 @@ const createPayment = async (req, res) => {
       userEmail: order.user?.email 
     });
 
+    // Construire l'URL de callback complète
+    const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
+    const fullCallbackUrl = `${baseUrl}/api/payment/callback/${orderId}`;
+
     // Créer la transaction FedaPay
     const fedaPayTransaction = await FedaPayService.createTransaction({
       amount: parseFloat(amount),
       description: `Commande #${orderId}`,
       customerEmail: order.user.email,
       customerName: order.user.name,
-      callbackUrl: `api/payment/callback/${orderId}`
+      callbackUrl: fullCallbackUrl
     });
 
     return res.json(fedaPayTransaction);
