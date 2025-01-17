@@ -4,6 +4,7 @@ import { FedaPay, Transaction } from 'fedapay';
 const initializeFedaPay = () => {
   const environment = process.env.FEDAPAY_ENVIRONMENT || 'live';
   const apiKey = process.env.FEDAPAY_SECRET_KEY;
+  const publicKey = process.env.FEDAPAY_PUBLIC_KEY;
 
   if (!apiKey) {
     throw new Error(`Clé API FedaPay ${environment} non définie`);
@@ -33,22 +34,17 @@ const initializeFedaPay = () => {
 export const createFedaPayTransaction = async ({
   amount,
   description,
-  customerId,
-  callbackUrl,
   customerEmail,
-  customerName
+  customerName,
+  callbackUrl
 }) => {
   console.log('🔄 Début création transaction FedaPay:', {
     amount,
     description,
-    customerId,
-    callbackUrl,
     customerEmail,
-    customerName
+    customerName,
+    callbackUrl
   });
-
-  const baseUrl = process.env.SERVER_URL || 'https://dubon-server.onrender.com';
-  const fullCallbackUrl = `${baseUrl}${callbackUrl}`;
 
   try {
     const transaction = await initializeFedaPay().create({
@@ -57,37 +53,25 @@ export const createFedaPayTransaction = async ({
         iso: 'XOF'
       },
       description: description,
-      callback_url: fullCallbackUrl,
+      callback_url: callbackUrl,
       customer: {
         email: customerEmail,
         firstname: customerName
       }
     });
 
-    console.log('✓ Transaction créée:', { 
-      id: transaction.id, 
-      status: transaction.status,
-      callback_url: fullCallbackUrl
-    });
-
     // Générer le token de paiement
     const tokenResponse = await transaction.generateToken();
     const token = tokenResponse.token || tokenResponse;
-    console.log('✓ Token généré:', typeof token === 'string' ? token.substring(0, 10) + '...' : 'Token non-string généré');
-
-    // Construire l'URL de paiement
-    const checkoutBaseUrl = process.env.FEDAPAY_ENVIRONMENT === 'live'
-      ? 'https://checkout.fedapay.com'
-      : 'https://sandbox-checkout.fedapay.com';
-    
-    console.log('🌐 URL de base FedaPay:', checkoutBaseUrl);
-    
-    const paymentUrl = `${checkoutBaseUrl}/checkout/${token}`;
-    console.log('✓ URL de paiement générée:', paymentUrl);
 
     return {
+      success: true,
       id: transaction.id,
-      paymentUrl: paymentUrl
+      token: token,
+      publicKey: process.env.FEDAPAY_PUBLIC_KEY,
+      amount: amount,
+      currency: 'XOF',
+      description: description
     };
   } catch (error) {
     console.error('❌ Erreur création transaction FedaPay:', error);
