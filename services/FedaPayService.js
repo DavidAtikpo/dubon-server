@@ -2,17 +2,12 @@ import { FedaPay, Transaction } from 'fedapay';
 
 // Configurer FedaPay avec les clés d'API
 const apiKey = process.env.FEDAPAY_API_KEY;
-const environment = process.env.FEDAPAY_ENVIRONMENT || 'sandbox';
+const environment = 'live';
 
 // Configuration de base
 FedaPay.setApiKey(apiKey);
 FedaPay.setEnvironment(environment);
-
-// Configuration spécifique pour le sandbox
-if (environment === 'sandbox') {
-  FedaPay.setApiBase('https://sandbox-api.fedapay.com');
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+FedaPay.setApiBase('https://api.fedapay.com');
 
 class FedaPayService {
   static async createTransfer({ amount, bankInfo, description, currency = 'XOF' }) {

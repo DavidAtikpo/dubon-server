@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: parseInt(process.env.EMAIL_PORT),
-  secure: true, // true pour le port 465
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
@@ -85,12 +85,12 @@ export const sendEmail = async ({ to, subject, template, context, html, text }) 
     }
 
     const mailOptions = {
-      from: '"DUBON SERVICES" <e-bon-services@dubonservice.info>',
+      from: process.env.EMAIL_FROM,
       to: to.trim(), // Supprimer les espaces inutiles
       subject,
       html: emailHtml,
       text: text || 'Veuillez activer HTML pour voir ce message.',
-      replyTo: 'e-bon-services@dubonservice.info'
+      replyTo: process.env.EMAIL_FROM
     };
 
     // Log avant l'envoi

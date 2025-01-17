@@ -2,7 +2,7 @@ import { FedaPay, Transaction } from 'fedapay';
 
 // Configuration initiale de FedaPay
 const initializeFedaPay = () => {
-  const environment = 'live'; // Forcer l'environnement en production
+  const environment = process.env.FEDAPAY_ENVIRONMENT || 'live';
   const apiKey = process.env.FEDAPAY_SECRET_KEY;
 
   if (!apiKey) {
@@ -13,7 +13,7 @@ const initializeFedaPay = () => {
     // Configuration de base
     FedaPay.setApiKey(apiKey);
     FedaPay.setEnvironment(environment);
-    FedaPay.setApiBase('https://api.fedapay.com'); // URL de production
+    FedaPay.setApiBase(process.env.FEDAPAY_API_URL || 'https://api.fedapay.com');
 
     console.log('🔧 Configuration FedaPay:', { 
       environment, 
