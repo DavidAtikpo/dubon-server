@@ -67,11 +67,7 @@ export const createFedaPayTransaction = async ({
         email: customerEmail,
         firstname: customerName.split(' ')[0],
         lastname: customerName.split(' ').slice(1).join(' ')
-      },
-      mode: 'payment',
-      include_fees: true,
-      include_mobile_money: true,
-      include_card: true
+      }
     });
 
     // Générer le token de paiement
