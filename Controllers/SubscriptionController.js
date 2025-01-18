@@ -211,4 +211,55 @@ export const handlePaymentCallback = async (req, res) => {
     console.error('Erreur callback paiement:', error);
     res.redirect('/seller/dashboard/subscription/status?status=error');
   }
+};
+
+export const getSubscriptionPayment = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+    const userId = req.user.id;
+
+    // Récupérer l'abonnement
+    const subscription = await models.Subscription.findOne({
+      where: {
+        id: subscriptionId,
+        userId,
+        status: 'pending'
+      },
+      include: [{ model: models.User, as: 'user' }]
+    });
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: "Abonnement non trouvé"
+      });
+    }
+
+    // Créer une nouvelle transaction FedaPay
+    const fedaPayTransaction = await createFedaPayTransaction({
+      amount: subscription.amount,
+      description: `Abonnement ${subscription.planId} - ${subscription.billingCycle}`,
+      customerEmail: subscription.user.email,
+      customerName: subscription.user.name,
+      callbackUrl: `/api/subscription/callback/${subscription.id}`
+    });
+
+    res.json({
+      success: true,
+      token: fedaPayTransaction.token,
+      publicKey: fedaPayTransaction.publicKey,
+      amount: fedaPayTransaction.amount,
+      description: fedaPayTransaction.description,
+      customerEmail: subscription.user.email,
+      customerFirstName: subscription.user.name.split(' ')[0],
+      customerLastName: subscription.user.name.split(' ').slice(1).join(' '),
+      customerPhone: subscription.user.phone
+    });
+  } catch (error) {
+    console.error('Erreur récupération paiement:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des détails de paiement"
+    });
+  }
 }; 

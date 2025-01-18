@@ -11,23 +11,23 @@ export default (sequelize, DataTypes) => {
     },
     description: {
       type: DataTypes.TEXT,
-      allowNull: true
-    },
-    monthlyPrice: {
-      type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
-    yearlyPrice: {
-      type: DataTypes.DECIMAL(10, 2),
+    monthlyPrice: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    annualPrice: {
+      type: DataTypes.INTEGER,
       allowNull: false
     },
     features: {
-      type: DataTypes.JSON,
-      allowNull: true
-    },
-    isActive: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
+      type: DataTypes.JSONB,
+      allowNull: false,
+      get() {
+        const rawValue = this.getDataValue('features');
+        return typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue;
+      }
     }
   }, {
     tableName: 'Plans',
