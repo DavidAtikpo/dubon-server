@@ -1173,6 +1173,202 @@ export const getSimilarProducts = async (req, res) => {
   }
 };
 
+export const getProduitFrais = async (req, res) => {
+  try {
+    // Rechercher d'abord la sous-catégorie "Produits Frais"
+    const produitsFraisSubCategory = await models.Subcategory.findOne({
+      where: {
+        name: 'Produits frais'
+      }
+    });
+
+    if (!produitsFraisSubCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "La sous-catégorie 'Produits Frais' n'a pas été trouvée"
+      });
+    }
+
+    // Récupérer tous les produits de cette sous-catégorie
+    const products = await Product.findAll({
+      where: {
+        subcategoryId: produitsFraisSubCategory.id,
+        status: 'active'
+      },
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['id', 'businessInfo', 'status']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Transformer les données pour inclure storeName depuis businessInfo
+    const transformedProducts = products.map(product => {
+      const plainProduct = product.get({ plain: true });
+      return {
+        ...plainProduct,
+        seller: plainProduct.seller ? {
+          id: plainProduct.seller.id,
+          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
+          status: plainProduct.seller.status
+        } : null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transformedProducts
+    });
+
+  } catch (error) {
+    console.error('Erreur getProduitFrais:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des produits frais",
+      error: error.message
+    });
+  }
+};
+
+export const getProduitCongeles = async (req, res) => {
+  try {
+    // Rechercher d'abord la sous-catégorie "Produits Frais"
+    const produitsFraisSubCategory = await models.Subcategory.findOne({
+      where: {
+        name: 'Produits congelés'
+      }
+    });
+
+    if (!produitsFraisSubCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "La sous-catégorie 'Produits congelés' n'a pas été trouvée"
+      });
+    }
+
+    // Récupérer tous les produits de cette sous-catégorie
+    const products = await Product.findAll({
+      where: {
+        subcategoryId: produitsFraisSubCategory.id,
+        status: 'active'
+      },
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['id', 'businessInfo', 'status']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Transformer les données pour inclure storeName depuis businessInfo
+    const transformedProducts = products.map(product => {
+      const plainProduct = product.get({ plain: true });
+      return {
+        ...plainProduct,
+        seller: plainProduct.seller ? {
+          id: plainProduct.seller.id,
+          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
+          status: plainProduct.seller.status
+        } : null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transformedProducts
+    });
+
+  } catch (error) {
+    console.error('Erreur getProduitFrais:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des Produits congelés",
+      error: error.message
+    });
+  }
+};
+
+export const getProduitVivrieres = async (req, res) => {
+  try {
+    // Rechercher d'abord la sous-catégorie "Produits Frais"
+    const produitsFraisSubCategory = await models.Subcategory.findOne({
+      where: {
+        name: 'Produits vivriers'
+      }
+    });
+
+    if (!produitsFraisSubCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "La sous-catégorie 'Produits vivriers' n'a pas été trouvée"
+      });
+    }
+
+    // Récupérer tous les produits de cette sous-catégorie
+    const products = await Product.findAll({
+      where: {
+        subcategoryId: produitsFraisSubCategory.id,
+        status: 'active'
+      },
+      include: [
+        {
+          model: models.Category,
+          as: 'category',
+          attributes: ['id', 'name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['id', 'businessInfo', 'status']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Transformer les données pour inclure storeName depuis businessInfo
+    const transformedProducts = products.map(product => {
+      const plainProduct = product.get({ plain: true });
+      return {
+        ...plainProduct,
+        seller: plainProduct.seller ? {
+          id: plainProduct.seller.id,
+          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
+          status: plainProduct.seller.status
+        } : null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transformedProducts
+    });
+
+  } catch (error) {
+    console.error('Erreur getProduitFrais:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des Produits vivriers",
+      error: error.message
+    });
+  }
+};
+
+
 // Mettre à jour l'objet productsController
 const productsController = {
   addProduct,
@@ -1192,7 +1388,10 @@ const productsController = {
   getAllPublicProducts,
   getShopProducts,
   getSimilarProducts,
-  getProductsByCategoryId
+  getProductsByCategoryId,
+  getProduitFrais,
+  getProduitCongeles,
+  getProduitVivrieres
 };
 
 export default productsController;

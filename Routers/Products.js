@@ -64,13 +64,15 @@ const upload = multer({
 // Routes publiques
 router.get('/get-all', productsController.getAllPublicProducts);
 router.get('/quick-sale', productsController.getQuickSales);
-router.get('/top-rate', productsController.getTopRated);
+router.get('/top-rated', productsController.getTopRated);
 router.get('/best-sellers', productsController.getBestSellers);
-router.get('/new-arrival', productsController.getNewArrivals);
+router.get('/new-arrivals', productsController.getNewArrivals);
 router.get('/promotion', productsController.Promotion);
 router.get('/new-product', productsController.getNewProduct);
 router.get('/product-detail/:productId', productsController.getProductById);
-// router.get('/category/name/:categoryName', productsController.getProductsByCategoryName);
+router.get('/produits-frais',productsController.getProduitFrais);
+router.get('/produits-congeles',productsController.getProduitCongeles);
+router.get('/produits-vivriere',productsController.getProduitVivrieres)
 router.get('/category/:category', productsController.getProductsByCategory);
 router.get('/category/id/:categoryId', productsController.getProductsByCategoryId);
 
