@@ -944,9 +944,19 @@ export const updateProduct = async (req, res) => {
     // Gérer les nouvelles images
     if (req.files?.images) {
       const newImages = req.files.images.map(file => file.path.replace(/\\/g, '/'));
+      
+      // Supprimer les anciennes images
       const currentImages = Array.isArray(product.images) ? product.images : [];
-      updatedData.images = [...currentImages, ...newImages];
-      updatedData.mainImage = updatedData.images[0];
+      currentImages.forEach(imagePath => {
+        const fullPath = path.join(__dirname, '..', imagePath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      });
+
+      // Mettre à jour avec les nouvelles images
+      updatedData.images = newImages;
+      updatedData.mainImage = newImages[0];
     }
 
     console.log("Données à mettre à jour:", updatedData);

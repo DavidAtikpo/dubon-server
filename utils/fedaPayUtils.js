@@ -57,7 +57,7 @@ export const createFedaPayTransaction = async ({
     console.log('URL de callback:', fullCallbackUrl);
 
     const transaction = await initializeFedaPay().create({
-      amount: parseInt(amount),
+      amount: amount,
       currency: {
         iso: 'XOF'
       },
@@ -65,8 +65,7 @@ export const createFedaPayTransaction = async ({
       callback_url: fullCallbackUrl,
       customer: {
         email: customerEmail,
-        firstname: customerName.split(' ')[0],
-        lastname: customerName.split(' ').slice(1).join(' ')
+        firstname: customerName
       }
     });
 
