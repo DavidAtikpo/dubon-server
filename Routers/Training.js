@@ -3,6 +3,7 @@ import Training from "../Controllers/Training.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -72,12 +73,18 @@ router.post("/create", upload.fields([
   { name: 'syllabus', maxCount: 1 }
 ]), Training.createTraining);
 
+// Route pour les utilisateurs qui voient leurs inscriptions
+router.get("/user/my-trainings", protect, Training.getMyTrainings);
+
+// Route pour les formateurs qui voient leurs formations publiées
+router.get("/seller/my-published", protect, Training.getMyPublishedTrainings);
+
 router.get("/get-all", Training.getAllTrainings);
-router.get("/:trainingId", Training.getTrainingById);
+router.get("/:id", Training.getTrainingById);
 router.put("/:trainingId", Training.updateTraining);
 router.delete("/:trainingId", Training.deleteTraining);
 
 // Route pour ajouter un participant
-// router.post("/:id", addParticipant);
+router.post("/:trainingId/register", protect, Training.addParticipant);
 
 export default router;
