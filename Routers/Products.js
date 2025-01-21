@@ -1,67 +1,9 @@
 import express from 'express'
 import productsController, { createProduct } from '../Controllers/Products.js'
 import { protect } from '../middleware/authMiddleware.js'
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import multer from 'multer';
+import uploadProduct from '../middleware/uploadProduct.js'
 
 const router = express.Router()
-
-// Configuration de Cloudinary pour différents types de fichiers
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    resource_type: 'auto',
-    folder: (req, file) => {
-      if (file.fieldname === 'images') return 'dubon/products/images';
-      if (file.fieldname === 'video') return 'dubon/products/videos';
-      if (file.fieldname === 'digitalFiles') return 'dubon/products/digital';
-      return 'dubon/products/others';
-    },
-    allowed_formats: (req, file) => {
-      if (file.fieldname === 'images') return ['jpg', 'jpeg', 'png', 'gif'];
-      if (file.fieldname === 'video') return ['mp4', 'mov', 'webm'];
-      if (file.fieldname === 'digitalFiles') return ['pdf', 'zip'];
-      return ['jpg', 'jpeg', 'png', 'pdf', 'mp4'];
-    },
-    transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  if (file.fieldname === 'images') {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Format de fichier non supporté. Seules les images sont acceptées.'), false);
-    }
-  } else if (file.fieldname === 'video') {
-    const allowedMimes = ['video/mp4', 'video/quicktime', 'video/webm', 'image/gif'];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Format de vidéo non supporté.'), false);
-    }
-  } else if (file.fieldname === 'digitalFiles') {
-    const allowedMimes = ['application/pdf', 'application/zip', 'application/x-zip-compressed'];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Format de fichier digital non supporté.'), false);
-    }
-  } else {
-    cb(null, false);
-  }
-};
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max
-    files: 10 // Maximum 10 fichiers
-  }
-});
 
 // Routes publiques
 router.get('/get-all', productsController.getAllPublicProducts);
@@ -83,65 +25,18 @@ router.use(protect);
 router.get('/seller/products', productsController.getSellerProducts);
 
 // Route pour créer un produit
-router.post('/create', upload.fields([
+router.post('/create', uploadProduct.fields([
   { name: 'images', maxCount: 5 },
   { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }
-]), async (req, res, next) => {
-  try {
-    // Récupérer les URLs des fichiers uploadés
-    const images = req.files?.images ? req.files.images.map(file => file.path) : [];
-    const video = req.files?.video ? req.files.video[0].path : null;
-    const digitalFiles = req.files?.digitalFiles ? req.files.digitalFiles.map(file => file.path) : [];
-
-    // Ajouter les URLs au body
-    req.body.images = images;
-    if (video) req.body.video = video;
-    if (digitalFiles.length > 0) req.body.digitalFiles = digitalFiles;
-
-    // Passer au controller
-    return createProduct(req, res, next);
-  } catch (error) {
-    console.error('Erreur upload:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'upload des fichiers",
-      error: error.message
-    });
-  }
-});
+]), createProduct);
 
 // Route pour mettre à jour un produit
-router.put('/update-product/:id', upload.fields([
+router.put('/update-product/:id', uploadProduct.fields([
   { name: 'images', maxCount: 5 },
   { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }
-]), async (req, res, next) => {
-  try {
-    // Récupérer les URLs des nouveaux fichiers uploadés
-    if (req.files) {
-      if (req.files.images) {
-        req.body.images = req.files.images.map(file => file.path);
-      }
-      if (req.files.video) {
-        req.body.video = req.files.video[0].path;
-      }
-      if (req.files.digitalFiles) {
-        req.body.digitalFiles = req.files.digitalFiles.map(file => file.path);
-      }
-    }
-
-    // Passer au controller
-    return productsController.updateProduct(req, res, next);
-  } catch (error) {
-    console.error('Erreur upload:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'upload des fichiers",
-      error: error.message
-    });
-  }
-});
+]), productsController.updateProduct);
 
 router.delete('/delete-product/:productId', productsController.deleteProduct);
 router.get('/shop/:shopId', productsController.getShopProducts);
