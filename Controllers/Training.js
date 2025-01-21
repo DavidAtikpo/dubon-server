@@ -381,6 +381,113 @@ const getMyPublishedTrainings = async (req, res) => {
   }
 };
 
+// Récupérer les participants d'une formation
+const getTrainingParticipants = async (req, res) => {
+  try {
+    const participants = await Participant.findAll({
+      where: {
+        trainingId: req.params.id
+      },
+      attributes: [
+        'id',
+        'userId',
+        'fullName',
+        'email',
+        'phone',
+        'status',
+        'paymentStatus',
+        'paymentDate',
+        'createdAt'
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: participants
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des participants:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des participants'
+    });
+  }
+};
+
+// Mettre à jour le statut d'un participant
+const updateParticipantStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const participant = await Participant.findByPk(req.params.participantId);
+
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Participant non trouvé'
+      });
+    }
+
+    await participant.update({ status });
+
+    // Mettre à jour le nombre de participants si nécessaire
+    const training = await Training.findByPk(participant.trainingId);
+    if (training) {
+      const confirmedCount = await Participant.count({
+        where: {
+          trainingId: training.id,
+          status: 'confirmed'
+        }
+      });
+      await training.update({ participantsCount: confirmedCount });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Statut mis à jour avec succès',
+      data: participant
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour du statut'
+    });
+  }
+};
+
+// Mettre à jour le statut de paiement d'un participant
+const updateParticipantPayment = async (req, res) => {
+  try {
+    const { paymentStatus } = req.body;
+    const participant = await Participant.findByPk(req.params.participantId);
+
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Participant non trouvé'
+      });
+    }
+
+    await participant.update({
+      paymentStatus,
+      paymentDate: paymentStatus === 'paid' ? new Date() : null
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Statut de paiement mis à jour avec succès',
+      data: participant
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut de paiement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour du statut de paiement'
+    });
+  }
+};
+
 export default {
   createTraining,
   getAllTrainings,
@@ -389,5 +496,8 @@ export default {
   addParticipant,
   deleteTraining,
   getMyTrainings,
-  getMyPublishedTrainings
+  getMyPublishedTrainings,
+  getTrainingParticipants,
+  updateParticipantStatus,
+  updateParticipantPayment
 }
