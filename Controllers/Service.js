@@ -1,4 +1,5 @@
 import { models } from '../models/index.js';
+// import cloudinary from '../config/cloudinary.js';
 
 const { Service, User, ServiceRequest } = models;
 
@@ -8,9 +9,9 @@ const createService = async (req, res) => {
     const { category, subCategory } = req.body;
     let images = [];
 
-    // Gérer les fichiers uploadés localement
+    // Gérer les fichiers uploadés vers Cloudinary
     if (req.files && req.files.length > 0) {
-      images = req.files.map(file => file.path.replace(/\\/g, '/'));
+      images = req.files.map(file => file.path);
     }
 
     // Créer le service avec les données de base
