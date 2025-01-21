@@ -47,6 +47,7 @@ import ShopModel from './Shop.js';
 import SellerHistoryModel from './SellerHistory.js';
 import SubcategoryModel from './Subcategory.js';
 import ParticipantModel from './Participant.js';
+import ServiceRequestModel from './ServiceRequest.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -108,6 +109,8 @@ const defineModels = () => {
   db.Reservation = ReservationModel(sequelize);
   db.SellerHistory = SellerHistoryModel(sequelize);
   db.Participant = ParticipantModel(sequelize);
+  db.ServiceRequest = ServiceRequestModel(sequelize);
+
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {
     if (db[modelName].associate) {

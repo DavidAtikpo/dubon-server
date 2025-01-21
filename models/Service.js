@@ -7,20 +7,50 @@ export default (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    providerId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
+    },
+    category: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'Général'
+    },
+    subCategory: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'Général'
+    },
     title: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    description: DataTypes.TEXT,
-    price: DataTypes.DECIMAL(10, 2),
-    image: DataTypes.STRING,
-    provider: {
-      type: DataTypes.JSON,
-      defaultValue: {}
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
     },
-    duration: DataTypes.STRING,
-    category: DataTypes.STRING
+    images: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
+    },
+    status: {
+      type: DataTypes.ENUM('active', 'inactive'),
+      defaultValue: 'active'
+    }
+  }, {
+    tableName: 'Services'
   });
+
+  Service.associate = (models) => {
+    Service.belongsTo(models.User, {
+      foreignKey: 'providerId',
+      as: 'provider'
+    });
+  };
 
   return Service;
 };

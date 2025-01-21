@@ -12,7 +12,7 @@ import cookieParser from "cookie-parser";
 import Products from './Routers/Products.js'
 import morgan from "morgan";
 import cors from 'cors';
-// import authRoutes from './Routers/auth.js';
+import Service from './Routers/Service.js'
 import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import cartRoute from './Routers/cartRoute.js';
@@ -179,8 +179,8 @@ app.use('/api/search', searchRouter);
 app.use('/api/category', category);
 app.use('/api/products', Products);
 app.use('/api/user', User);
-
 // Routes protégées (déjà authentifiées dans leurs fichiers respectifs)
+app.use('/api/services', Service);
 app.use('/api/orders', Order);
 app.use("/api/training", Training);
 app.use("/api", Event);
