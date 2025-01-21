@@ -81,18 +81,69 @@ router.get('/category/id/:categoryId', productsController.getProductsByCategoryI
 // Routes protégées
 router.use(protect);
 router.get('/seller/products', productsController.getSellerProducts);
+
+// Route pour créer un produit
 router.post('/create', upload.fields([
   { name: 'images', maxCount: 5 },
   { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }
-]), createProduct);
+]), async (req, res, next) => {
+  try {
+    // Récupérer les URLs des fichiers uploadés
+    const images = req.files?.images ? req.files.images.map(file => file.path) : [];
+    const video = req.files?.video ? req.files.video[0].path : null;
+    const digitalFiles = req.files?.digitalFiles ? req.files.digitalFiles.map(file => file.path) : [];
+
+    // Ajouter les URLs au body
+    req.body.images = images;
+    if (video) req.body.video = video;
+    if (digitalFiles.length > 0) req.body.digitalFiles = digitalFiles;
+
+    // Passer au controller
+    return createProduct(req, res, next);
+  } catch (error) {
+    console.error('Erreur upload:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'upload des fichiers",
+      error: error.message
+    });
+  }
+});
+
+// Route pour mettre à jour un produit
 router.put('/update-product/:id', upload.fields([
   { name: 'images', maxCount: 5 },
   { name: 'video', maxCount: 1 },
   { name: 'digitalFiles', maxCount: 5 }
-]), productsController.updateProduct);
-router.delete('/delete-product/:productId', productsController.deleteProduct);
+]), async (req, res, next) => {
+  try {
+    // Récupérer les URLs des nouveaux fichiers uploadés
+    if (req.files) {
+      if (req.files.images) {
+        req.body.images = req.files.images.map(file => file.path);
+      }
+      if (req.files.video) {
+        req.body.video = req.files.video[0].path;
+      }
+      if (req.files.digitalFiles) {
+        req.body.digitalFiles = req.files.digitalFiles.map(file => file.path);
+      }
+    }
 
+    // Passer au controller
+    return productsController.updateProduct(req, res, next);
+  } catch (error) {
+    console.error('Erreur upload:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'upload des fichiers",
+      error: error.message
+    });
+  }
+});
+
+router.delete('/delete-product/:productId', productsController.deleteProduct);
 router.get('/shop/:shopId', productsController.getShopProducts);
 
 export default router;
