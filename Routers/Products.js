@@ -1,28 +1,30 @@
 import express from 'express'
 import productsController, { createProduct } from '../Controllers/Products.js'
 import { protect } from '../middleware/authMiddleware.js'
-import multer from 'multer'
-import path from 'path'
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import multer from 'multer';
 
 const router = express.Router()
 
-// Configuration de Multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let uploadPath;
-    if (file.fieldname === 'images') {
-      uploadPath = './uploads/products';
-    } else if (file.fieldname === 'video') {
-      uploadPath = './uploads/videos';
-    } else if (file.fieldname === 'digitalFiles') {
-      uploadPath = './uploads/digital';
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+// Configuration de Cloudinary pour différents types de fichiers
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    resource_type: 'auto',
+    folder: (req, file) => {
+      if (file.fieldname === 'images') return 'dubon/products/images';
+      if (file.fieldname === 'video') return 'dubon/products/videos';
+      if (file.fieldname === 'digitalFiles') return 'dubon/products/digital';
+      return 'dubon/products/others';
+    },
+    allowed_formats: (req, file) => {
+      if (file.fieldname === 'images') return ['jpg', 'jpeg', 'png', 'gif'];
+      if (file.fieldname === 'video') return ['mp4', 'mov', 'webm'];
+      if (file.fieldname === 'digitalFiles') return ['pdf', 'zip'];
+      return ['jpg', 'jpeg', 'png', 'pdf', 'mp4'];
+    },
+    transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
   }
 });
 
@@ -56,7 +58,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max pour les vidéos
+    fileSize: 50 * 1024 * 1024, // 50MB max
     files: 10 // Maximum 10 fichiers
   }
 });
@@ -72,7 +74,7 @@ router.get('/new-product', productsController.getNewProduct);
 router.get('/product-detail/:productId', productsController.getProductById);
 router.get('/produits-frais',productsController.getProduitFrais);
 router.get('/produits-congeles',productsController.getProduitCongeles);
-router.get('/produits-vivriere',productsController.getProduitVivrieres)
+router.get('/produits-vivriere',productsController.getProduitVivrieres);
 router.get('/category/:category', productsController.getProductsByCategory);
 router.get('/category/id/:categoryId', productsController.getProductsByCategoryId);
 
@@ -93,6 +95,4 @@ router.delete('/delete-product/:productId', productsController.deleteProduct);
 
 router.get('/shop/:shopId', productsController.getShopProducts);
 
-
-
-export default router
+export default router;
