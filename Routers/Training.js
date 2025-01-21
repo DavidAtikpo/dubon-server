@@ -6,7 +6,7 @@ import upload from "../middleware/uploadTraining.js";
 const router = express.Router();
 
 // Routes
-router.post("/create", upload.fields([
+router.post("/create", protect, upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'syllabus', maxCount: 1 }
 ]), Training.createTraining);
