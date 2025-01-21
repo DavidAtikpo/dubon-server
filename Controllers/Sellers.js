@@ -530,7 +530,7 @@ export const updateProfile = async (req, res) => {
 
 export const getSellerProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = 1, limit = 50, status } = req.query;
     const offset = (page - 1) * limit;
 
     const whereClause = { sellerId: req.seller.id };
