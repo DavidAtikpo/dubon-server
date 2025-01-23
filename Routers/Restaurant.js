@@ -3,13 +3,12 @@ import { protect, seller } from "../middleware/authMiddleware.js";
 import * as restaurantController from "../Controllers/RestaurantController.js";
 import * as orderController from "../Controllers/OrderController.js";
 import * as tableController from "../Controllers/TableController.js";
-import * as dashboardController from '../Controllers/RestaurantDashboardController.js';
 import * as dishController from "../Controllers/DishController.js";
-
-
+import uploadRestaurant from "../middleware/uploadRestaurant.js";
+import { verifyToken } from '../middleware/auth.js';
+import Restaurant from "../Controllers/Restaurant.js";
 
 const router = express.Router();
-
 
 // Routes publiques
 router.get("/", restaurantController.getAllRestaurants);
@@ -17,13 +16,20 @@ router.get("/:id", restaurantController.getRestaurantById);
 router.get("/search", restaurantController.searchRestaurants);
 
 // Routes protégées pour les vendeurs
-router.use(protect, seller);
+router.use(protect);
+router.use(seller);
 
 // Routes pour le restaurant
-router.post("/", 
-  restaurantController.upload.single("image"),
-  restaurantController.addRestaurant
-);
+router.post("/add", protect, seller, uploadRestaurant, async (req, res, next) => {
+  try {
+    // Ajouter l'ID du vendeur à la requête
+    req.user = { id: req.user.id };
+    await Restaurant.addRestaurant(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.put("/:id", 
   restaurantController.upload.single("image"),
   restaurantController.updateRestaurant
@@ -85,8 +91,8 @@ router.get('/:restaurantId/reservations', async (req, res) => {
 router.put('/reservations/:reservationId', tableController.updateReservationStatus);
 
 // Routes pour le tableau de bord
-router.get('/:restaurantId/dashboard', protect, seller, dashboardController.getDashboardStats);
-router.get('/:restaurantId/sales-stats', protect, seller, dashboardController.getSalesStats);
+// router.get('/:restaurantId/dashboard', protect, seller, dashboardController.getDashboardStats);
+// router.get('/:restaurantId/sales-stats', protect, seller, dashboardController.getSalesStats);
 
 // Routes pour les plats
 router.post("/dishes", 

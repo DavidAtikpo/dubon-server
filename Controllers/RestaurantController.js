@@ -67,8 +67,6 @@ export const addRestaurant = async (req, res) => {
     const {
       name,
       description,
-      category,
-      price,
       address,
       phone,
       openingHours

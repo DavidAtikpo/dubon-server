@@ -11,17 +11,42 @@ export default (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    description: DataTypes.TEXT,
-    image: DataTypes.STRING,
-    date: DataTypes.DATE,
-    location: DataTypes.STRING,
-    price: DataTypes.DECIMAL(10, 2),
-    availableTickets: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: false
     },
-    category: DataTypes.STRING
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'upcoming',
+      validate: {
+        isIn: [['past', 'upcoming']]
+      }
+    },
+    date: {
+      type: DataTypes.DATE,
+      allowNull: false
+    },
+    images: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
+    },
+    sellerId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
+    }
   });
+
+  Event.associate = (models) => {
+    Event.belongsTo(models.User, {
+      foreignKey: 'sellerId',
+      as: 'seller'
+    });
+  };
 
   return Event;
 };

@@ -12,8 +12,8 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'dubon',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
-    transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif','mp4'],
+    transformation: [{ width: 1200, height: 1200, crop: 'limit' }]
   }
 });
 

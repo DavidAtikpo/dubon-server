@@ -1,6 +1,5 @@
 import { models } from '../models/index.js';
 import { Op } from 'sequelize';
-import { uploadToCloudinary } from '../utils/cloudinary.js';
 
 // Créer un nouvel événement
 export const createEvent = async (req, res) => {
@@ -9,25 +8,11 @@ export const createEvent = async (req, res) => {
       title,
       description,
       type,
-      date,
-      startTime,
-      endTime,
-      location,
-      capacity,
-      price,
-      services,
-      requirements,
-      includedServices,
-      additionalServices,
-      cancellationPolicy,
-      tags
+      date
     } = req.body;
 
-    let images = [];
-    if (req.files) {
-      const uploadPromises = req.files.map(file => uploadToCloudinary(file.path));
-      images = await Promise.all(uploadPromises);
-    }
+    // Récupérer les URLs des images depuis Cloudinary
+    const images = req.files ? req.files.map(file => file.path) : [];
 
     const event = await models.Event.create({
       sellerId: req.user.id,
@@ -35,18 +20,7 @@ export const createEvent = async (req, res) => {
       description,
       type,
       date,
-      startTime,
-      endTime,
-      location,
-      capacity,
-      price,
-      images,
-      services,
-      requirements,
-      includedServices,
-      additionalServices,
-      cancellationPolicy,
-      tags
+      images
     });
 
     res.status(201).json({
@@ -66,24 +40,66 @@ export const createEvent = async (req, res) => {
 // Obtenir tous les événements d'un vendeur
 export const getSellerEvents = async (req, res) => {
   try {
+    const { status, sort = 'date', order = 'DESC' } = req.query;
+    
+    // Construction de la clause WHERE
+    const whereClause = { sellerId: req.user.id };
+    if (status) {
+      whereClause.status = status;
+    }
+
+    // Construction du tri
+    const orderOptions = [];
+    if (sort === 'date') {
+      orderOptions.push(['date', order]);
+    } else if (sort === 'title') {
+      orderOptions.push(['title', order]);
+    } else if (sort === 'createdAt') {
+      orderOptions.push(['createdAt', order]);
+    }
+    orderOptions.push(['id', 'DESC']); // Tri secondaire par ID
+
     const events = await models.Event.findAll({
-      where: { sellerId: req.user.id },
+      where: whereClause,
       include: [{
-        model: models.EventBooking,
-        as: 'bookings',
-        attributes: ['id', 'status']
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email'],
+        include: [{
+          model: models.UserProfile,
+          as: 'profile',
+          attributes: ['firstName', 'lastName']
+        }]
       }],
-      order: [['date', 'ASC']]
+      order: orderOptions
     });
+
+    // Calculer les statistiques
+    const now = new Date();
+    const stats = {
+      total: events.length,
+      published: events.filter(e => e.status === 'published').length,
+      upcoming: events.filter(e => new Date(e.date) > now && e.status === 'published').length,
+      completed: events.filter(e => e.status === 'completed').length,
+      draft: events.filter(e => e.status === 'draft').length
+    };
 
     res.json({
       success: true,
-      data: events
+      data: events,
+      stats,
+      meta: {
+        total: events.length,
+        sort,
+        order
+      }
     });
   } catch (error) {
+    console.error('Erreur getSellerEvents:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: "Erreur lors de la récupération des événements",
+      error: error.message
     });
   }
 };
@@ -106,10 +122,10 @@ export const updateEvent = async (req, res) => {
       });
     }
 
-    let images = event.images;
+    // Gérer les nouvelles images
+    let images = event.images || [];
     if (req.files?.length) {
-      const uploadPromises = req.files.map(file => uploadToCloudinary(file.path));
-      const newImages = await Promise.all(uploadPromises);
+      const newImages = req.files.map(file => file.path);
       images = [...images, ...newImages];
     }
 
@@ -130,18 +146,17 @@ export const updateEvent = async (req, res) => {
   }
 };
 
-// Gérer les réservations
-export const createBooking = async (req, res) => {
+// Supprimer un événement
+export const deleteEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const {
-      numberOfGuests,
-      selectedServices,
-      specialRequests,
-      contactInfo
-    } = req.body;
+    const event = await models.Event.findOne({
+      where: {
+        id: eventId,
+        sellerId: req.user.id
+      }
+    });
 
-    const event = await models.Event.findByPk(eventId);
     if (!event) {
       return res.status(404).json({
         success: false,
@@ -149,75 +164,11 @@ export const createBooking = async (req, res) => {
       });
     }
 
-    // Vérifier la disponibilité
-    const totalBookings = await models.EventBooking.sum('numberOfGuests', {
-      where: {
-        eventId,
-        status: {
-          [Op.notIn]: ['cancelled']
-        }
-      }
-    });
-
-    if (totalBookings + numberOfGuests > event.capacity) {
-      return res.status(400).json({
-        success: false,
-        message: 'Capacité insuffisante'
-      });
-    }
-
-    // Calculer le prix total
-    const totalPrice = event.price * numberOfGuests;
-
-    const booking = await models.EventBooking.create({
-      eventId,
-      userId: req.user.id,
-      numberOfGuests,
-      totalPrice,
-      selectedServices,
-      specialRequests,
-      contactInfo
-    });
-
-    res.status(201).json({
-      success: true,
-      data: booking
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-// Mettre à jour le statut d'une réservation
-export const updateBookingStatus = async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const { status } = req.body;
-
-    const booking = await models.EventBooking.findOne({
-      include: [{
-        model: models.Event,
-        as: 'event',
-        where: { sellerId: req.user.id }
-      }],
-      where: { id: bookingId }
-    });
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Réservation non trouvée'
-      });
-    }
-
-    await booking.update({ status });
+    await event.destroy();
 
     res.json({
       success: true,
-      data: booking
+      message: 'Événement supprimé avec succès'
     });
   } catch (error) {
     res.status(500).json({
@@ -227,74 +178,67 @@ export const updateBookingStatus = async (req, res) => {
   }
 };
 
-// Obtenir les statistiques des événements
-export const getEventStats = async (req, res) => {
+// Récupérer tous les événements pour les utilisateurs
+export const getEvents = async (req, res) => {
   try {
-    const { sellerId } = req.params;
-    const stats = await models.Event.findAll({
-      where: { sellerId },
-      attributes: [
-        'type',
-        [models.sequelize.fn('count', models.sequelize.col('id')), 'count'],
-        [models.sequelize.fn('sum', models.sequelize.col('capacity')), 'totalCapacity'],
-        [models.sequelize.fn('avg', models.sequelize.col('price')), 'averagePrice']
-      ],
-      group: ['type']
-    });
+    // Par défaut, on récupère les événements à venir
+    const { type = 'all' } = req.query;
+    console.log('Type demandé:', type);
 
-    const bookingStats = await models.EventBooking.findAll({
-      include: [{
-        model: models.Event,
-        as: 'event',
-        where: { sellerId }
-      }],
-      attributes: [
-        'status',
-        [models.sequelize.fn('count', models.sequelize.col('id')), 'count'],
-        [models.sequelize.fn('sum', models.sequelize.col('totalPrice')), 'revenue']
-      ],
-      group: ['status']
-    });
+    let whereClause = {};
 
-    res.json({
-      success: true,
-      data: {
-        eventStats: stats,
-        bookingStats
+    // Si un type spécifique est demandé
+    if (type !== 'all') {
+      whereClause.type = type;
+      
+      // Ajouter la condition de date pour les événements à venir
+      if (type === 'upcoming') {
+        whereClause.date = {
+          [Op.gte]: new Date()
+        };
       }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
+    }
 
-export const getFeaturedEvents = async (req, res) => {
-  try {
+    console.log('Clause WHERE:', JSON.stringify(whereClause));
+
+    // Vérifier d'abord le nombre total d'événements
+    const totalEvents = await models.Event.count();
+    console.log('Nombre total d\'événements:', totalEvents);
+
     const events = await models.Event.findAll({
-      where: {
-        date: {
-          [Op.gte]: new Date() // Événements à venir uniquement
-        },
-        availableTickets: {
-          [Op.gt]: 0 // Avec des billets disponibles
-        }
-      },
-      limit: 6,
-      order: [['date', 'ASC']]
+      where: whereClause,
+      include: [{
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email']
+      }],
+      order: [
+        ['date', 'DESC']
+      ]
     });
 
-    res.json({
+    console.log('Événements trouvés:', events.length);
+    
+    if (events.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Aucun événement trouvé',
+        data: []
+      });
+    }
+
+    return res.status(200).json({
       success: true,
-      data: events
+      message: 'Événements récupérés avec succès',
+      data: events,
+      total: events.length
     });
   } catch (error) {
-    console.error('Erreur lors de la récupération des événements:', error);
-    res.status(500).json({
+    console.error('Erreur détaillée:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Erreur lors de la récupération des événements'
+      message: 'Erreur lors de la récupération des événements',
+      error: error.message
     });
   }
 }; 

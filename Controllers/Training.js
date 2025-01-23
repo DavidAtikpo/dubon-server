@@ -18,6 +18,14 @@ const createTraining = async (req, res) => {
       objectives
     } = req.body;
 
+    // Vérifier si l'utilisateur est authentifié
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
+      });
+    }
+
     // Vérifier les fichiers
     if (!req.files || !req.files.image || !req.files.syllabus) {
       return res.status(400).json({
@@ -40,7 +48,8 @@ const createTraining = async (req, res) => {
       prerequisites,
       objectives,
       image: req.files.image[0].path.replace(/\\/g, '/'),
-      syllabus: req.files.syllabus[0].path.replace(/\\/g, '/')
+      syllabus: req.files.syllabus[0].path.replace(/\\/g, '/'),
+      userId: req.user.id
     });
 
     res.status(201).json({
@@ -50,6 +59,19 @@ const createTraining = async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la création de la formation:", error);
+    
+    // Gestion spécifique des erreurs de validation Sequelize
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Erreur de validation",
+        errors: error.errors.map(err => ({
+          field: err.path,
+          message: err.message
+        }))
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Erreur lors de la création de la formation",
