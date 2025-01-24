@@ -5,36 +5,45 @@ import * as orderController from "../Controllers/OrderController.js";
 import * as tableController from "../Controllers/TableController.js";
 import * as dishController from "../Controllers/DishController.js";
 import uploadRestaurant from "../middleware/uploadRestaurant.js";
-import { verifyToken } from '../middleware/auth.js';
+import upload from "../middleware/uploadDish.js";
 import Restaurant from "../Controllers/Restaurant.js";
 
 const router = express.Router();
 
 // Routes publiques
 router.get("/", restaurantController.getAllRestaurants);
-router.get("/:id", restaurantController.getRestaurantById);
+router.get("/restaurant/:id", restaurantController.getRestaurantById);
 router.get("/search", restaurantController.searchRestaurants);
+router.get("/:restaurantId/dishes", dishController.getRestaurantDishes);
 
 // Routes protégées pour les vendeurs
 router.use(protect);
 router.use(seller);
 
 // Routes pour le restaurant
-router.post("/add", protect, seller, uploadRestaurant, async (req, res, next) => {
+router.get("/seller/restaurants", restaurantController.getSellerRestaurants);
+
+router.post("/add", uploadRestaurant, async (req, res, next) => {
   try {
-    // Ajouter l'ID du vendeur à la requête
-    req.user = { id: req.user.id };
+    console.log('User dans la requête:', req.user);
     await Restaurant.addRestaurant(req, res);
   } catch (error) {
+    console.error('Erreur dans la route /add:', error);
     next(error);
   }
 });
 
 router.put("/:id", 
-  restaurantController.upload.single("image"),
+  uploadRestaurant,
   restaurantController.updateRestaurant
 );
 router.delete("/:id", restaurantController.deleteRestaurant);
+
+// Routes pour les plats
+router.post("/:restaurantId/dishes", 
+  upload.single("image"),
+  dishController.addDish
+);
 
 // Routes pour les commandes
 router.get('/:restaurantId/orders', orderController.getRestaurantOrders);
@@ -43,66 +52,13 @@ router.get('/:restaurantId/stats', orderController.getOrderStats);
 
 // Routes pour les tables
 router.post('/:restaurantId/tables', tableController.addTable);
-router.get('/:restaurantId/tables', async (req, res) => {
-  try {
-    const tables = await models.Table.findAll({
-      where: { restaurantId: req.params.restaurantId }
-    });
-    res.json({ success: true, data: tables });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-router.put('/:restaurantId/tables/:tableId', async (req, res) => {
-  try {
-    const { status, capacity, location } = req.body;
-    await models.Table.update(
-      { status, capacity, location },
-      { where: { id: req.params.tableId, restaurantId: req.params.restaurantId } }
-    );
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// router.get('/:restaurantId/tables', tableController.getTables);
+// router.put('/:restaurantId/tables/:tableId', tableController.updateTable);
 
 // Routes pour les réservations
 router.post('/:restaurantId/reservations', tableController.createReservation);
 router.get('/:restaurantId/reservations/today', tableController.getTodayReservations);
-router.get('/:restaurantId/reservations', async (req, res) => {
-  try {
-    const { date } = req.query;
-    const reservations = await models.Reservation.findAll({
-      where: {
-        restaurantId: req.params.restaurantId,
-        ...(date && { date })
-      },
-      include: [{
-        model: models.Table,
-        attributes: ['number', 'capacity', 'location']
-      }],
-      order: [['date', 'ASC'], ['time', 'ASC']]
-    });
-    res.json({ success: true, data: reservations });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// router.get('/:restaurantId/reservations', tableController.getReservations);
 router.put('/reservations/:reservationId', tableController.updateReservationStatus);
-
-// Routes pour le tableau de bord
-// router.get('/:restaurantId/dashboard', protect, seller, dashboardController.getDashboardStats);
-// router.get('/:restaurantId/sales-stats', protect, seller, dashboardController.getSalesStats);
-
-// Routes pour les plats
-router.post("/dishes", 
-  protect,
-  seller,
-  dishController.upload.single("image"),
-  dishController.addDish
-);
-
-router.get("/dishes/categories", dishController.getDishCategories);
-router.get("/:restaurantId/dishes", dishController.getRestaurantDishes);
 
 export default router;

@@ -11,45 +11,59 @@ export default (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    description: DataTypes.TEXT,
-    price: {
-      type: DataTypes.DECIMAL(10, 2),
+    description: {
+      type: DataTypes.TEXT,
       allowNull: false
     },
-    image: DataTypes.STRING,
-    category: DataTypes.STRING,
-    isAvailable: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
+    price: {
+      type: DataTypes.FLOAT,
+      allowNull: false
     },
-    preparationTime: DataTypes.STRING,
-    ingredients: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      defaultValue: []
+    image: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
-    allergens: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      defaultValue: []
-    },
-    nutritionalInfo: {
-      type: DataTypes.JSON,
-      defaultValue: {}
-    },
-    spicyLevel: {
+    preparationTime: {
       type: DataTypes.INTEGER,
-      defaultValue: 0
+      allowNull: false
+    },
+    ingredients: {
+      type: DataTypes.TEXT,
+      allowNull: false
+    },
+    specialDiet: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: []
+    },
+    isSpicy: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
     },
     isVegetarian: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
-    isVegan: {
+    isPromoted: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
     },
+    promotionalPrice: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+    isAvailable: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
+    },
     restaurantId: {
       type: DataTypes.UUID,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: 'Restaurants',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE'
     }
   });
 

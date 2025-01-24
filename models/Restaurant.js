@@ -11,7 +11,38 @@ export default (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    description: DataTypes.TEXT,
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: false
+    },
+    address: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    city: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    phoneNumber: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    logo: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    coverImage: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    location: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     image: DataTypes.STRING,
     cuisine: {
       type: DataTypes.ARRAY(DataTypes.STRING),
@@ -21,7 +52,6 @@ export default (sequelize) => {
       type: DataTypes.FLOAT,
       defaultValue: 0
     },
-    address: DataTypes.STRING,
     openingHours: DataTypes.STRING,
     priceRange: DataTypes.STRING,
     isVerified: {
@@ -34,7 +64,11 @@ export default (sequelize) => {
     },
     sellerId: {
       type: DataTypes.UUID,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
     },
     features: {
       type: DataTypes.ARRAY(DataTypes.STRING),

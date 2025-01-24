@@ -1,8 +1,9 @@
 import RestaurantItem from "../models/RestaurantItem.js";
-import Restaurant from "../models/Restaurant.js";
+import { models } from "../models/index.js";
+const { Restaurant } = models;
 
 // Créer un nouvel article du restaurant
- const createRestaurantItem = async (req, res) => {
+const createRestaurantItem = async (req, res) => {
   try {
     const newItem = new RestaurantItem(req.body);
     const savedItem = await newItem.save();
@@ -14,7 +15,7 @@ import Restaurant from "../models/Restaurant.js";
 };
 
 // Récupérer tous les articles du restaurant
- const getAllRestaurantItems = async (req, res) => {
+const getAllRestaurantItems = async (req, res) => {
   try {
     const items = await RestaurantItem.find();
     res.status(200).json(items);
@@ -25,7 +26,7 @@ import Restaurant from "../models/Restaurant.js";
 };
 
 // Récupérer un article par ID
- const getRestaurantItemById = async (req, res) => {
+const getRestaurantItemById = async (req, res) => {
   try {
     const item = await RestaurantItem.findById(req.params.id);
     if (!item) {
@@ -39,7 +40,7 @@ import Restaurant from "../models/Restaurant.js";
 };
 
 // Mettre à jour un article du restaurant
- const updateRestaurantItem = async (req, res) => {
+const updateRestaurantItem = async (req, res) => {
   try {
     const updatedItem = await RestaurantItem.findByIdAndUpdate(
       req.params.id,
@@ -57,7 +58,7 @@ import Restaurant from "../models/Restaurant.js";
 };
 
 // Supprimer un article du restaurant
- const deleteRestaurantItem = async (req, res) => {
+const deleteRestaurantItem = async (req, res) => {
   try {
     const deletedItem = await RestaurantItem.findByIdAndDelete(req.params.id);
     if (!deletedItem) {
@@ -72,6 +73,7 @@ import Restaurant from "../models/Restaurant.js";
 
 const addRestaurant = async (req, res) => {
   try {
+    console.log('User:', req.user);
     console.log('Données reçues:', req.body);
     console.log('Fichiers reçus:', req.files);
 
@@ -82,21 +84,36 @@ const addRestaurant = async (req, res) => {
       city,
       phoneNumber,
       email,
-      cuisine,
-      openingHours,
-      priceRange,
-      deliveryOptions,
-      minOrderAmount,
-      deliveryFee,
-      preparationTime,
       location
     } = req.body;
 
     // Validation des champs requis
     if (!name || !description || !address || !city || !phoneNumber) {
+      console.log('Validation échouée:', {
+        name: !!name,
+        description: !!description,
+        address: !!address,
+        city: !!city,
+        phoneNumber: !!phoneNumber
+      });
       return res.status(400).json({
         success: false,
-        message: 'Veuillez remplir tous les champs obligatoires'
+        message: 'Veuillez remplir tous les champs obligatoires',
+        missingFields: {
+          name: !name,
+          description: !description,
+          address: !address,
+          city: !city,
+          phoneNumber: !phoneNumber
+        }
+      });
+    }
+
+    if (!req.user?.id) {
+      console.log('ID du vendeur manquant');
+      return res.status(400).json({
+        success: false,
+        message: 'ID du vendeur manquant'
       });
     }
 
@@ -107,31 +124,24 @@ const addRestaurant = async (req, res) => {
     console.log('Logo path:', logo);
     console.log('Cover image path:', coverImage);
 
-    // Préparation des données pour la création
     const restaurantData = {
       name,
       description,
       address,
       city,
       phoneNumber,
-      email,
-      logo,
-      coverImage,
-      cuisine: typeof cuisine === 'string' ? JSON.parse(cuisine) : cuisine,
-      openingHours: typeof openingHours === 'string' ? JSON.parse(openingHours) : openingHours,
-      priceRange,
-      deliveryOptions: typeof deliveryOptions === 'string' ? JSON.parse(deliveryOptions) : deliveryOptions,
-      minOrderAmount: minOrderAmount ? parseFloat(minOrderAmount) : 0,
-      deliveryFee: deliveryFee ? parseFloat(deliveryFee) : 0,
-      preparationTime: preparationTime ? parseInt(preparationTime) : 30,
-      location,
-      sellerId: req.user.id
+      email: email || null,
+      logo: logo || null,
+      coverImage: coverImage || null,
+      location: location || null,
+      sellerId: req.user.id,
+      status: 'pending'
     };
 
     console.log('Données du restaurant à créer:', restaurantData);
 
     // Créer le restaurant
-    const restaurant = await Restaurant.create(restaurantData);
+    const restaurant = await models.Restaurant.create(restaurantData);
 
     console.log('Restaurant créé:', restaurant);
 

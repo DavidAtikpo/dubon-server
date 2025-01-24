@@ -44,10 +44,8 @@ export const addDish = async (req, res) => {
       name,
       description,
       price,
-      categoryId,
       preparationTime,
       ingredients,
-      allergens,
       specialDiet,
       isSpicy,
       isVegetarian,
@@ -56,11 +54,14 @@ export const addDish = async (req, res) => {
       restaurantId
     } = req.body;
 
+    console.log('Données reçues:', req.body);
+    console.log('Fichier reçu:', req.file);
+
     // Vérifier que le restaurant appartient au vendeur
     const restaurant = await models.Restaurant.findOne({
       where: { 
         id: restaurantId,
-        sellerId: req.user.sellerId
+        sellerId: req.user.id
       }
     });
 
@@ -71,24 +72,25 @@ export const addDish = async (req, res) => {
       });
     }
 
-    const imageUrl = req.file ? `/uploads/dishes/${req.file.filename}` : null;
+    const imageUrl = req.file ? req.file.path : null;
 
     const dish = await models.Dish.create({
       name,
       description,
-      price,
-      categoryId,
+      price: parseFloat(price),
       image: imageUrl,
-      preparationTime,
+      preparationTime: parseInt(preparationTime),
       ingredients,
-      allergens,
       specialDiet: specialDiet ? JSON.parse(specialDiet) : [],
       isSpicy: isSpicy === 'true',
       isVegetarian: isVegetarian === 'true',
       isPromoted: isPromoted === 'true',
-      promotionalPrice,
-      restaurantId
+      promotionalPrice: promotionalPrice ? parseFloat(promotionalPrice) : null,
+      restaurantId,
+      isAvailable: true
     });
+
+    console.log('Plat créé:', dish);
 
     res.status(201).json({
       success: true,
@@ -98,7 +100,8 @@ export const addDish = async (req, res) => {
     console.error('Erreur ajout plat:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de l\'ajout du plat'
+      message: 'Erreur lors de l\'ajout du plat',
+      error: error.message
     });
   }
 };
@@ -126,8 +129,9 @@ export const getRestaurantDishes = async (req, res) => {
     const { restaurantId } = req.params;
     const dishes = await models.Dish.findAll({
       where: { restaurantId },
-      include: [{ 
-        model: models.DishCategory,
+      include: [{
+        model: models.Restaurant,
+        as: 'restaurant',
         attributes: ['name']
       }]
     });
@@ -140,7 +144,8 @@ export const getRestaurantDishes = async (req, res) => {
     console.error('Erreur plats:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la récupération des plats'
+      message: 'Erreur lors de la récupération des plats',
+      error: error.message
     });
   }
 }; 

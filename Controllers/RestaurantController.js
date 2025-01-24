@@ -5,38 +5,7 @@ import fs from 'fs';
 import { Op } from 'sequelize';
 
 // Créer le dossier pour les images de restaurants
-const createUploadDir = () => {
-  const dir = 'uploads/restaurants';
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-};
 
-createUploadDir();
-
-// Configuration de multer pour les restaurants
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/restaurants');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-export const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Seules les images sont autorisées'));
-    }
-    cb(null, true);
-  },
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB max
-  }
-});
 
 // Obtenir tous les restaurants
 export const getAllRestaurants = async (req, res) => {
@@ -44,19 +13,40 @@ export const getAllRestaurants = async (req, res) => {
     const restaurants = await models.Restaurant.findAll({
       where: { status: 'active' },
       include: [{
-        model: models.SellerProfile,
-        attributes: ['storeName', 'logo']
-      }]
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email'],
+      }],
+      attributes: [
+        'id', 
+        'name', 
+        'description', 
+        'address', 
+        'city', 
+        'phoneNumber', 
+        'email',
+        'logo',
+        'coverImage',
+        'location',
+        'status',
+        'rating',
+        'createdAt',
+        'updatedAt'
+      ],
+      order: [['createdAt', 'DESC']]
     });
     
-    res.json({
+    res.status(200).json({
       success: true,
-      data: restaurants
+      data: restaurants,
+      message: 'Restaurants récupérés avec succès'
     });
   } catch (error) {
+    console.error('Erreur lors de la récupération des restaurants:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Erreur lors de la récupération des restaurants',
+      error: error.message
     });
   }
 };
@@ -64,36 +54,92 @@ export const getAllRestaurants = async (req, res) => {
 // Ajouter un restaurant
 export const addRestaurant = async (req, res) => {
   try {
+    console.log('User:', req.user);
+    console.log('Données reçues:', req.body);
+    console.log('Fichiers reçus:', req.files);
+
     const {
       name,
       description,
       address,
-      phone,
-      openingHours
+      city,
+      phoneNumber,
+      email,
+      location
     } = req.body;
 
-    const imageUrl = req.file ? `/uploads/restaurants/${req.file.filename}` : null;
+    // Validation des champs requis
+    if (!name || !description || !address || !city || !phoneNumber) {
+      console.log('Validation échouée:', {
+        name: !!name,
+        description: !!description,
+        address: !!address,
+        city: !!city,
+        phoneNumber: !!phoneNumber
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Veuillez remplir tous les champs obligatoires',
+        missingFields: {
+          name: !name,
+          description: !description,
+          address: !address,
+          city: !city,
+          phoneNumber: !phoneNumber
+        }
+      });
+    }
 
-    const restaurant = await models.Restaurant.create({
+    if (!req.user?.id) {
+      console.log('ID du vendeur manquant');
+      return res.status(400).json({
+        success: false,
+        message: 'ID du vendeur manquant'
+      });
+    }
+
+    // Vérifier les fichiers uploadés
+    const logo = req.files?.logo?.[0]?.path;
+    const coverImage = req.files?.coverImage?.[0]?.path;
+
+    console.log('Logo path:', logo);
+    console.log('Cover image path:', coverImage);
+
+    const restaurantData = {
       name,
       description,
-      category,
-      price,
       address,
-      phone,
-      openingHours: openingHours ? JSON.parse(openingHours) : undefined,
-      image: imageUrl,
-      sellerId: req.user.sellerId
-    });
+      city,
+      phoneNumber,
+      email: email || null,
+      logo: logo || null,
+      coverImage: coverImage || null,
+      location: location || null,
+      sellerId: req.user.id,
+      status: 'pending'
+    };
+
+    console.log('Données du restaurant à créer:', restaurantData);
+
+    // Créer le restaurant
+    const restaurant = await models.Restaurant.create(restaurantData);
+
+    console.log('Restaurant créé:', restaurant);
 
     res.status(201).json({
       success: true,
-      data: restaurant
+      message: 'Restaurant créé avec succès',
+      restaurantId: restaurant.id,
+      restaurant: restaurant
     });
   } catch (error) {
-    res.status(400).json({
+    console.error('Erreur détaillée lors de la création du restaurant:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Erreur lors de la création du restaurant',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -103,9 +149,26 @@ export const getRestaurantById = async (req, res) => {
   try {
     const restaurant = await models.Restaurant.findByPk(req.params.id, {
       include: [{
-        model: models.SellerProfile,
-        attributes: ['storeName', 'logo']
-      }]
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email']
+      }],
+      attributes: [
+        'id', 
+        'name', 
+        'description', 
+        'address', 
+        'city', 
+        'phoneNumber', 
+        'email',
+        'logo',
+        'coverImage',
+        'location',
+        'status',
+        'rating',
+        'createdAt',
+        'updatedAt'
+      ]
     });
 
     if (!restaurant) {
@@ -115,14 +178,17 @@ export const getRestaurantById = async (req, res) => {
       });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
-      data: restaurant
+      data: restaurant,
+      message: 'Restaurant récupéré avec succès'
     });
   } catch (error) {
+    console.error('Erreur lors de la récupération du restaurant:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Erreur lors de la récupération du restaurant',
+      error: error.message
     });
   }
 };
@@ -313,6 +379,35 @@ export const getFeaturedRestaurants = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des restaurants'
+    });
+  }
+};
+
+export const getSellerRestaurants = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    
+    const restaurants = await models.Restaurant.findAll({
+      where: { sellerId },
+      include: [{
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: restaurants,
+      message: 'Restaurants récupérés avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des restaurants:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des restaurants',
+      error: error.message
     });
   }
 }; 
