@@ -64,7 +64,7 @@ const upload = multer({
   }
 });
 
-const { Product, SellerProfile, Category, Subcategory } = models;
+const { Product, SellerProfile, Category, Subcategory, Shop } = models;
 
 // Méthodes du contrôleur
 export const addProduct = async (req, res) => {
@@ -1036,98 +1036,53 @@ export const deleteProduct = async (req, res) => {
 export const getShopProducts = async (req, res) => {
   try {
     const { shopId } = req.params;
-    const { page = 1, limit = 12, sort = 'newest', category, minPrice, maxPrice } = req.query;
-
-    // Construire les conditions de recherche
-    const where = {
-      shopId,
-      status: 'active'
-    };
-
-    // Filtrer par catégorie si spécifié
-    if (category) {
-      where.categoryId = category;
-    }
-
-    // Filtrer par prix si spécifié
-    if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
-      if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
-    }
-
-    // Définir l'ordre de tri
-    let order;
-    switch (sort) {
-      case 'price-asc':
-        order = [['price', 'ASC']];
-        break;
-      case 'price-desc':
-        order = [['price', 'DESC']];
-        break;
-      case 'popular':
-        order = [['salesCount', 'DESC']];
-        break;
-      case 'rating':
-        order = [['ratings.average', 'DESC']];
-        break;
-      case 'oldest':
-        order = [['createdAt', 'ASC']];
-        break;
-      case 'newest':
-      default:
-        order = [['createdAt', 'DESC']];
-    }
-
-    // Calculer l'offset pour la pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
     const offset = (page - 1) * limit;
 
-    // Récupérer les produits avec pagination
-    const { count, rows: products } = await models.Product.findAndCountAll({
-      where,
+    const products = await Product.findAndCountAll({
+      where: {
+        shopId: shopId,
+        status: 'active',
+        deletedAt: null
+      },
       include: [
         {
-          model: models.Category,
+          model: Category,
           as: 'category',
-          attributes: ['id', 'name']
+          attributes: ['id', 'name'],
+          where: {
+            deletedAt: null
+          },
+          required: false
         },
         {
-          model: models.Shop,
+          model: Shop,
           as: 'shop',
-          attributes: ['id', 'name', 'logo']
-        },
-        {
-          model: models.Rating,
-          as: 'productRatings',
-          attributes: ['rating'],
+          attributes: ['id', 'name', 'logo'],
           required: false
         }
       ],
-      order,
-      limit: parseInt(limit),
-      offset: offset,
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
       distinct: true
     });
 
-    // Calculer le nombre total de pages
-    const totalPages = Math.ceil(count / limit);
-
-    res.status(200).json({
+    res.json({
       success: true,
       data: {
-        products,
-        currentPage: parseInt(page),
-        totalPages,
-        totalItems: count,
-        itemsPerPage: parseInt(limit)
+        rows: products.rows,
+        count: products.count,
+        totalPages: Math.ceil(products.count / limit),
+        currentPage: page
       }
     });
-
   } catch (error) {
     console.error('Erreur lors de la récupération des produits de la boutique:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des produits de la boutique"
+      message: 'Erreur lors de la récupération des produits de la boutique'
     });
   }
 };

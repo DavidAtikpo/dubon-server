@@ -241,4 +241,101 @@ export const getEvents = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Récupérer les détails d'un événement
+export const getDetailEvent = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const event = await models.Event.findOne({
+      where: { id: eventId },
+      include: [{
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email']
+      }]
+    });
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Événement non trouvé"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: event
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des détails de l\'événement:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des détails de l'événement"
+    });
+  }
+};
+
+export const eventRequest = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      date,
+      guestCount,
+      budget,
+      specialRequests,
+      preferences
+    } = req.body;
+
+    // Vérifier si l'événement existe
+    const event = await models.Event.findOne({
+      where: { id: eventId },
+      include: [{
+        model: models.User,
+        as: 'seller',
+        attributes: ['id', 'name', 'email']
+      }]
+    });
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Événement non trouvé"
+      });
+    }
+
+    // Créer la demande
+    const request = await models.EventRequest.create({
+      eventId,
+      name,
+      email,
+      phone,
+      requestedDate: date,
+      guestCount: parseInt(guestCount),
+      budget: parseFloat(budget),
+      specialRequests,
+      preferences,
+      status: 'pending'
+    });
+
+    // Envoyer une notification au vendeur (à implémenter plus tard)
+    // TODO: Implémenter l'envoi d'email au vendeur
+
+    res.status(201).json({
+      success: true,
+      message: "Votre demande a été envoyée avec succès",
+      data: request
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la création de la demande:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'envoi de la demande",
+      error: error.message
+    });
+  }
 }; 

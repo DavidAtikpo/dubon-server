@@ -13,5 +13,7 @@ router.post("/create", protect, upload.array('images', 5), eventController.creat
 router.get("/seller/events", protect, eventController.getSellerEvents);
 router.put("/:eventId", protect, upload.array('images', 5), eventController.updateEvent);
 router.delete("/:eventId", protect, eventController.deleteEvent);
+router.get("/details/:eventId", eventController.getDetailEvent);
+router.post("/request/:eventId", eventController.eventRequest);
 
 export default router;

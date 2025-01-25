@@ -19,6 +19,7 @@ router.get('/produits-congeles',productsController.getProduitCongeles);
 router.get('/produits-vivriere',productsController.getProduitVivrieres);
 router.get('/category/:category', productsController.getProductsByCategory);
 router.get('/category/id/:categoryId', productsController.getProductsByCategoryId);
+router.get('/by-shop/:shopId', productsController.getShopProducts);
 
 // Routes protégées
 router.use(protect);
@@ -39,6 +40,5 @@ router.put('/update-product/:id', uploadProduct.fields([
 ]), productsController.updateProduct);
 
 router.delete('/delete-product/:productId', productsController.deleteProduct);
-router.get('/shop/:shopId', productsController.getShopProducts);
 
 export default router;

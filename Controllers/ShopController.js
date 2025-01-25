@@ -152,11 +152,11 @@ export const getAllShops = async (req, res) => {
 // Récupérer un magasin par son ID
 export const getShopById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { shopId } = req.params;
 
     const shop = await models.Shop.findOne({
       where: { 
-        id,
+        id: shopId,
         status: 'active'
       },
       include: [
@@ -167,7 +167,7 @@ export const getShopById = async (req, res) => {
           include: [{
             model: models.User,
             as: 'user',
-            attributes: ['id', 'firstName', 'lastName', 'email']
+            attributes: ['id', 'name', 'email']
           }]
         },
         {

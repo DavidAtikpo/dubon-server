@@ -33,6 +33,6 @@ router.put("/participant/:participantId/status", protect, Training.updatePartici
 router.put("/participant/:participantId/payment", protect, Training.updateParticipantPayment);
 
 // Route pour ajouter un participant
-router.post("/register/:trainingId", protect, Training.addParticipant);
+router.post("/:trainingId/register", protect, Training.addParticipant);
 
 export default router;

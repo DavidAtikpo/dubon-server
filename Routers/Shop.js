@@ -18,7 +18,7 @@ router.get('/get-all', getAllShops);
 router.get('/featured', getFeaturedShops);
 
 // Route publique pour obtenir une boutique par son ID
-router.get('/:id', getShopById);
+router.get('/:shopId', getShopById);
 
 // Route protégée pour obtenir la boutique du vendeur connecté
 router.get('/seller/shop', protect, getSellerShop);
