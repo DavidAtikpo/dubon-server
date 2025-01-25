@@ -19,16 +19,6 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
-      userId: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: {
-          model: 'Users',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'CASCADE'
-      },
       name: {
         type: Sequelize.STRING,
         allowNull: false
@@ -74,12 +64,6 @@ module.exports = {
         type: Sequelize.DATE
       }
     });
-
-    // Ajouter les index pour améliorer les performances
-    await queryInterface.addIndex('EventRequests', ['eventId']);
-    await queryInterface.addIndex('EventRequests', ['userId']);
-    await queryInterface.addIndex('EventRequests', ['status']);
-    await queryInterface.addIndex('EventRequests', ['email']);
   },
 
   async down(queryInterface, Sequelize) {

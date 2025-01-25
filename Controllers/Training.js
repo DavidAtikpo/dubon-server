@@ -84,23 +84,23 @@ const createTraining = async (req, res) => {
 const getAllTrainings = async (req, res) => {
   try {
     const trainings = await Training.findAll({
-      order: [['createdAt', 'DESC']]
+      attributes: [
+        'id', 
+        'title', 
+        'description', 
+        'startDate', 
+        'duration',
+        'price',
+        'instructor', 
+        'image',
+        'syllabus'
+      ]
     });
-
-    const formattedTrainings = trainings.map(training => {
-      const data = training.get({ plain: true });
-      if (data.image) {
-        data.image = `${process.env.BASE_URL}/${data.image}`;
-      }
-      if (data.syllabus) {
-        data.syllabus = `${process.env.BASE_URL}/${data.syllabus}`;
-      }
-      return data;
-    });
+      
 
     res.status(200).json({
       success: true,
-      data: formattedTrainings
+      data: trainings
     });
   } catch (error) {
     console.error("Erreur lors de la récupération des formations:", error);
@@ -115,26 +115,39 @@ const getAllTrainings = async (req, res) => {
 // Récupérer une formation par ID
 const getTrainingById = async (req, res) => {
   try {
-    const training = await Training.findByPk(req.params.id);
-    
+    // Récupérer la formation par son ID
+    const training = await Training.findByPk(req.params.id, {
+      attributes: [
+        'id',
+        'title',
+        'price',
+        'description',
+        'startDate',
+        'duration',
+        'instructor',
+        'image',
+        'syllabus'
+      ]
+    });
+
+    // Vérifier si la formation existe
     if (!training) {
       return res.status(404).json({
         success: false,
         message: "Formation non trouvée"
       });
     }
-    
-    // Transformer les chemins d'images en URLs complètes
-    const plainTraining = training.get({ plain: true });
-    const formattedTraining = {
-      ...plainTraining,
-      image: `${process.env.BASE_URL}/${plainTraining.image}`,
-      syllabus: `${process.env.BASE_URL}/${plainTraining.syllabus}`
-    };
-    
+
+    // Formatage des données (par exemple, transformer les chemins d'images en URLs complètes)
+    // const formattedTraining = {
+    //   ...training.toJSON(),
+    //   image: training.image ? `${process.env.BASE_URL}/${training.image}` : null
+    // };
+
+    // Retourner la réponse avec les données formatées
     res.json({
       success: true,
-      data: formattedTraining
+      data: training
     });
   } catch (error) {
     console.error("Erreur lors de la récupération de la formation:", error);

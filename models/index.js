@@ -49,6 +49,7 @@ import SubcategoryModel from './Subcategory.js';
 import ParticipantModel from './Participant.js';
 import ServiceRequestModel from './ServiceRequest.js';
 import DishModel from './Dish.js';
+import EventRequestModel from './EventRequest.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -112,6 +113,7 @@ const defineModels = () => {
   db.Participant = ParticipantModel(sequelize);
   db.ServiceRequest = ServiceRequestModel(sequelize);
   db.Dish = DishModel(sequelize);
+  db.EventRequest= EventRequestModel(sequelize);
 
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {

@@ -283,7 +283,7 @@ export const eventRequest = async (req, res) => {
       name,
       email,
       phone,
-      date,
+      requestedDate,
       guestCount,
       budget,
       specialRequests,
@@ -310,19 +310,17 @@ export const eventRequest = async (req, res) => {
     // Créer la demande
     const request = await models.EventRequest.create({
       eventId,
+      userId: req.user.id,
       name,
       email,
       phone,
-      requestedDate: date,
+      requestedDate,
       guestCount: parseInt(guestCount),
       budget: parseFloat(budget),
       specialRequests,
       preferences,
       status: 'pending'
     });
-
-    // Envoyer une notification au vendeur (à implémenter plus tard)
-    // TODO: Implémenter l'envoi d'email au vendeur
 
     res.status(201).json({
       success: true,
@@ -335,6 +333,40 @@ export const eventRequest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'envoi de la demande",
+      error: error.message
+    });
+  }
+};
+
+export const getUserEventRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const requests = await models.EventRequest.findAll({
+      where: { userId },
+      include: [{
+        model: models.Event,
+        as: 'event',
+        attributes: ['title', 'description'],
+        include: [{
+          model: models.User,
+          as: 'seller',
+          attributes: ['id', 'name', 'email']
+        }]
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      data: requests
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la récupération des demandes:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des demandes",
       error: error.message
     });
   }
