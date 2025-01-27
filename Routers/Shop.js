@@ -21,7 +21,7 @@ router.get('/featured', getFeaturedShops);
 router.get('/:shopId', getShopById);
 
 // Route protégée pour obtenir la boutique du vendeur connecté
-router.get('/seller/shop', protect, getSellerShop);
+router.get('/', protect, getSellerShop);
 
 // Route protégée pour mettre à jour une boutique
 router.put(
