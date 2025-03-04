@@ -50,6 +50,7 @@ import ParticipantModel from './Participant.js';
 import ServiceRequestModel from './ServiceRequest.js';
 import DishModel from './Dish.js';
 import EventRequestModel from './EventRequest.js';
+import ChatMessageModel from './ChatMessage.js';
 
 // Initialiser les modèles
 const defineModels = () => {
@@ -114,6 +115,7 @@ const defineModels = () => {
   db.ServiceRequest = ServiceRequestModel(sequelize);
   db.Dish = DishModel(sequelize);
   db.EventRequest= EventRequestModel(sequelize);
+  db.ChatMessage = ChatMessageModel(sequelize);
 
   // Initialiser les associations
   Object.keys(db).forEach(modelName => {

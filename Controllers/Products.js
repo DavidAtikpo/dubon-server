@@ -1196,24 +1196,29 @@ export const getProduitFrais = async (req, res) => {
 
 export const getProduitCongeles = async (req, res) => {
   try {
-    // Rechercher d'abord la sous-catégorie "Produits Frais"
-    const produitsFraisSubCategory = await models.Subcategory.findOne({
+    console.log("🔍 Début de la récupération des produits congelés...");
+
+    // Rechercher d'abord la sous-catégorie "Produits congelés"
+    const produitsCongelesSubCategory = await models.Subcategory.findOne({
       where: {
         name: 'Produits congelés'
       }
     });
 
-    if (!produitsFraisSubCategory) {
+    if (!produitsCongelesSubCategory) {
+      console.log("⚠️ Sous-catégorie 'Produits congelés' non trouvée !");
       return res.status(404).json({
         success: false,
         message: "La sous-catégorie 'Produits congelés' n'a pas été trouvée"
       });
     }
 
+    console.log("✅ Sous-catégorie trouvée :", produitsCongelesSubCategory.id);
+
     // Récupérer tous les produits de cette sous-catégorie
     const products = await Product.findAll({
       where: {
-        subcategoryId: produitsFraisSubCategory.id,
+        subcategoryId: produitsCongelesSubCategory.id,
         status: 'active'
       },
       include: [
@@ -1225,32 +1230,54 @@ export const getProduitCongeles = async (req, res) => {
         {
           model: models.SellerProfile,
           as: 'seller',
-          attributes: ['id', 'businessInfo', 'status']
+          attributes: ['id', 'status']
         }
       ],
       order: [['createdAt', 'DESC']]
     });
 
-    // Transformer les données pour inclure storeName depuis businessInfo
-    const transformedProducts = products.map(product => {
-      const plainProduct = product.get({ plain: true });
-      return {
-        ...plainProduct,
-        seller: plainProduct.seller ? {
-          id: plainProduct.seller.id,
-          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
-          status: plainProduct.seller.status
-        } : null
-      };
-    });
+    console.log(`🔄 Nombre de produits trouvés : ${products.length}`);
 
+    // Transformer les données pour inclure shopName depuis Shops
+    const transformedProducts = await Promise.all(
+      products.map(async (product) => {
+        const plainProduct = product.get({ plain: true });
+
+        console.log(`📦 Produit ID: ${plainProduct.id}, Seller ID: ${plainProduct.seller?.id || 'Aucun vendeur'}`);
+
+        // Vérifier si le vendeur existe et récupérer le shopName
+        let shopInfo = null;
+        if (plainProduct.seller) {
+          shopInfo = await models.Shop.findOne({
+            where: { sellerId: plainProduct.seller.id },
+            attributes: ['id', 'name']
+          });
+
+          console.log(`🏪 Shop trouvé pour Seller ID ${plainProduct.seller.id} :`, shopInfo ? shopInfo.name : "Aucun magasin trouvé");
+        }
+
+        return {
+          ...plainProduct,
+          seller: plainProduct.seller
+            ? {
+                id: plainProduct.seller.id,
+                status: plainProduct.seller.status,
+                shopId: shopInfo ? shopInfo.id : null,
+                shopName: shopInfo ? shopInfo.name : null
+              }
+            : null
+        };
+      })
+    );
+
+    console.log("✅ Récupération des produits terminée !");
     res.status(200).json({
       success: true,
       data: transformedProducts
     });
 
   } catch (error) {
-    console.error('Erreur getProduitFrais:', error);
+    console.error('❌ Erreur getProduitCongeles:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des Produits congelés",

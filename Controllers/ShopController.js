@@ -106,9 +106,10 @@ export const getAllShops = async (req, res) => {
         {
           model: models.Product,
           as: 'products',
-          attributes: ['id'],
+          attributes: ['id', 'name', 'price', 'mainImage'],
           where: { status: 'active' },
-          required: false
+          required: false,
+          limit: 3 // Limiter à 3 produits par boutique
         }
       ],
       attributes,
@@ -127,7 +128,13 @@ export const getAllShops = async (req, res) => {
       rating: shop.rating || 0,
       status: shop.status,
       location: shop.location,
-      productsCount: shop.products ? shop.products.length : 0
+      productsCount: shop.products ? shop.products.length : 0,
+      products: shop.products.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        mainImage: product.mainImage
+      }))
     }));
 
     res.status(200).json({

@@ -53,7 +53,7 @@ import {
 } from '../Controllers/Admin.js';
 import { admin, protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/upload.js';
-
+import * as ChatController from '../Controllers/ChatController.js';
 const router = express.Router();
 
 // Protéger toutes les routes admin avec authentification et vérification admin
@@ -62,7 +62,8 @@ router.use(protect, admin);
 // Routes du tableau de bord
 router.get('/dashboard', getDashboard);
 router.get('/dashboard/stats', getDashboardStats);
-
+router.get("/chat/conversations", ChatController.getAdminConversations);
+router.get("/chat/messages/:sellerId/:userId", ChatController.getAdminMessages);
 // Gestion des utilisateurs
 router.get('/users', getUsers);
 router.get('/users/:id', getUserDetails);
