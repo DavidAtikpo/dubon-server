@@ -16,7 +16,7 @@ import Service from './Routers/Service.js'
 import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import cartRoute from './Routers/cartRoute.js';
-import chat from './Routers/chat.js';
+// import chat from './Routers/chat.js';
 import Training from './Routers/Training.js'
 import searchRouter from './Routers/searchRouter.js'
 import category from './Routers/category.js'
@@ -179,7 +179,7 @@ app.use('/api/search', searchRouter);
 app.use('/api/category', category);
 app.use('/api/products', Products);
 app.use('/api/user', User);
-app.use('/api/chat', chat);
+// app.use('/api/chat', chat);
 // Routes protégées (déjà authentifiées dans leurs fichiers respectifs)
 app.use('/api/services', Service);
 app.use('/api/orders', Order);
