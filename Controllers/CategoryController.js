@@ -21,7 +21,7 @@ export const getAllCategories = async (req, res) => {
   try {
     // 1. Récupérer toutes les catégories principales
     const categories = await Category.findAll({
-      attributes: ['id', 'name', 'description'],
+      attributes: ['id', 'name', 'description', 'image'],
       order: [['name', 'ASC']]
     });
 
@@ -36,43 +36,15 @@ export const getAllCategories = async (req, res) => {
         order: [['name', 'ASC']]
       });
 
-      // Pour chaque sous-catégorie, récupérer ses produits
-      const subcategoriesWithProducts = await Promise.all(subcategories.map(async (subcategory) => {
-        const plainSubcategory = subcategory.get({ plain: true });
-        
-        // Récupérer les produits pour cette sous-catégorie
-        const products = await Product.findAll({
-          where: { 
-            subcategoryId: subcategory.id,
-            status: 'active'
-          },
-          attributes: ['id', 'name', 'price', 'images', 'mainImage', 'description', 'shortDescription'],
-          order: [['name', 'ASC']]
-        });
-
-        return {
-          id: plainSubcategory.id,
-          name: plainSubcategory.name,
-          description: plainSubcategory.description,
-          products: products.map(product => {
-            const plainProduct = product.get({ plain: true });
-            return {
-              id: plainProduct.id,
-              name: plainProduct.name,
-              price: plainProduct.price,
-              description: plainProduct.description,
-              shortDescription: plainProduct.shortDescription,
-              image: plainProduct.mainImage || (Array.isArray(plainProduct.images) && plainProduct.images[0]) || null
-            };
-          })
-        };
-      }));
+      // Convertir l'image unique en tableau pour la compatibilité avec le frontend
+      const categoryImages = plainCategory.image ? [plainCategory.image] : [];
 
       return {
         id: plainCategory.id,
         name: plainCategory.name,
         description: plainCategory.description,
-        subcategories: subcategoriesWithProducts
+        image: plainCategory.image, // Conserver le champ image pour la compatibilité
+        images: categoryImages // Créer un tableau d'images à partir de l'image unique
       };
     }));
 
