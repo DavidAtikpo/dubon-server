@@ -378,115 +378,33 @@ export const createProduct = async (req, res) => {
 
 export const getSellerProducts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-    const status = req.query.status;
-    const category = req.query.category;
-    const search = req.query.search;
-
-    // Récupérer le profil vendeur
-    const seller = await SellerProfile.findOne({
-      where: { userId: req.user.id }
-    });
-
-    if (!seller) {
-      return res.status(403).json({
-        success: false,
-        message: "Profil vendeur non trouvé"
-      });
-    }
-
-    // Construire les conditions de recherche
-    const whereConditions = {
-      sellerId: seller.id
-    };
-
-    if (status && status !== 'all') {
-      whereConditions.status = status;
-    }
-
-    if (category && category !== 'all') {
-      whereConditions['$category.name$'] = category;
-    }
-
-    if (search) {
-      whereConditions[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
-      ];
-    }
-
-    // Récupérer les produits avec pagination
-    const { count, rows: products } = await Product.findAndCountAll({
-      where: whereConditions,
+    const { sellerId } = req.params;
+    const products = await Product.findAll({
+      where: {
+        sellerId,
+        status: 'active',
+        id: { [Op.ne]: req.query.excludeProductId } // Exclure le produit actuel
+      },
       include: [
         {
           model: models.Category,
           as: 'category',
-          attributes: ['name']
+          attributes: ['id', 'name']
         }
       ],
-      order: [['createdAt', 'DESC']],
-      limit,
-      offset
+      limit: 8,
+      order: [['createdAt', 'DESC']]
     });
-
-    // Formater les données pour le frontend
-    const formattedProducts = products.map(product => ({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      stock: product.quantity,
-      status: product.status,
-      category: product.category?.name || 'Non catégorisé',
-      images: product.images || [],
-      lowStockThreshold: product.lowStockThreshold,
-      createdAt: product.createdAt
-    }));
-
-    // Calculer les métadonnées de pagination
-    const totalPages = Math.ceil(count / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-
-    // Récupérer les statistiques
-    const stats = {
-      total: count,
-      active: await Product.count({ 
-        where: { 
-          sellerId: seller.id,
-          status: 'active'
-        }
-      }),
-      lowStock: await Product.count({
-        where: {
-          sellerId: seller.id,
-          quantity: {
-            [Op.lte]: 5
-          }
-        }
-      })
-    };
 
     res.status(200).json({
       success: true,
-      data: formattedProducts,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalItems: count,
-        hasNextPage,
-        hasPrevPage,
-        limit
-      },
-      stats
+      data: products
     });
   } catch (error) {
-    console.error('Erreur récupération produits:', error);
+    console.error('Erreur getSellerProducts:', error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la récupération des produits",
+      message: "Erreur lors de la récupération des produits du vendeur",
       error: error.message
     });
   }
@@ -1091,33 +1009,76 @@ export const getShopProducts = async (req, res) => {
 // Récupérer les produits similaires
 export const getSimilarProducts = async (req, res) => {
   try {
-    const { categoryId, productId } = req.params;
+    const { productId } = req.params;
 
-    // Récupérer les produits de la même catégorie (excluant le produit actuel)
+    // Récupérer d'abord le produit pour avoir sa catégorie
+    const product = await Product.findByPk(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Produit non trouvé"
+      });
+    }
+
+    // Récupérer les produits similaires
     const similarProducts = await Product.findAll({
       where: {
-        categoryId,
-        id: { [Op.ne]: productId },
-        status: 'active'
+        [Op.and]: [
+          { categoryId: product.categoryId },
+          { id: { [Op.ne]: productId } },
+          { status: 'active' }
+        ]
       },
       include: [
         {
           model: Category,
           as: 'category',
           attributes: ['id', 'name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['id', 'businessInfo']
         }
       ],
       attributes: [
-        'id', 'name', 'price', 'images', 'mainImage', 
-        'description', 'shortDescription', 'slug'
+        'id', 
+        'name', 
+        'price', 
+        'images', 
+        'mainImage',
+        'description',
+        'shortDescription',
+        'slug',
+        'discount',
+        'quantity',
+        'ratings'
       ],
       limit: 8,
-      order: [['createdAt', 'DESC']]
+      order: [
+        ['ratings', 'DESC'],
+        ['createdAt', 'DESC']
+      ]
+    });
+
+    // Transformer les données pour le frontend
+    const transformedProducts = similarProducts.map(product => {
+      const plainProduct = product.get({ plain: true });
+      return {
+        ...plainProduct,
+        seller: plainProduct.seller ? {
+          id: plainProduct.seller.id,
+          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom'
+        } : null,
+        finalPrice: plainProduct.discount 
+          ? plainProduct.price * (1 - plainProduct.discount / 100)
+          : plainProduct.price
+      };
     });
 
     res.status(200).json({
       success: true,
-      data: similarProducts
+      data: transformedProducts
     });
   } catch (error) {
     console.error('Erreur getSimilarProducts:', error);
@@ -1376,6 +1337,105 @@ export const getProduitVivrieres = async (req, res) => {
   }
 };
 
+// Récupérer les avis d'un produit
+export const getProductReviews = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const reviews = await models.Review.findAll({
+      where: { productId },
+      include: [{
+        model: models.User,
+        attributes: ['id', 'name', 'avatar']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: reviews
+    });
+  } catch (error) {
+    console.error('Erreur getProductReviews:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des avis",
+      error: error.message
+    });
+  }
+};
+
+// Ajouter un avis sur un produit
+export const addProductReview = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { rating, comment } = req.body;
+    const userId = req.user.id;
+
+    const review = await models.Review.create({
+      productId,
+      userId,
+      rating,
+      comment
+    });
+
+    // Mettre à jour la note moyenne du produit
+    const allReviews = await models.Review.findAll({
+      where: { productId }
+    });
+
+    const averageRating = allReviews.reduce((acc, curr) => acc + curr.rating, 0) / allReviews.length;
+
+    await models.Product.update(
+      { 
+        ratings: {
+          average: averageRating,
+          count: allReviews.length
+        }
+      },
+      { where: { id: productId } }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Avis ajouté avec succès",
+      data: review
+    });
+  } catch (error) {
+    console.error('Erreur addProductReview:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'ajout de l'avis",
+      error: error.message
+    });
+  }
+};
+
+// Récupérer les feedbacks clients
+export const getProductFeedback = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const feedback = await models.Feedback.findAll({
+      where: { productId },
+      include: [{
+        model: models.User,
+        attributes: ['id', 'name', 'avatar']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: feedback
+    });
+  } catch (error) {
+    console.error('Erreur getProductFeedback:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des feedbacks",
+      error: error.message
+    });
+  }
+};
 
 // Mettre à jour l'objet productsController
 const productsController = {
@@ -1399,7 +1459,10 @@ const productsController = {
   getProductsByCategoryId,
   getProduitFrais,
   getProduitCongeles,
-  getProduitVivrieres
+  getProduitVivrieres,
+  getProductReviews,
+  addProductReview,
+  getProductFeedback
 };
 
 export default productsController;
