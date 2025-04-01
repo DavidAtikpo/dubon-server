@@ -26,7 +26,7 @@ router.get('/by-shop/:shopId', productsController.getShopProducts);
 // Routes pour les avis et produits associés
 router.get('/reviews/:productId', productsController.getProductReviews);
 router.get('/similar/:productId', productsController.getSimilarProducts);
-router.get('/seller-products/:sellerId', productsController.getSellerProducts);
+router.get('/seller/:sellerId', productsController.getSellerProducts);
 router.get('/feedback/:productId', productsController.getProductFeedback);
 
 // router.use(protect);

@@ -379,29 +379,70 @@ export const createProduct = async (req, res) => {
 export const getSellerProducts = async (req, res) => {
   try {
     const { sellerId } = req.params;
+    console.log("🔍 Récupération des produits pour le vendeur:", sellerId);
+
+    // Vérifier si le vendeur existe
+    const seller = await models.SellerProfile.findByPk(sellerId);
+    if (!seller) {
+      console.log("⚠️ Vendeur non trouvé");
+      return res.status(404).json({
+        success: false,
+        message: "Vendeur non trouvé"
+      });
+    }
+
+    // Récupérer les produits du vendeur
     const products = await Product.findAll({
       where: {
         sellerId,
         status: 'active',
-        id: { [Op.ne]: req.query.excludeProductId } // Exclure le produit actuel
+        deletedAt: null
       },
       include: [
         {
           model: models.Category,
           as: 'category',
           attributes: ['id', 'name']
+        },
+        {
+          model: models.SellerProfile,
+          as: 'seller',
+          attributes: ['id', 'businessInfo']
         }
       ],
       limit: 8,
       order: [['createdAt', 'DESC']]
     });
 
+    console.log(`✅ ${products.length} produits trouvés pour le vendeur`);
+
+    // Formater les produits pour le frontend
+    const formattedProducts = products.map(product => {
+      const plainProduct = product.get({ plain: true });
+      return {
+        id: plainProduct.id,
+        name: plainProduct.name,
+        slug: plainProduct.slug,
+        description: plainProduct.description,
+        price: plainProduct.price,
+        compareAtPrice: plainProduct.compareAtPrice,
+        quantity: plainProduct.quantity,
+        status: plainProduct.status,
+        images: Array.isArray(plainProduct.images) ? plainProduct.images : [plainProduct.images],
+        category: plainProduct.category,
+        seller: plainProduct.seller,
+        finalPrice: plainProduct.compareAtPrice || plainProduct.price,
+        ratings: plainProduct.ratings || { average: 0 }
+      };
+    });
+
     res.status(200).json({
       success: true,
-      data: products
+      data: formattedProducts
     });
+    
   } catch (error) {
-    console.error('Erreur getSellerProducts:', error);
+    console.error('❌ Erreur getSellerProducts:', error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la récupération des produits du vendeur",
@@ -1012,8 +1053,10 @@ export const getSimilarProducts = async (req, res) => {
     const { productId } = req.params;
 
     // Récupérer d'abord le produit pour avoir sa catégorie
+    console.log("🔍 Récupération des produits similaires pour le produit ID:", productId);
     const product = await Product.findByPk(productId);
     if (!product) {
+      console.log("⚠️ Produit non trouvé");
       return res.status(404).json({
         success: false,
         message: "Produit non trouvé"
@@ -1024,15 +1067,15 @@ export const getSimilarProducts = async (req, res) => {
     const similarProducts = await Product.findAll({
       where: {
         [Op.and]: [
-          { categoryId: product.categoryId },
+          { subcategoryId: product.subcategoryId },
           { id: { [Op.ne]: productId } },
           { status: 'active' }
         ]
       },
       include: [
         {
-          model: Category,
-          as: 'category',
+          model: Subcategory,
+          as: 'subcategory',
           attributes: ['id', 'name']
         },
         {
@@ -1050,7 +1093,7 @@ export const getSimilarProducts = async (req, res) => {
         'description',
         'shortDescription',
         'slug',
-        'discount',
+        'price',
         'quantity',
         'ratings'
       ],
@@ -1068,11 +1111,9 @@ export const getSimilarProducts = async (req, res) => {
         ...plainProduct,
         seller: plainProduct.seller ? {
           id: plainProduct.seller.id,
-          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom'
+          shopName: plainProduct.seller.businessInfo?.shopName || 'Boutique sans nom'
         } : null,
-        finalPrice: plainProduct.discount 
-          ? plainProduct.price * (1 - plainProduct.discount / 100)
-          : plainProduct.price
+        finalPrice: plainProduct.price
       };
     });
 
@@ -1134,7 +1175,7 @@ export const getProduitFrais = async (req, res) => {
         ...plainProduct,
         seller: plainProduct.seller ? {
           id: plainProduct.seller.id,
-          storeName: plainProduct.seller.businessInfo?.storeName || 'Boutique sans nom',
+          shopName: plainProduct.seller.businessInfo?.shopName || 'Boutique sans nom',
           status: plainProduct.seller.status
         } : null
       };
@@ -1345,10 +1386,17 @@ export const getProductReviews = async (req, res) => {
       where: { productId },
       include: [{
         model: models.User,
+        as: 'user',
         attributes: ['id', 'name', 'avatar']
       }],
       order: [['createdAt', 'DESC']]
     });
+    if (!reviews) {
+      return res.status(404).json({
+        success: false,
+        message: "Aucun avis trouvé pour ce produit"
+      });
+    }
 
     res.status(200).json({
       success: true,
