@@ -39,6 +39,11 @@ export default (sequelize) => {
         as: 'carts'
       });
 
+      Product.hasMany(models.OrderItem, {
+        foreignKey: 'productId',
+        as: 'orderItems'
+      });
+
       Product.belongsToMany(models.Order, {
         through: 'OrderItems',
         foreignKey: 'productId',

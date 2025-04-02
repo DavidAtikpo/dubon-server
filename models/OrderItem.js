@@ -7,6 +7,10 @@ export default (sequelize) => {
         foreignKey: 'OrderId',
         as: 'order'
       });
+      OrderItem.belongsTo(models.Product, {
+        foreignKey: 'productId',
+        as: 'product'
+      });
     }
   }
 
@@ -14,13 +18,22 @@ export default (sequelize) => {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+      primaryKey: true,
+      allowNull: false
     },
     OrderId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: 'Orders',
+        key: 'id'
+      }
+    },
+    productId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Products',
         key: 'id'
       }
     },
@@ -36,11 +49,23 @@ export default (sequelize) => {
     price: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
     }
   }, {
     sequelize,
     modelName: 'OrderItem',
-    tableName: 'OrderItems'
+    tableName: 'OrderItems',
+    timestamps: true,
+    underscored: false
   });
 
   return OrderItem;

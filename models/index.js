@@ -134,10 +134,19 @@ const syncModels = async () => {
   try {
     console.log('🔄 Synchronisation des modèles...');
     
-    // Synchroniser spécifiquement le modèle Subcategory
-    console.log('🔄 Synchronisation du modèle Subcategory...');
-    await models.Subcategory.sync({ force: true });
-    console.log('✅ Modèle Subcategory synchronisé avec succès');
+    // Vérifier si la table OrderItems existe
+    const tableExists = await sequelize.queryInterface.showAllTables()
+      .then(tables => tables.includes('OrderItems'));
+    
+    if (!tableExists) {
+      console.log('🔄 Création de la table OrderItems...');
+      await models.OrderItem.sync();
+      console.log('✅ Table OrderItems créée avec succès');
+    } else {
+      console.log('🔄 Synchronisation du modèle OrderItem...');
+      await models.OrderItem.sync({ alter: true });
+      console.log('✅ Modèle OrderItem synchronisé avec succès');
+    }
 
     // Synchroniser les autres modèles normalement
     const syncOptions = {

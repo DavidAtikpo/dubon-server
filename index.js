@@ -217,28 +217,7 @@ app.use((error, req, res, next) => {
 });
 
 // Fonction pour configurer les dossiers d'upload
-const setupUploadDirectories = () => {
-  const dirs = [
-    'uploads/photos',
-    'uploads/photos/temp',
-    'uploads/documents/id',
-    'uploads/documents/address',
-    'uploads/documents/tax',
-    'uploads/contracts',
-    'uploads/videos',
-    'uploads/others',
-    'uploads/products',
-    'uploads/themes'
-  ];
 
-  dirs.forEach(dir => {
-    const fullPath = path.join(__dirname, dir);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-      console.log(`Created directory: ${fullPath}`);
-    }
-  });
-};
 
 const startServer = async () => {
   try {
@@ -253,13 +232,33 @@ const startServer = async () => {
     console.log('✅ Extension UUID activée avec succès');
 
     // Synchroniser les modèles avec la base de données
-    // await syncModels();
+    // console.log('🔄 Synchronisation des modèles...');
+    
+    // // Vérifier si la table OrderItems existe
+    // const tableExists = await sequelize.queryInterface.showAllTables()
+    //   .then(tables => tables.includes('OrderItems'));
+    
+    // if (!tableExists) {
+    //   console.log('🔄 Création de la table OrderItems...');
+    //   await models.OrderItem.sync();
+    //   console.log('✅ Table OrderItems créée avec succès');
+    // } else {
+    //   console.log('🔄 Synchronisation du modèle OrderItem...');
+    //   await models.OrderItem.sync({ alter: true });
+    //   console.log('✅ Modèle OrderItem synchronisé avec succès');
+    // }
+
+    // // Synchroniser les autres modèles normalement
+    // const syncOptions = {
+    //   force: false,
+    //   alter: true
+    // };
+    
+    // await sequelize.sync(syncOptions);
+    // console.log('✅ Tous les modèles synchronisés avec succès');
 
     // Vérifier les données par défaut
     await initializeDefaultData();
-
-    // Créer les dossiers d'upload
-    setupUploadDirectories();
 
     // Démarrer le serveur
     const PORT = process.env.PORT || 5000;
@@ -383,125 +382,6 @@ const initializeDefaultData = async () => {
   }
 };
 
-// // Fonction pour générer un slug
-// const generateSlug = (name) => {
-//   return name
-//     .toLowerCase()
-//     .replace(/[éèêë]/g, 'e')
-//     .replace(/[àâä]/g, 'a')
-//     .replace(/[ùûü]/g, 'u')
-//     .replace(/[ôö]/g, 'o')
-//     .replace(/[îï]/g, 'i')
-//     .replace(/[ç]/g, 'c')
-//     .replace(/[^a-z0-9]+/g, '-')
-//     .replace(/^-+|-+$/g, '');
-// };
-
-// // Initialisation des catégories et sous-catégories par défaut
-// const initializeDefaultCategories = async () => {
-//   try {
-//     console.log('🔄 Réinitialisation des catégories et sous-catégories...');
-    
-//     // Supprimer toutes les sous-catégories existantes
-//     await models.Subcategory.destroy({ where: {} });
-//     // Supprimer toutes les catégories existantes
-//     await models.Category.destroy({ where: {} });
-    
-//     console.log('✅ Anciennes données supprimées');
-
-//     const defaultCategories = [
-//       {
-//         name: 'Alimentation',
-//         description: 'Produits alimentaires',
-//         subcategories: [
-//           { name: 'Produits frais', description: 'Fruits, légumes, viandes, poissons' },
-//           { name: 'Produits congelés', description: 'Aliments surgelés et glaces' },
-//           { name: 'Produits vivriers', description: 'Riz, maïs, manioc, igname' },
-//           { name: 'Épicerie', description: 'Conserves, huiles, condiments' },
-//           { name: 'Boissons', description: 'Eau, jus, sodas, alcools' }
-//         ]
-//       },
-//       {
-//         name: 'Mode & Accessoires',
-//         description: 'Vêtements et accessoires de mode',
-//         subcategories: [
-//           { name: 'Vêtements homme', description: 'Chemises, pantalons, costumes' },
-//           { name: 'Vêtements femme', description: 'Robes, jupes, ensembles' },
-//           { name: 'Chaussures', description: 'Chaussures pour hommes et femmes' },
-//           { name: 'Bijoux', description: 'Colliers, bagues, bracelets' },
-//           { name: 'Sacs & Maroquinerie', description: 'Sacs à main, portefeuilles' }
-//         ]
-//       },
-//       {
-//         name: 'Maison & Jardin',
-//         description: 'Équipements et décoration pour la maison',
-//         subcategories: [
-//           { name: 'Mobilier', description: 'Tables, chaises, armoires' },
-//           { name: 'Décoration', description: 'Tableaux, vases, tapis' },
-//           { name: 'Électroménager', description: 'Réfrigérateurs, cuisinières' },
-//           { name: 'Jardin', description: 'Outils et mobilier de jardin' },
-//           { name: 'Linge de maison', description: 'Draps, serviettes, rideaux' }
-//         ]
-//       },
-//       {
-//         name: 'Électronique',
-//         description: 'Produits électroniques et gadgets',
-//         subcategories: [
-//           { name: 'Smartphones', description: 'Téléphones mobiles et accessoires' },
-//           { name: 'Ordinateurs', description: 'PC portables et de bureau' },
-//           { name: 'TV & Audio', description: 'Télévisions et systèmes audio' },
-//           { name: 'Accessoires', description: 'Câbles, chargeurs, housses' },
-//           { name: 'Gaming', description: 'Consoles et jeux vidéo' }
-//         ]
-//       },
-//       {
-//         name: 'Santé & Beauté',
-//         description: 'Produits de santé et beauté',
-//         subcategories: [
-//           { name: 'Soins du visage', description: 'Crèmes, lotions, masques' },
-//           { name: 'Soins du corps', description: 'Gels douche, crèmes hydratantes' },
-//           { name: 'Maquillage', description: 'Rouge à lèvres, mascara, fond de teint' },
-//           { name: 'Parfums', description: 'Parfums homme et femme' },
-//           { name: 'Hygiène', description: 'Savons, déodorants, brosses à dents' }
-//         ]
-//       }
-//     ];
-
-//     // Créer les catégories et leurs sous-catégories
-//     for (const categoryData of defaultCategories) {
-//       const { subcategories, ...categoryFields } = categoryData;
-      
-//       // Créer la catégorie avec son slug
-//       const category = await models.Category.create({
-//         ...categoryFields,
-//         slug: generateSlug(categoryFields.name),
-//         status: 'active'
-//       });
-      
-//       // Créer les sous-catégories associées
-//       if (subcategories && subcategories.length > 0) {
-//         for (const subcategoryData of subcategories) {
-//           await models.Subcategory.create({
-//             ...subcategoryData,
-//             slug: generateSlug(subcategoryData.name),
-//             categoryId: category.id,
-//             status: 'active'
-//           });
-//         }
-//       }
-//     }
-    
-//     console.log('✅ Nouvelles catégories et sous-catégories créées avec succès');
-//   } catch (error) {
-//     console.error('❌ Erreur lors de l\'initialisation des catégories:', error);
-//     throw error;
-//   }
-// };
-
-// // Appeler la fonction d'initialisation
-// await initializeDefaultCategories();
-
-// Démarrer le serveur avec gestion des erreurs
 startServer().catch(error => {
   console.error('Erreur fatale au démarrage:', error);
   process.exit(1);

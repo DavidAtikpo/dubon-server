@@ -61,13 +61,18 @@ const businessInfoSchema = Joi.object({
   shopName: Joi.string().required().messages({
     'string.empty': 'Le nom de la boutique est requis'
   }),
-  category: Joi.string().required().valid('Électromenage', 'Mode', 'Beauté', 'Alimentation').messages({
-    'any.only': 'Catégorie invalide'
+  category: Joi.string().required().messages({
+    'string.empty': 'La catégorie est requise'
   }),
   description: Joi.string().required().min(50).max(1000).messages({
     'string.empty': 'La description est requise',
     'string.min': 'La description doit contenir au moins 50 caractères',
     'string.max': 'La description ne doit pas dépasser 1000 caractères'
+  }),
+  shopImage: Joi.any().optional(),
+  shopVideo: Joi.any().optional(),
+  country: Joi.string().required().messages({
+    'string.empty': 'Le pays est requis'
   }),
   paymentType: Joi.string().required().valid('Compte bancaire', 'Mobile Money').messages({
     'any.only': 'Type de paiement invalide'

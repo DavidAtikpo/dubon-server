@@ -6,73 +6,28 @@ import * as SellerController from "../Controllers/Sellers.js";
 import { protect, seller } from "../middleware/authMiddleware.js";
 import { validateSellerRegistration } from "../middleware/sellerValidator.js";
 import { corsErrorHandler } from '../middleware/errorHandlers.js';
+import { uploadSeller, uploadLogo, handleMulterError } from '../middleware/uploadSeller.js';
 
 const router = express.Router();
 
 // Appliquer les middlewares d'authentification et de vendeur
-router.use(protect);
 // router.use(seller);
-
-// Create upload directories if they don't exist
-const createUploadDirs = () => {
-  const dirs = [
-    'uploads/documents/id',
-    'uploads/documents/address',
-    'uploads/documents/tax',
-    'uploads/photos',
-    'uploads/contracts',
-    'uploads/videos',
-    'uploads/products',
-    'uploads/others'
-  ];
-
-  dirs.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  });
-};
-
-createUploadDirs();
-
-// Multer storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max
-    files: 10 // max number of files
-  }
-});
-
-const uploadFields = upload.fields([
-  { name: 'idCard', maxCount: 1 },
-  { name: 'proofOfAddress', maxCount: 1 },
-  { name: 'taxCertificate', maxCount: 1 },
-  { name: 'photos', maxCount: 5 },
-  { name: 'shopImage', maxCount: 1 },
-  { name: 'signedDocument', maxCount: 1 },
-  { name: 'verificationVideo', maxCount: 1 }
-]);
-
 // Public routes
-router.get('/list', SellerController.getPublicSellers);
 
 // Protected routes (authenticated user)
 router.use(protect);
+router.post("/post/register", 
+  uploadSeller,
+  handleMulterError,
+  validateSellerRegistration,
+  SellerController.registerSeller
+);
+router.get('/list', SellerController.getPublicSellers);
 
 // Validation and registration
+router.get('/categories', SellerController.getSellerCategories);
 router.get("/validation-status", SellerController.checkValidationStatus);
-router.post("/register", uploadFields, validateSellerRegistration, SellerController.registerSeller);
+
 
 // Seller routes (need seller role)
 router.use(seller);
@@ -83,10 +38,10 @@ router.post('/payments/withdraw', SellerController.requestWithdrawal);
 
 // Profile and settings
 router.get('/profile', SellerController.getSellerProfile);
-router.put('/profile', upload.single('logo'), SellerController.updateProfile);
+router.put('/profile', uploadLogo, handleMulterError, SellerController.updateProfile);
 
 // Categories
-router.get('/categories', SellerController.getSellerCategories);
+// router.get('/categories', SellerController.getSellerCategories);
 router.get('/subcategories/:categoryId', SellerController.getSellerSubCategories);
 
 // Product management

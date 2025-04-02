@@ -502,122 +502,101 @@ export const getDashboard = async (req, res) => {
     const userId = req.user.id;
     console.log('Récupération du dashboard pour userId:', userId);
 
-    const [orders, favorites, addresses, notifications, recentActivity, reviews] = await Promise.all([
-      // Dernières commandes
+    const [deliveredOrders, paidOrders, pendingOrders] = await Promise.all([
       models.Order.findAll({
-        where: { userId },
-        attributes: [
-          'id',
-          'status',
-          'total',
-          'createdAt',
-          'items'
-        ],
+        where: { 
+          userId,
+          status: 'delivered'
+        },
         order: [['createdAt', 'DESC']],
         limit: 5
       }),
-
-      // Produits favoris
-      models.Favorite.findAll({
-        where: { userId },
-        include: [{
-          model: models.Product,
-          as: 'product',
-          attributes: ['id', 'name', 'price', 'images']
-        }],
-        limit: 5
-      }),
-
-      // Adresses
-      models.Address.findAll({
-        where: { userId }
-      }),
-
-      // Notifications non lues
-      models.Notification.findAll({
+      models.Order.findAll({
         where: { 
           userId,
-          read: false
+          status: 'delivering',
+          paymentStatus: 'completed'
         },
-        limit: 5,
-        order: [['createdAt', 'DESC']]
+        order: [['createdAt', 'DESC']],
+        limit: 5
       }),
-
-      // Activité récente
-      models.UserActivity.findAll({
-        where: { userId },
-        limit: 10,
-        order: [['createdAt', 'DESC']]
-      }),
-
-      // Reviews
-      models.Review.findAll({
-        where: { userId },
-        limit: 5,
-        order: [['createdAt', 'DESC']]
+      models.Order.findAll({
+        where: { 
+          userId,
+          paymentStatus: 'pending'
+        },
+        order: [['createdAt', 'DESC']],
+        limit: 5
       })
     ]);
 
-    console.log('Données récupérées avec succès');
+    console.log('Commandes livrées:', deliveredOrders.length);
+    console.log('Commandes payées:', paidOrders.length);
+    console.log('Commandes en attente:', pendingOrders.length);
 
     // Formater les données avec gestion d'erreur pour le parsing JSON
     const dashboard = {
-      recentOrders: orders.map(order => {
-        let parsedItems = [];
-        try {
-          parsedItems = order.items ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) : [];
-        } catch (error) {
-          console.error('Erreur parsing items pour order:', order.id, error);
-        }
-
-        return {
-          id: order.id,
-          orderNumber: order.id.slice(-8),
-          total: order.total,
-          status: order.status,
-          createdAt: order.createdAt,
-          items: parsedItems
-        };
-      }),
-
-      recentReviews: reviews.map(review => ({
-        id: review.id,
-        productName: review.productName,
-        rating: review.rating,
-        comment: review.comment,
-        createdAt: review.createdAt
+      deliveredOrders: deliveredOrders.map(order => ({
+        id: order.id,
+        orderNumber: order.id.slice(-8),
+        total: order.total,
+        status: order.status,
+        createdAt: order.createdAt,
+        items: order.items.map(item => ({
+          name: item.title || 'Produit non disponible',
+          quantity: item.quantity,
+          price: item.finalPrice,
+          image: item.images && item.images.length > 0 ? 
+            (Array.isArray(item.images) ? 
+              (item.images[0]?.url || item.images[0]) 
+              : (item.images.url || item.images)) 
+            : null
+        }))
       })),
-
-      recentActivities: recentActivity.map(activity => ({
-        id: activity.id,
-        type: activity.action,
-        description: activity.details,
-        createdAt: activity.createdAt
+      paidOrders: paidOrders.map(order => ({
+        id: order.id,
+        orderNumber: order.id.slice(-8),
+        total: order.total,
+        status: order.status,
+        createdAt: order.createdAt,
+        items: order.items.map(item => ({
+          name: item.title || 'Produit non disponible',
+          quantity: item.quantity,
+          price: item.finalPrice,
+          image: item.images && item.images.length > 0 ? 
+            (Array.isArray(item.images) ? 
+              (item.images[0]?.url || item.images[0]) 
+              : (item.images.url || item.images)) 
+            : null
+        }))
       })),
-
-      favoriteProducts: favorites.map(fav => ({
-        id: fav.product?.id,
-        name: fav.product?.name,
-        price: fav.product?.price,
-        imageUrl: fav.product?.images ? 
-          (Array.isArray(fav.product.images) ? fav.product.images[0] : fav.product.images) 
-          : null
-      })).filter(product => product.id), // Filtrer les produits null
-
-      notifications: notifications.map(notif => ({
-        id: notif.id,
-        type: notif.type,
-        title: notif.title,
-        message: notif.message,
-        createdAt: notif.createdAt
+      pendingOrders: pendingOrders.map(order => ({
+        id: order.id,
+        orderNumber: order.id.slice(-8),
+        total: order.total,
+        status: order.status,
+        createdAt: order.createdAt,
+        items: order.items.map(item => ({
+          name: item.title || 'Produit non disponible',
+          quantity: item.quantity,
+          price: item.finalPrice,
+          image: item.images && item.images.length > 0 ? 
+            (Array.isArray(item.images) ? 
+              (item.images[0]?.url || item.images[0]) 
+              : (item.images.url || item.images)) 
+            : null
+        }))
       })),
-
+      favoriteProducts: [],
+      notifications: [],
+      recentReviews: [],
+      recentActivities: [],
       stats: {
-        totalOrders: orders.length,
-        favoriteCount: favorites.length,
-        addressCount: addresses.length,
-        reviewCount: reviews.length,
-        unreadNotifications: notifications.length
+        totalOrders: deliveredOrders.length + paidOrders.length + pendingOrders.length,
+        favoriteCount: 0,
+        addressCount: 0,
+        reviewCount: 0,
+        unreadNotifications: 0
       }
     };
 

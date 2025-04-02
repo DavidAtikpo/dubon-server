@@ -1,9 +1,7 @@
-import { models } from '../models/index.js';
+import { models, sequelize } from '../models/index.js';
 import { sendEmail } from '../utils/emailUtils.js';
 import fs from 'fs';
 import { Op } from 'sequelize';
-import sequelize from 'sequelize';
-import { Sequelize } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 
 // Fonction utilitaire pour ajouter une entrée dans l'historique
@@ -70,15 +68,22 @@ export const checkValidationStatus = async (req, res) => {
 
 // Gestion des vendeurs
 export const registerSeller = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
-    console.log("Début du traitement de la requête vendeur");
+    console.log("🚀 Début du traitement de la requête vendeur");
+    console.log("📦 Corps de la requête:", JSON.stringify(req.body, null, 2));
+    console.log("📎 Fichiers reçus:", req.files ? Object.keys(req.files) : "Aucun fichier");
     
     if (!req.user) {
+      console.log("❌ Utilisateur non authentifié");
       return res.status(401).json({ 
         success: false, 
         message: 'Non autorisé - Utilisateur non trouvé' 
       });
     }
+
+    console.log("👤 Utilisateur authentifié:", req.user.id);
 
     // Vérifier si une demande existe déjà
     const existingRequest = await models.SellerRequest.findOne({
@@ -89,6 +94,7 @@ export const registerSeller = async (req, res) => {
     });
 
     if (existingRequest) {
+      console.log("⚠️ Demande existante trouvée:", existingRequest.status);
       return res.status(400).json({
         success: false,
         message: existingRequest.status === 'pending' 
@@ -97,110 +103,193 @@ export const registerSeller = async (req, res) => {
       });
     }
 
+    console.log("✅ Aucune demande existante trouvée");
+
     // Vérifier si les fichiers sont présents
-    if (!req.files) {
-      console.error("Aucun fichier reçu");
+    if (!req.files || Object.keys(req.files).length === 0) {
+      console.error("❌ Aucun fichier reçu");
       return res.status(400).json({
         success: false,
         message: "Aucun fichier n'a été fourni"
       });
     }
 
-    let formData = JSON.parse(req.body.data);
+    let formData;
+    try {
+      formData = JSON.parse(req.body.data);
+      console.log('📝 Données reçues:', JSON.stringify(formData, null, 2));
+      console.log('🏷️ Catégorie reçue:', formData.businessInfo.category);
+    } catch (error) {
+      console.error("❌ Erreur lors du parsing des données:", error);
+      return res.status(400).json({
+        success: false,
+        message: "Format de données invalide"
+      });
+    }
+
+    // Vérifier si la catégorie existe
+    const category = await models.Category.findByPk(formData.businessInfo.category);
+    console.log('🔍 Catégorie trouvée:', category ? category.name : "Non trouvée");
+    
+    if (!category) {
+      console.log("❌ Catégorie non trouvée");
+      return res.status(400).json({
+        success: false,
+        message: "Erreur de validation",
+        errors: [{
+          field: 'data.businessInfo.category',
+          message: 'Catégorie invalide'
+        }]
+      });
+    }
 
     // Préparer les chemins des fichiers
     const documents = {};
     const addDocument = (fieldName, file) => {
-      if (file) {
+      if (file && file.path) {
         documents[`${fieldName}Url`] = file.path;
+        console.log(`✅ Document ajouté: ${fieldName}Url = ${file.path}`);
+      } else {
+        console.log(`⚠️ Fichier manquant ou invalide: ${fieldName}`);
       }
     };
 
     // Traiter chaque type de document
-    addDocument('idCard', req.files?.idCard?.[0]);
-    addDocument('proofOfAddress', req.files?.proofOfAddress?.[0]);
-    addDocument('taxCertificate', req.files?.taxCertificate?.[0]);
-    
-    if (req.files?.photos) {
-      documents.photoUrls = req.files.photos.map(photo => photo.path);
-    } else {
-      documents.photoUrls = [];
-    }
-    
-    addDocument('shopImage', req.files?.shopImage?.[0]);
+    try {
+      if (req.files) {
+        console.log("📄 Traitement des fichiers reçus");
+        
+        // Vérifier les fichiers requis
+        const requiredFiles = formData.type === 'individual'
+          ? ['idCard', 'proofOfAddress', 'taxCertificate', 'photos']
+          : ['idCard', 'rccm', 'companyStatutes', 'taxCertificate', 'proofOfAddress'];
 
-    if (formData.type === 'company') {
-      addDocument('rccm', req.files?.rccm?.[0]);
-      addDocument('companyStatutes', req.files?.companyStatutes?.[0]);
+        const missingFiles = requiredFiles.filter(field => !req.files[field] || !req.files[field][0]);
+
+        if (missingFiles.length > 0) {
+          console.error("❌ Fichiers requis manquants:", missingFiles);
+          return res.status(400).json({
+            success: false,
+            message: "Documents manquants",
+            errors: missingFiles.map(field => ({
+              field,
+              message: `Le document ${field} est requis`
+            }))
+          });
+        }
+
+        // Traiter les fichiers
+        addDocument('idCard', req.files.idCard?.[0]);
+        addDocument('proofOfAddress', req.files.proofOfAddress?.[0]);
+        addDocument('taxCertificate', req.files.taxCertificate?.[0]);
+        
+        if (req.files.photos && Array.isArray(req.files.photos)) {
+          documents.photoUrls = req.files.photos
+            .filter(photo => photo && photo.path)
+            .map(photo => photo.path);
+          console.log('📸 Photos ajoutées:', documents.photoUrls);
+        } else {
+          documents.photoUrls = [];
+        }
+        
+        addDocument('shopImage', req.files.shopImage?.[0]);
+        addDocument('shopVideo', req.files.shopVideo?.[0]);
+
+        if (formData.type === 'company') {
+          addDocument('rccm', req.files.rccm?.[0]);
+          addDocument('companyStatutes', req.files.companyStatutes?.[0]);
+        }
+
+        addDocument('signedDocument', req.files.signedDocument?.[0]);
+      }
+    } catch (fileError) {
+      console.error("❌ Erreur lors du traitement des fichiers:", fileError);
+      return res.status(400).json({
+        success: false,
+        message: "Erreur lors du traitement des fichiers",
+        error: fileError.message
+      });
     }
 
-    addDocument('signedDocument', req.files?.signedDocument?.[0]);
-    addDocument('verificationVideo', req.files?.verificationVideo?.[0]);
+    console.log('📄 Documents préparés:', documents);
 
     // Créer la demande de vendeur
-    const sellerRequest = await models.SellerRequest.create({
-      userId: req.user.id,
-      type: formData.type || 'individual',
-      status: 'pending',
-      personalInfo: {
-        ...formData.personalInfo,
-        email: formData.personalInfo?.email?.toLowerCase() || req.user.email
-      },
-      businessInfo: {
-        ...formData.businessInfo,
-        shopName: formData.businessInfo?.shopName?.trim()
-      },
-      documents: documents,
-      compliance: formData.compliance || {
-        termsAccepted: false,
-        qualityStandardsAccepted: false,
-        antiCounterfeitingAccepted: false
-      },
-      contract: {
-        signed: Boolean(documents.signedDocumentUrl),
-        signedAt: documents.signedDocumentUrl ? new Date() : null,
-        signedDocumentUrl: documents.signedDocumentUrl
-      },
-      videoVerification: {
-        completed: Boolean(documents.verificationVideoUrl),
-        verifiedAt: documents.verificationVideoUrl ? new Date() : null,
-        verificationVideoUrl: documents.verificationVideoUrl
-      }
-    });
-
-    // Envoyer un email de confirmation
     try {
-      await sendEmail({
-        to: formData.personalInfo?.email || req.user.email,
-        subject: 'Demande vendeur reçue',
-        template: 'seller-request-received',
-        context: {
-          name: formData.type === 'individual' 
-            ? formData.personalInfo?.fullName 
-            : formData.personalInfo?.companyName,
-          requestId: sellerRequest.id
+      console.log("📝 Création de la demande vendeur...");
+      const sellerRequest = await models.SellerRequest.create({
+        userId: req.user.id,
+        type: formData.type || 'individual',
+        status: 'pending',
+        personalInfo: {
+          ...formData.personalInfo,
+          email: formData.personalInfo?.email?.toLowerCase() || req.user.email
+        },
+        businessInfo: {
+          ...formData.businessInfo,
+          shopName: formData.businessInfo?.shopName?.trim(),
+          shopVideoUrl: documents.shopVideoUrl,
+          shopImageUrl: documents.shopImageUrl,
+          country: formData.businessInfo?.country
+        },
+        documents: documents,
+        compliance: formData.compliance || {
+          termsAccepted: false,
+          qualityStandardsAccepted: false,
+          antiCounterfeitingAccepted: false
+        },
+        contract: {
+          signed: Boolean(documents.signedDocumentUrl),
+          signedAt: documents.signedDocumentUrl ? new Date() : null,
+          signedDocumentUrl: documents.signedDocumentUrl
         }
-      });
-    } catch (emailError) {
-      console.error('❌ Erreur envoi email de confirmation:', emailError);
-    }
-    
-    res.status(201).json({ 
-      success: true, 
-      message: "Demande d'inscription vendeur créée avec succès",
-      data: {
-        id: sellerRequest.id,
-        status: sellerRequest.status,
-        type: sellerRequest.type,
-        createdAt: sellerRequest.createdAt
+      }, { transaction });
+
+      console.log('✅ Demande vendeur créée:', sellerRequest.id);
+
+      // Envoyer un email de confirmation
+      try {
+        console.log("📧 Envoi de l'email de confirmation...");
+        await sendEmail({
+          to: formData.personalInfo?.email || req.user.email,
+          subject: 'Demande vendeur reçue',
+          template: 'seller-request-received',
+          context: {
+            name: formData.type === 'individual' 
+              ? formData.personalInfo?.fullName 
+              : formData.personalInfo?.companyName,
+            requestId: sellerRequest.id
+          }
+        });
+        console.log('📧 Email de confirmation envoyé');
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email de confirmation:', emailError);
+        // Continue even if email fails
       }
-    });
+
+      await transaction.commit();
+
+      return res.status(201).json({
+        success: true,
+        message: 'Demande vendeur soumise avec succès',
+        data: sellerRequest
+      });
+
+    } catch (error) {
+      console.error("❌ Erreur lors de la création de la demande:", error);
+      await transaction.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Erreur lors de la création de la demande",
+        error: error.message
+      });
+    }
 
   } catch (error) {
-    console.error('Erreur complète inscription vendeur:', error);
-    res.status(400).json({ 
-      success: false, 
-      message: "Erreur lors de l'inscription",
+    console.error("❌ Erreur générale:", error);
+    await transaction.rollback();
+    return res.status(500).json({
+      success: false,
+      message: "Une erreur est survenue lors du traitement de la demande",
       error: error.message
     });
   }
